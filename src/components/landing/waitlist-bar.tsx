@@ -56,7 +56,9 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/waitlist", {
+      const endpoint =
+        process.env.NEXT_PUBLIC_WAITLIST_ENDPOINT?.trim() || "/api/waitlist";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -70,6 +72,12 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (res.status === 404 || res.status === 405) {
+          setErrorMsg(
+            "Waitlist submissions aren't connected on this static preview yet."
+          );
+          return;
+        }
         setErrorMsg(
           typeof data?.error === "string"
             ? data.error
@@ -87,7 +95,9 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
   }
 
   function handleSaveReminder() {
-    const ics = buildLaunchCalendarIcs(`${window.location.origin}/landing`);
+    const ics = buildLaunchCalendarIcs(
+      `${window.location.origin}${window.location.pathname}`
+    );
     const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -100,7 +110,7 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
   }
 
   async function handleShare() {
-    const shareUrl = `${window.location.origin}/landing`;
+    const shareUrl = `${window.location.origin}${window.location.pathname}`;
     const shareText =
       "T^minus launches Jan 1, 2027 - independent clothing drops on a live clock.";
 
@@ -158,6 +168,7 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
             type="button"
             variant="primary"
             shape="pill"
+            showCornerGlyphs={false}
             onClick={handleSaveReminder}
             className="h-10 flex-1 px-4 text-[13px]"
           >
@@ -225,7 +236,7 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
         })}
       </div>
 
-      {/* Unified single-row obsidian frosted glass input bar + crisp Retina Diagonal-X ASCII CTA */}
+      {/* Unified single-row obsidian frosted glass input bar + crisp pure-white primary CTA */}
       <div className="flex w-full items-center gap-1.5 rounded-[14px] border border-[#858AE3]/30 bg-[#0B0612]/74 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_14px_42px_-12px_rgba(0,0,0,0.92)] backdrop-blur-xl transition-colors duration-200 focus-within:border-[#97DFFC]/65">
         <label htmlFor="waitlist-phone" className="sr-only">
           Mobile phone number
@@ -251,6 +262,7 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
           type="submit"
           variant="primary"
           shape="rect"
+          showCornerGlyphs={false}
           disabled={submitting}
           className="h-10 shrink-0 px-4 text-[13px] sm:px-5"
         >

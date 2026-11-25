@@ -39,13 +39,37 @@ const EXPERIENCE_PILLARS = [
   },
 ] as const;
 
+function clamp01(v: number): number {
+  return Math.min(1, Math.max(0, v));
+}
+
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = clamp01((x - edge0) / (edge1 - edge0));
+  return t * t * (3 - 2 * t);
+}
+
 export function LandingExperience({
   skipIntro = false,
 }: LandingExperienceProps) {
+  const [skipIntroResolved, setSkipIntroResolved] = useState(skipIntro);
   const [heroRevealed, setHeroRevealed] = useState(skipIntro);
+
+  useEffect(() => {
+    try {
+      if (new URLSearchParams(window.location.search).get("skipIntro") === "1") {
+        setSkipIntroResolved(true);
+        setHeroRevealed(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
   const [legalDoc, setLegalDoc] = useState<"privacy" | "terms" | null>(null);
   const phoneInputRef = useRef<HTMLInputElement | null>(null);
+  const runwayRef = useRef<HTMLDivElement | null>(null);
+  const heroCopyRef = useRef<HTMLDivElement | null>(null);
   const countdownTrackRef = useRef<HTMLDivElement | null>(null);
+  const preRimVeilRef = useRef<HTMLDivElement | null>(null);
 
   // Keep document root painted in true obsidian #040206 so overscroll matches space cleanly
   useEffect(() => {
@@ -69,13 +93,49 @@ export function LandingExperience({
     return () => window.removeEventListener("keydown", onKey);
   }, [legalDoc]);
 
-  // Frame-locked DOM transform syncing HorizonCountdown directly inside the pure #000000 core
+  // Frame-locked DOM sync for HorizonCountdown, hero lift-off fade, and Layer 20 curved pre-rim occlusion veil
   const handleHorizonSync = useCallback((state: HorizonSyncState) => {
-    const el = countdownTrackRef.current;
-    if (!el) return;
-    const vis = Math.min(1, Math.max(0, (state.settleProgress - 0.5) / 0.5));
-    el.style.opacity = String(vis);
-    el.style.transform = `translate3d(-50%, ${state.countdownCenterY.toFixed(1)}px, 0) translateY(-50%) scale(${state.countdownScale.toFixed(4)})`;
+    // 1) Sync HorizonCountdown physically inside the pure #000000 3D black hole core
+    const countdownEl = countdownTrackRef.current;
+    if (countdownEl) {
+      const vis = clamp01((state.settleProgress - 0.5) / 0.5);
+      countdownEl.style.opacity = vis.toFixed(4);
+      countdownEl.style.transform = `translate3d(-50%, ${state.countdownCenterY.toFixed(1)}px, 0) translateY(-50%) scale(${state.countdownScale.toFixed(4)})`;
+    }
+
+    // 2) Smoothly lift & fade the sticky hero copy out as the camera orbits toward top-down polar (pinProgress 0 -> 0.22)
+    const heroEl = heroCopyRef.current;
+    if (heroEl) {
+      const fadeOut = smoothstep(0.015, 0.22, state.pinProgress);
+      const heroOpacity = 1 - fadeOut;
+      const liftY = -fadeOut * 34;
+      heroEl.style.opacity = heroOpacity.toFixed(4);
+      heroEl.style.transform = `translate3d(0, ${liftY.toFixed(1)}px, 0)`;
+      heroEl.style.pointerEvents = state.pinProgress > 0.14 ? "none" : "auto";
+    }
+
+    // 3) Layer 20 curved #040206 pre-rim occlusion veil synced to exact 3D-projected top dome rim
+    const veilEl = preRimVeilRef.current;
+    if (veilEl) {
+      const veilAlpha = smoothstep(0.68, 0.9, state.pinProgress);
+      veilEl.style.opacity = veilAlpha.toFixed(4);
+      if (veilAlpha > 0.002 && state.domeRadiusPx > 10) {
+        const cx = state.domeCenterX.toFixed(1);
+        const cy = state.domeCenterY.toFixed(1);
+        // Solid obsidian extends ~42px past the bright photon rim, then feathers smoothly 76px below
+        const solidR = (state.domeRadiusPx + 42).toFixed(1);
+        const midR = (state.domeRadiusPx + 74).toFixed(1);
+        const fadeR = (state.domeRadiusPx + 120).toFixed(1);
+        const edgeSolid = Math.max(0, state.domeEdgeY + 26).toFixed(1);
+        const edgeFade = Math.max(40, state.domeEdgeY + 104).toFixed(1);
+        veilEl.style.backgroundImage = [
+          `radial-gradient(circle at ${cx}px ${cy}px, #040206 0px, #040206 ${solidR}px, rgba(4, 2, 6, 0.9) ${midR}px, rgba(4, 2, 6, 0) ${fadeR}px)`,
+          `linear-gradient(180deg, #040206 0px, #040206 ${edgeSolid}px, rgba(4, 2, 6, 0) ${edgeFade}px)`,
+        ].join(", ");
+      } else {
+        veilEl.style.backgroundImage = "none";
+      }
+    }
   }, []);
 
   const handleReturnToWaitlist = useCallback(() => {
@@ -87,16 +147,25 @@ export function LandingExperience({
 
   return (
     <div className="relative min-h-[100dvh] w-full overflow-x-clip bg-[#040206] text-white selection:bg-[#613DC1]/55 selection:text-white">
-      {/* Layer 0 (obsidian starfield + global cursor T-field) + Layer 30 (single persistent WebGL2 black hole) */}
+      {/* Layer 0 (obsidian starfield + global cursor T-field) + Layer 30 (single persistent 3D WebGL2 black hole) */}
       <AsciiBlackholeCanvas
         onHeroReveal={setHeroRevealed}
         onHorizonSync={handleHorizonSync}
-        skipIntro={skipIntro}
+        runwayRef={runwayRef}
+        skipIntro={skipIntroResolved}
       />
 
-      {/* Layer 40: Minimal Top-Left T^minus Wordmark (always crisp & unobstructed above the pinned dome) */}
+      {/* Layer 20: Curved #040206 pre-rim occlusion veil synced to exact 3D-projected top dome */}
+      <div
+        ref={preRimVeilRef}
+        aria-hidden="true"
+        style={{ opacity: 0 }}
+        className="pointer-events-none fixed inset-0 z-20 will-change-[opacity]"
+      />
+
+      {/* Layer 40: Enlarged Responsive Top-Left T^minus Wordmark (crisp & unobstructed above the pinned dome) */}
       <header
-        className={`pointer-events-none fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-start px-5 transition-opacity duration-900 ease-out sm:h-16 sm:px-10 ${
+        className={`pointer-events-none fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-start px-6 transition-opacity duration-900 ease-out sm:h-20 sm:px-10 ${
           heroRevealed ? "opacity-100" : "opacity-0"
         }`}
       >
@@ -108,116 +177,125 @@ export function LandingExperience({
           }}
           className="pointer-events-auto text-white transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-[#97DFFC] focus-visible:outline-none"
         >
-          <TMinusWordmark scale={0.95} />
+          <TMinusWordmark className="[--wm-scale:1.18] sm:[--wm-scale:1.48]" />
         </a>
       </header>
 
-      {/* Layer 40: Horizon Countdown physically bound inside the pure #000000 black hole core */}
+      {/* Layer 40: Horizon Countdown physically bound inside the pure #000000 3D black hole core */}
       <div
         ref={countdownTrackRef}
         style={{
-          opacity: skipIntro ? 1 : 0,
-          transform: "translate3d(-50%, calc(100dvh - 108px), 0) translateY(-50%)",
+          opacity: skipIntroResolved ? 1 : 0,
+          transform:
+            "translate3d(-50%, calc(100dvh - 108px), 0) translateY(-50%)",
         }}
         className="pointer-events-none fixed top-0 left-1/2 z-40 will-change-transform"
       >
-        <HorizonCountdown revealed={heroRevealed} instant={skipIntro} />
+        <HorizonCountdown revealed={heroRevealed} instant={skipIntroResolved} />
       </div>
 
-      {/* Layer 10: Main Content Flow (scrolls cleanly upward behind the Layer 30 live ASCII event horizon) */}
+      {/* Layer 10: Main Content Flow (scrolls cleanly upward behind the Layer 20 veil & Layer 30 3D horizon) */}
       <main id="top" className="relative z-10 w-full">
-        {/* ABOVE-THE-FOLD HERO */}
-        <section
-          className={`relative flex min-h-[100dvh] w-full flex-col items-center justify-center px-5 pt-14 pb-[27vh] transition-opacity duration-700 ease-out sm:px-8 sm:pt-16 sm:pb-[29vh] ${
-            heroRevealed ? "opacity-100" : "pointer-events-none opacity-0"
-          }`}
+        {/* NATIVE CSS STICKY SCROLL RUNWAY (zero scroll-hijacking): Bottom Horizon -> Polar Spiral Dwell -> Top Dome */}
+        <div
+          ref={runwayRef}
+          className="relative h-[250dvh] w-full sm:h-[300dvh]"
         >
-          <div className="flex w-full max-w-[660px] flex-col items-center text-center">
-            {/* Two-Line Centered Headline with Organic ASCII Materialization on Settle */}
-            <h1
-              style={{ fontSize: "clamp(2.55rem, 5.6vw, 4.25rem)" }}
-              className="font-sans leading-[1.06] font-medium tracking-[-0.036em] text-white"
+          <section
+            className={`sticky top-0 flex h-[100dvh] w-full flex-col items-center justify-center px-5 pt-16 pb-[27vh] transition-opacity duration-700 ease-out sm:px-8 sm:pt-20 sm:pb-[29vh] ${
+              heroRevealed ? "opacity-100" : "pointer-events-none opacity-0"
+            }`}
+          >
+            <div
+              ref={heroCopyRef}
+              className="flex w-full max-w-[660px] flex-col items-center text-center will-change-transform"
             >
-              <span className="block">
-                <AsciiRevealText
-                  text="Fashion."
-                  active={heroRevealed}
-                  instant={skipIntro}
-                  delayMs={140}
-                  durationMs={640}
-                  glyphClassName="text-[#858AE3]"
-                />
-              </span>
-              <span className="block">
-                <span className="font-serif text-[1.08em] font-medium italic tracking-[-0.02em] text-[#97DFFC]">
+              {/* Two-Line Centered Headline with Organic ASCII Materialization on Settle */}
+              <h1
+                style={{ fontSize: "clamp(2.55rem, 5.6vw, 4.25rem)" }}
+                className="font-sans leading-[1.06] font-medium tracking-[-0.036em] text-white"
+              >
+                <span className="block">
                   <AsciiRevealText
-                    text="Minus"
+                    text="Fashion."
                     active={heroRevealed}
-                    instant={skipIntro}
-                    delayMs={240}
-                    durationMs={620}
+                    instant={skipIntroResolved}
+                    delayMs={140}
+                    durationMs={640}
+                    glyphClassName="text-[#858AE3]"
+                  />
+                </span>
+                <span className="block">
+                  <span className="font-serif text-[1.08em] font-medium italic tracking-[-0.02em] text-[#97DFFC]">
+                    <AsciiRevealText
+                      text="Minus"
+                      active={heroRevealed}
+                      instant={skipIntroResolved}
+                      delayMs={240}
+                      durationMs={620}
+                      glyphClassName="text-[#97DFFC]"
+                    />
+                  </span>{" "}
+                  <AsciiRevealText
+                    text="the Noise."
+                    active={heroRevealed}
+                    instant={skipIntroResolved}
+                    delayMs={320}
+                    durationMs={680}
+                    glyphClassName="text-[#858AE3]"
+                  />
+                </span>
+              </h1>
+
+              {/* Locked Subhead with single-word #97DFFC emphasis & organic ASCII resolve */}
+              <p className="mt-4 max-w-[460px] text-[15px] leading-[1.55] font-normal text-[#D4CCE8]/86 sm:text-[16.5px]">
+                <AsciiRevealText
+                  text="The best clothes in the world rarely have the loudest "
+                  active={heroRevealed}
+                  instant={skipIntroResolved}
+                  delayMs={360}
+                  durationMs={780}
+                  glyphClassName="text-[#613DC1]"
+                />
+                <span className="font-medium text-[#97DFFC]">
+                  <AsciiRevealText
+                    text="voice"
+                    active={heroRevealed}
+                    instant={skipIntroResolved}
+                    delayMs={740}
+                    durationMs={420}
                     glyphClassName="text-[#97DFFC]"
                   />
-                </span>{" "}
+                </span>
                 <AsciiRevealText
-                  text="the Noise."
+                  text="."
                   active={heroRevealed}
-                  instant={skipIntro}
-                  delayMs={320}
-                  durationMs={680}
+                  instant={skipIntroResolved}
+                  delayMs={860}
+                  durationMs={180}
                   glyphClassName="text-[#858AE3]"
                 />
-              </span>
-            </h1>
+              </p>
 
-            {/* Locked Subhead with single-word #97DFFC emphasis & organic ASCII resolve */}
-            <p className="mt-4 max-w-[460px] text-[15px] leading-[1.55] font-normal text-[#D4CCE8]/86 sm:text-[16.5px]">
-              <AsciiRevealText
-                text="The best clothes in the world rarely have the loudest "
-                active={heroRevealed}
-                instant={skipIntro}
-                delayMs={360}
-                durationMs={780}
-                glyphClassName="text-[#613DC1]"
-              />
-              <span className="font-medium text-[#97DFFC]">
-                <AsciiRevealText
-                  text="voice"
-                  active={heroRevealed}
-                  instant={skipIntro}
-                  delayMs={740}
-                  durationMs={420}
-                  glyphClassName="text-[#97DFFC]"
+              {/* Minimal Audience Switcher + Single-Row Frosted Obsidian Input Bar + 1-Line Consent */}
+              <div
+                className={`mt-7 w-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] sm:mt-8 ${
+                  heroRevealed
+                    ? "translate-y-0 opacity-100 delay-[420ms]"
+                    : "translate-y-2.5 opacity-0"
+                }`}
+                style={skipIntroResolved ? { transitionDelay: "0ms" } : undefined}
+              >
+                <WaitlistBar
+                  inputRef={phoneInputRef}
+                  onOpenLegal={setLegalDoc}
                 />
-              </span>
-              <AsciiRevealText
-                text="."
-                active={heroRevealed}
-                instant={skipIntro}
-                delayMs={860}
-                durationMs={180}
-                glyphClassName="text-[#858AE3]"
-              />
-            </p>
-
-            {/* Minimal Audience Switcher + Single-Row Frosted Obsidian Input Bar + 1-Line Consent */}
-            <div
-              className={`mt-7 w-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] sm:mt-8 ${
-                heroRevealed
-                  ? "translate-y-0 opacity-100 delay-[420ms]"
-                  : "translate-y-2.5 opacity-0"
-              }`}
-              style={skipIntro ? { transitionDelay: "0ms" } : undefined}
-            >
-              <WaitlistBar
-                inputRef={phoneInputRef}
-                onOpenLegal={setLegalDoc}
-              />
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
 
-        {/* BELOW THE FOLD — Calm Editorial Story Masking Cleanly Behind the Pinned Top Horizon */}
+        {/* BELOW THE FOLD — Calm Editorial Story Masking Cleanly Behind the Layer 20 Veil & Layer 30 Pinned Top Horizon */}
         <div className="relative w-full">
           {/* + THE MISSION */}
           <section className="relative mx-auto flex min-h-[76dvh] max-w-[660px] flex-col items-center justify-center px-6 py-28 text-center sm:py-36">
@@ -348,7 +426,9 @@ export function LandingExperience({
                 id="legal-modal-title"
                 className="font-sans text-[17px] font-medium tracking-[-0.015em] text-white"
               >
-                {legalDoc === "privacy" ? "Privacy Policy" : "SMS & Waitlist Terms"}
+                {legalDoc === "privacy"
+                  ? "Privacy Policy"
+                  : "SMS & Waitlist Terms"}
               </h2>
               <button
                 type="button"

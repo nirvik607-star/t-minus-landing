@@ -1,8 +1,10 @@
 # T^minus Landing Page
 
-Standalone Next.js 16 + WebGL2 ASCII Black Hole landing page for **T^minus** (`App Store v1.0 - Jan 1, 2027`).
+Standalone Next.js 16 + procedural 3D WebGL2/GLSL ASCII Black Hole landing page for **T^minus** (`App Store v1.0 - Jan 1, 2027`).
 
-Zero database setup, zero `.env` variables, and zero native C++ addons—designed to clone and run cleanly out of the box on macOS (Apple Silicon or Intel).
+**Live Preview (GitHub Pages):** https://nirvik607-star.github.io/t-minus-landing/
+
+Zero MP4 video assets, zero database setup, zero `.env` variables, and zero native C++ addons—runs natively on macOS, Windows, and Linux, and exports cleanly as a static site for GitHub Pages.
 
 ## Quickstart (macOS / Linux / Windows)
 
@@ -17,30 +19,34 @@ npm run dev
 
 Open **http://localhost:3000** (or **http://localhost:3000/landing** — both routes render the exact same experience).
 
-### Production build
+### Production & Static GitHub Pages Build
 
 ```bash
+# Node server build (includes local /api/waitlist JSON endpoint)
 npm run build
 npm run start
+
+# Static GitHub Pages export (outputs to ./out with .nojekyll)
+npm run build:pages
 ```
 
 ## Useful Preview Query Params
 
 | URL | State |
 | --- | --- |
-| `http://localhost:3000/` | Full 12s intro -> supernova `T^minus` ASCII carve -> bottom horizon settle -> scroll choreography |
-| `http://localhost:3000/?skipIntro=1` | Instant settled hero with live bottom black hole horizon |
-| `http://localhost:3000/?introAt=6.6` | Pinned at supernova peak (`500`-weight dark ASCII `T^minus` carve) |
-| `http://localhost:3000/?introAt=9.8` | Pinned mid-descent during intro-to-horizon settle |
+| `/` | Full 7.25s 3D intro (3.60s cosmic opening -> 1.35s pure-white/ice-blue supernova & pure-ASCII `T^minus` -> unbroken 3D sweep to bottom horizon) |
+| `/?skipIntro=1` | Instant settled hero with live bottom black hole horizon |
+| `/?introAt=1.8` | Pinned during Stage A cosmic opening (tilted 3/4 black hole + helical `#97DFFC` polar jets) |
+| `/?introAt=4.22` | Pinned at Stage B supernova peak (pure-white + ice-blue burst & pure-ASCII `T^minus`) |
+| `/?introAt=5.7` | Pinned mid-flight during Stage C 3D sweep |
 
 ## Project Map
 
-- `src/components/landing/ascii-blackhole-canvas.tsx` — Persistent WebGL2 5-pass ASCII shader (`^ - t + = T *`), single continuous black hole camera (intro -> bottom horizon -> mid-scroll spherical plateau -> top-pinned dome with pre-rim occlusion), plus Layer 0 starfield and multi-glyph cursor aura.
-- `src/components/landing/landing-experience.tsx` — Main layout, scroll-synced countdown positioning, editorial sections, and legal modals.
-- `src/components/landing/horizon-countdown.tsx` — Tabular launch countdown (`37 D 09 H 34 M 25 S`) synced inside the `#000000` event horizon core.
-- `src/components/landing/waitlist-bar.tsx` — Audience toggle (`I'm shopping` / `I run a brand`), phone formatter, SMS consent, `.ics` launch reminder, and share sheet.
-- `src/components/landing/ascii-corner-button.tsx` — Retina pixel-snapped diagonal-X corner ASCII CTA button.
+- `src/components/landing/ascii-blackhole-canvas.tsx` — Pure procedural 3D WebGL2/GLSL ES 3.00 relativistic black hole (` ^-t+=T*` strict glyph ramp, Galaxy palette, seamless inward-spiral top-down polar streamlines, 3D helical polar jets, cell-quantized pure-ASCII `T^minus`, adaptive bloom/EMA governor, zero MP4 video).
+- `src/components/landing/landing-experience.tsx` — Native CSS sticky scroll runway, frame-locked countdown sync, hero lift-off fade, enlarged responsive wordmark, and Layer 20 curved `#040206` pre-rim occlusion veil.
+- `src/components/landing/horizon-countdown.tsx` — Tabular launch countdown synced inside the `#000000` event horizon core.
+- `src/components/landing/waitlist-bar.tsx` — Audience toggle (`I'm shopping` / `I run a brand`), E.164 phone formatter, SMS consent, `.ics` launch reminder, and share sheet.
+- `src/components/landing/ascii-corner-button.tsx` — Retina pixel-snapped diagonal-X corner ASCII CTA button (disabled on pure-white primary pills).
 - `src/components/landing/ascii-reveal.tsx` — Organic settle text materialization (`^ - t + = T *`).
-- `src/components/landing/t-minus-wordmark.tsx` — Locked `26:15` SwiftUI `T^minus` wordmark SVG + WebGL mask rasterizer.
-- `src/app/api/sandbox/video/route.ts` — Cross-platform HTTP Range video streamer for `master_blackhole_boomerang.mp4` (Safari/WebKit compatible).
-- `src/app/api/waitlist/route.ts` — Local JSON waitlist endpoint (`.data/waitlist.json`, gitignored) with E.164 phone validation and CSV/JSON export.
+- `src/components/landing/t-minus-wordmark.tsx` — Locked `26:15` SwiftUI `T^minus` wordmark + crisp `500`-weight WebGL mask rasterizer.
+- `src/app/api/waitlist/route.ts` — Local JSON waitlist endpoint (`.data/waitlist.json`, gitignored) for Node server runs (`NEXT_PUBLIC_WAITLIST_ENDPOINT` can be set for static deployments).

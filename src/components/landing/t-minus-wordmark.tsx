@@ -3,7 +3,12 @@
 import React from "react";
 
 interface TMinusWordmarkProps {
-  /** Scale multiplier matching SwiftUI `TMinusWordmark(scale:)` (1.0 = 26px serif T / 15px sans ^minus) */
+  /**
+   * Scale multiplier matching SwiftUI `TMinusWordmark(scale:)`
+   * (1.0 = 26px serif T / 15px sans ^minus).
+   * Omit when driving `--wm-scale` responsively via CSS classes
+   * (e.g. `[--wm-scale:1.18] sm:[--wm-scale:1.48]`).
+   */
   scale?: number;
   className?: string;
 }
@@ -15,26 +20,27 @@ interface TMinusWordmarkProps {
  * - 1 * scale gap, first-text-baseline aligned.
  */
 export function TMinusWordmark({
-  scale = 1,
+  scale,
   className = "",
 }: TMinusWordmarkProps) {
-  const tSize = 26 * scale;
-  const minusSize = 15 * scale;
-  const gap = 1 * scale;
-  const tracking = -0.5 * scale;
-  const baselineLift = 3 * scale;
+  const rootStyle: React.CSSProperties = {
+    gap: "calc(1px * var(--wm-scale, 1))",
+    ...(scale !== undefined
+      ? ({ "--wm-scale": String(scale) } as React.CSSProperties)
+      : {}),
+  };
 
   return (
     <span
       aria-label="T-minus"
       className={`inline-flex items-baseline leading-none select-none ${className}`}
-      style={{ gap: `${gap}px` }}
+      style={rootStyle}
     >
       <span
         aria-hidden="true"
-        className="font-serif italic font-medium"
+        className="font-serif font-medium italic"
         style={{
-          fontSize: `${tSize}px`,
+          fontSize: "calc(26px * var(--wm-scale, 1))",
           lineHeight: 1,
         }}
       >
@@ -44,10 +50,10 @@ export function TMinusWordmark({
         aria-hidden="true"
         className="font-sans font-medium"
         style={{
-          fontSize: `${minusSize}px`,
+          fontSize: "calc(15px * var(--wm-scale, 1))",
           lineHeight: 1,
-          letterSpacing: `${tracking}px`,
-          transform: `translateY(${-baselineLift}px)`,
+          letterSpacing: "calc(-0.5px * var(--wm-scale, 1))",
+          transform: "translateY(calc(-3px * var(--wm-scale, 1)))",
           display: "inline-block",
         }}
       >
@@ -60,15 +66,15 @@ export function TMinusWordmark({
 /**
  * Deterministic high-DPI Canvas2D rasterizer of the exact SwiftUI `TMinusWordmark`
  * geometry (`26:15` serif-italic `T` + sans `^minus` with `-0.5` tracking, `+3`
- * baseline raise, `1` gap) used by the WebGL2 explosion ASCII carve mask.
+ * baseline raise, `1` gap) used by the WebGL2 supernova pure-ASCII wordmark pass.
  *
- * Uses clean `500` medium weight with ZERO heavy stroke inflation so gaps between
- * `T`, `^`, and `minus` stay crisp and never overlap or bleed into each other.
+ * Uses crisp `500` medium weight with ZERO stroke inflation so inter-letter gaps
+ * stay razor-clean when quantized strictly onto the ASCII cell grid (` ^-t+=T*`).
  *
  * Channels:
- * - R: crisp `500`-weight letterform core for dark high-contrast ASCII glyphs
- * - G: soft outer halo around the strokes so the blast edges read cleanly
- * - B: caret `^` accent region
+ * - R: crisp `500`-weight letterform coverage for cell-quantized ASCII characters
+ * - G: subtle outer light-energy halo (used for luminous blast sheen, never dark fill)
+ * - B: caret `^` tag
  */
 export function drawWordmarkMaskCanvas(
   ctx: CanvasRenderingContext2D,
@@ -80,22 +86,22 @@ export function drawWordmarkMaskCanvas(
   ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, texW, texH);
 
-  // Preserve exact locked viewport scale and centered placement during explosion peak
+  // Refined viewport proportion: 56% desktop / 76% mobile for airy, architectural framing
   const isMobile = cssW < 768;
-  const desiredWidthFrac = isMobile ? 0.78 : 0.62;
+  const desiredWidthFrac = isMobile ? 0.76 : 0.56;
   const scaleToTex = texW / Math.max(1, cssW);
 
-  let scale = ((isMobile ? 4.4 : 7.8) * scaleToTex) / 1.0;
+  let scale = ((isMobile ? 4.2 : 7.4) * scaleToTex) / 1.0;
 
-  // Clean 500 medium weight matching SwiftUI TMinusWordmark (no bold inflation)
+  // Exact 500 medium weight matching SwiftUI TMinusWordmark (zero bold inflation)
   const serifFont = (s: number) =>
     `italic 500 ${Math.round(26 * s)}px "Newsreader", "New York", Georgia, ui-serif, serif`;
   const sansFont = (s: number) =>
     `500 ${Math.round(15 * s)}px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Geist", sans-serif`;
 
   const measureMark = (s: number) => {
-    const gap = 1 * s;
-    const tracking = -0.5 * s;
+    const gap = 1.4 * s;
+    const tracking = -0.35 * s;
     ctx.font = serifFont(s);
     const tWidth = ctx.measureText("T").width;
 
@@ -159,12 +165,12 @@ export function drawWordmarkMaskCanvas(
     ctx.restore();
   };
 
-  const haloBlur = Math.max(14, Math.round(scale * 4.4));
+  const haloBlur = Math.max(12, Math.round(scale * 3.8));
 
   ctx.globalCompositeOperation = "lighter";
-  // G: soft outer luminance rim halo around strokes
-  renderPass("rgb(0, 220, 0)", haloBlur);
-  // R: clean 500-weight fill ONLY (zero outline stroke inflation so inter-letter gaps stay sharp)
+  // G: subtle ice-blue luminous rim aura around strokes (never used for dark fill)
+  renderPass("rgb(0, 200, 0)", haloBlur);
+  // R: clean 500-weight fill ONLY (zero stroke overhang)
   renderPass("rgb(255, 0, 0)", 0);
   // B: caret region tag
   renderPass("rgb(0, 0, 255)", 0, true);

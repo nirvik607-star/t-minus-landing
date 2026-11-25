@@ -1,26 +1,28 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import {
-  VIDEO_LOOP_START_SEC,
-  VIDEO_TOTAL_SEC,
-} from "@/lib/sandbox/blackhole-config";
 import { drawWordmarkMaskCanvas } from "@/components/landing/t-minus-wordmark";
 
 /**
- * Shared scroll & camera telemetry published every animation frame so
- * `HorizonCountdown` rides in pixel-locked 60fps unison inside the real
- * black hole's pure `#000000` core.
+ * Shared scroll & 3D camera telemetry published every animation frame so
+ * `HorizonCountdown`, hero lift-off, and the Layer 20 curved pre-rim veil
+ * stay pixel-locked at 60fps with the real 3D black hole.
  */
 export interface HorizonSyncState {
   /** 0 = bottom hero rest, 1 = top-pinned inverted event horizon */
   pinProgress: number;
   /** 0..1 intro settle (1 = settled bottom horizon) */
   settleProgress: number;
-  /** Screen Y (px from top) where the countdown centers inside the black core */
+  /** Screen Y (px from top) where the countdown centers inside the pure #000000 core */
   countdownCenterY: number;
-  /** Scale factor for countdown as it docks into the top dome */
+  /** Scale factor for countdown (1.0 bottom -> 1.22 polar -> 0.72 top dome) */
   countdownScale: number;
+  /** Exact 3D-projected top-dome circle in CSS px for the Layer 20 curved pre-rim veil */
+  domeCenterX: number;
+  domeCenterY: number;
+  domeRadiusPx: number;
+  /** Rim Y at viewport edges (px from top) for upper-corner backing */
+  domeEdgeY: number;
   /** Current viewport width in CSS px */
   viewportW: number;
 }
@@ -28,6 +30,8 @@ export interface HorizonSyncState {
 interface AsciiBlackholeCanvasProps {
   onHeroReveal: (revealed: boolean) => void;
   onHorizonSync?: (state: HorizonSyncState) => void;
+  /** Reference to the native CSS sticky scroll runway wrapper */
+  runwayRef?: React.RefObject<HTMLDivElement | null>;
   skipIntro?: boolean;
 }
 
@@ -36,6 +40,13 @@ interface AsciiBlackholeCanvasProps {
  * Zero `.`, zero `:`, zero `·`.
  */
 const ASCII_RAMP = " ^-t+=T*";
+
+// ---- Approved Intro Choreography Timings (Total 7.25s) ----
+// Stage A (Cosmic Opening):            0.00s -> 3.60s (tilted 3/4 + helical #97DFFC jets)
+// Stage B (Snappy Supernova + T^minus): 3.60s -> 4.95s (0.30s charge -> 0.78s white/ice burst -> 0.27s snap)
+// Stage C (Unbroken 3D Sweep -> Hero):  4.85s -> 7.25s (hero reveal triggers ~6.05s)
+const INTRO_TOTAL_SEC = 7.25;
+const HERO_REVEAL_SEC = 6.05;
 
 const VS_QUAD = `#version 300 es
 precision highp float;
@@ -47,273 +58,392 @@ void main() {
 }`;
 
 /**
- * Pass 1: Single Continuous Projective Black Hole Camera
+ * Pass 1: Loop-Free Analytic 3D Relativistic Black Hole + Kurzgesagt Spiral Streamlines
+ *         + 3D Helical Polar Jets + Pure-White / Ice-Blue-Tinted Supernova
  *
- * - True obsidian space ground (`#040206`) & pure `#000000` event horizon core.
- * - Galaxy purples (`#2C0735`, `#4E148C`, `#613DC1`, `#858AE3`) + `#97DFFC` ice-blue
- *   restricted strictly to the accretion disk, gravitational lensing rim, ASCII glyphs,
- *   and subtle atmospheric glow.
- * - ZERO scene crossfade, ZERO synthetic flat line, ZERO detached scrolling oval:
- *   One continuous camera transform `(uCamCenter, uCamZoom, uCamAnamorphicX, uCamTilt, uCamRoll)`
- *   samples the real looping `master_blackhole_boomerang.mp4` black hole across every state:
- *     1) Intro (0.0s–5.2s): full-frame approach
- *     2) Supernova peak (5.2s–7.8s): white-hot blast with refined 500-weight dark ASCII `T^minus` carve
- *     3) Settle (7.8s–12.0s): continuous zoom + upward camera pitch so the real black hole's curved
- *        accretion arch & pure `#000000` shadow expand across the bottom ~26% of the viewport
- *     4) Scroll (p: 0 -> 1): constant planetary-scale camera orbit sweeping upward and tilting
- *        smoothly so the exact same black hole's bottom edge forms the downward-curving pinned top dome.
+ * - Pure procedural WebGL2 / GLSL ES 3.00 (ZERO MP4 video, ZERO texture lookups, ZERO raymarch loops).
+ * - One true 3D black hole at world origin (0,0,0) with R_h = 1.0, equatorial disk in y = 0,
+ *   and relativistic polar jets along +/- y.
+ * - Strict T^minus Galaxy palette:
+ *   #040206 obsidian space | #000000 pure event horizon |
+ *   #2C0735 -> #4E148C -> #613DC1 -> #858AE3 -> #F7FAFF specular white core |
+ *   #97DFFC ice-blue polar jets, inner ISCO sparks, explosion highlights & pointer ripple.
+ *   ZERO orange/yellow.
  */
-const FS_COLOR = `#version 300 es
+const FS_SCENE = `#version 300 es
 precision highp float;
 in vec2 vUv;
 out vec4 o;
 
-uniform sampler2D uVideo;
-uniform float uHasVideo;
 uniform float uTime;
 uniform float uViewAsp;
-uniform float uVideoAsp;
-uniform float uSettle;          // 0 = full-screen intro, 1 = settled horizon camera
-uniform float uPin;             // 0 = bottom horizon, 1 = top-pinned dome
-uniform float uMidBell;         // 0..1 mid-scroll spherical black hole plateau (p ~ 0.42-0.58)
-uniform float uBlastPeak;       // 0..1 white-hot supernova flash window for T^minus carve
-uniform vec2  uCamCenter;       // normalized UV screen center of the real black hole
-uniform float uCamZoom;         // continuous camera zoom (1.0 intro -> planetary zoom)
-uniform float uCamAnamorphicX;  // subtle planetary width span
-uniform float uCamTilt;         // projective pitch (+ bottom horizon -> 0 mid -> - top dome)
-uniform float uCamRoll;         // continuous orbital roll (0 -> PI across scroll)
-uniform vec2  uPointer;         // smoothed normalized UV pointer position
-uniform float uPointerActive;   // 0..1 pointer presence
+uniform float uSceneH;
+uniform float uTanHalfFov;
 
-// Exact probed center & shadow semi-axes of the real black hole in master_blackhole_boomerang.mp4 (WebGL bottom-up UV)
-const vec2 BH_CENTER = vec2(0.50, 0.515);
-const vec2 BH_RADII  = vec2(0.086, 0.104);
+// Continuous 3D orbital camera basis (gimbal-lock-free across elev 14 deg -> 88 deg -> 154 deg)
+uniform vec3  uCamPos;
+uniform vec3  uCamRight;
+uniform vec3  uCamUp;
+uniform vec3  uCamFwd;
 
-vec3 rgb2hsv(vec3 c) {
-  vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
-  vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-  vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-  float d = q.x - min(q.w, q.y);
-  float e = 1.0e-10;
-  return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
-}
+// Continuous state parameters
+uniform float uSettle;         // 0 = full-screen intro, 1 = settled horizon/scroll
+uniform float uPin;            // 0 = bottom horizon, 1 = top-pinned dome
+uniform float uPolarFactor;    // 0 = tilted / horizon, 1 = top-down polar spiral plateau
+uniform float uDiskOuterR;     // smooth breathing disk extent (5.2 intro -> 2.65 hero -> 5.4 polar -> 2.35 top dome)
+uniform float uJetPower;       // 1.0 intro -> 1.45 charge -> 0.0 settled
+uniform float uCharge;         // 0..1 pre-detonation gravitational compression surge
+uniform float uBlastPeak;      // 0..1 pure-white + ice-blue-tinted supernova peak
+uniform float uBlastProgress;  // 0..1 expanding shockfront wave across Stage B
+uniform vec2  uPointer;        // smoothed normalized UV pointer
+uniform float uPointerActive;  // 0..1 pointer presence
 
-float hueDist(float a, float b) {
-  float d = abs(a - b);
-  return min(d, 1.0 - d);
+const float PI = 3.14159265;
+const float TWO_PI = 6.28318530;
+const float R_H = 1.0;
+
+// Strict T^minus Galaxy Palette
+const vec3 C_OBSIDIAN    = vec3(0.0157, 0.0078, 0.0235); // #040206
+const vec3 C_SPACE       = vec3(0.1725, 0.0275, 0.2078); // #2C0735
+const vec3 C_DEEP_PURPLE = vec3(0.3059, 0.0784, 0.5490); // #4E148C
+const vec3 C_ACCENT      = vec3(0.3804, 0.2392, 0.7569); // #613DC1
+const vec3 C_PERIWINKLE  = vec3(0.5216, 0.5412, 0.8902); // #858AE3
+const vec3 C_ICE_BLUE    = vec3(0.5922, 0.8745, 0.9882); // #97DFFC
+const vec3 C_WHITE_CORE  = vec3(0.9686, 0.9804, 1.0000); // #F7FAFF
+
+float hash11(float p) {
+  p = fract(p * 0.1031);
+  p *= p + 33.33;
+  p *= p + p;
+  return fract(p);
 }
 
 /**
- * High-contrast Galaxy grading ramp anchored on pure #000000 black:
- * #000000 -> #2C0735 -> #4E148C -> #613DC1 -> #858AE3 -> specular white core
+ * Evaluate the unified 3D Kurzgesagt-inspired accretion disk at equatorial point xz (y = 0).
+ * Seamless across all 360 deg via integer harmonic angular multipliers + continuous logarithmic
+ * inward spiral twist (mild curl in tilted intro -> unmistakable inward spiral at polar plateau).
+ * Returns vec4(rgb, opacity).
  */
-vec3 galaxyGrade(float lum, vec3 srcNeutral) {
-  vec3 cBlack      = vec3(0.0000, 0.0000, 0.0000); // #000000
-  vec3 cSpace      = vec3(0.1725, 0.0275, 0.2078); // #2C0735
-  vec3 cDeepPurple = vec3(0.3059, 0.0784, 0.5490); // #4E148C
-  vec3 cAccent     = vec3(0.3804, 0.2392, 0.7569); // #613DC1
-  vec3 cPeriwinkle = vec3(0.5216, 0.5412, 0.8902); // #858AE3
-  vec3 cWhiteCore  = vec3(0.9700, 0.9780, 1.0000); // white-hot specular peak
+vec4 evalDisk(vec2 xz, float outerR, float polarF, float time, float dopplerBias) {
+  float r = length(xz);
+  if (r < 1.02 || r > outerR) return vec4(0.0);
 
-  vec3 col = mix(cBlack, cSpace, smoothstep(0.02, 0.16, lum));
-  col = mix(col, cDeepPurple, smoothstep(0.14, 0.34, lum));
-  col = mix(col, cAccent, smoothstep(0.30, 0.54, lum));
-  col = mix(col, cPeriwinkle, smoothstep(0.50, 0.78, lum));
-  col = mix(col, cWhiteCore, smoothstep(0.76, 0.98, lum));
+  float theta = atan(xz.y, xz.x);
+  float logR = log(r);
 
-  float srcEnergy = max(srcNeutral.r, max(srcNeutral.g, srcNeutral.b));
-  col *= (0.86 + 0.28 * smoothstep(0.08, 0.95, srcEnergy));
-  return col;
+  // Radial visibility envelope (crisp inner edge outside R_h, clean fade before outerR)
+  float innerEnv = smoothstep(1.025, 1.13, r);
+  float outerEnv = 1.0 - smoothstep(outerR * 0.62, outerR, r);
+  float rNorm = clamp((r - 1.05) / max(0.6, outerR - 1.05), 0.0, 1.0);
+
+  // Continuous inward logarithmic spiral tightness:
+  // Tilted intro/horizon: crisp concentric tracks with subtle curl
+  // Polar top-down dwell: bold unmistakable inward-spiraling vortex toward #000000 core
+  float spiralTwist = mix(3.4, 14.5, polarF);
+  float infall = time * mix(0.22, 0.62, polarF);
+
+  // ---- Stratum 1: Hot Inner ISCO Streamlines (sweeps right into #000000 photon limb) ----
+  float s1Phase = 3.0 * theta + (spiralTwist * 1.15) * logR + infall * 1.45 - time * 1.15;
+  float s1Ring = smoothstep(0.30, 0.80, 0.5 + 0.5 * cos(s1Phase));
+  float s1Conc = smoothstep(0.34, 0.82, 0.5 + 0.5 * cos(logR * 25.0 + infall * 2.2));
+  float s1Track = mix(mix(s1Conc, s1Ring, 0.55), s1Ring, polarF);
+  float s1Dash = smoothstep(0.14, 0.64, 0.5 + 0.5 * cos(4.0 * theta - 5.2 * logR - time * 1.9));
+  float s1Env = smoothstep(1.025, 1.09, r) * (1.0 - smoothstep(1.65, 2.45, r));
+  float s1Val = s1Track * (0.48 + 0.52 * s1Dash) * s1Env;
+
+  // ---- Stratum 2: Bold Kurzgesagt Mid-Disk Dashed Spiral Arms (clean dark inter-lane channels) ----
+  float s2ArmA = smoothstep(0.38, 0.82, 0.5 + 0.5 * cos(4.0 * theta + spiralTwist * logR + infall * 1.15 - time * 0.72));
+  float s2ArmB = smoothstep(0.46, 0.84, 0.5 + 0.5 * cos(2.0 * theta + (spiralTwist * 0.72) * logR + infall * 0.85 - time * 0.48 + 1.4));
+  // Concentric Kurzgesagt ring clarity when tilted (smoothly hands off to strong spiral at polar)
+  float s2Conc = smoothstep(0.40, 0.80, 0.5 + 0.5 * cos(logR * 17.5 + infall * 1.4));
+  float s2Lane = mix(max(s2Conc * 0.88, s2ArmA * 0.84), max(s2ArmA, s2ArmB * 0.88), polarF);
+  // Variable-length tapered orbital dashes along the lanes
+  float s2DashA = smoothstep(0.20, 0.62, 0.5 + 0.5 * cos(3.0 * theta - 4.4 * logR - time * 1.18 + 0.6));
+  float s2DashB = smoothstep(0.26, 0.68, 0.5 + 0.5 * cos(5.0 * theta + 3.1 * logR - time * 0.94));
+  float s2Env = smoothstep(1.06, 1.24, r) * (1.0 - smoothstep(outerR * 0.52, outerR * 0.94, r));
+  float s2Val = s2Lane * max(s2DashA, s2DashB * 0.88) * s2Env;
+
+  // ---- Stratum 3: Wide Sweeping Outer Violet Arcs ----
+  float s3Arm = smoothstep(0.46, 0.86, 0.5 + 0.5 * cos(2.0 * theta + (spiralTwist * 0.58) * logR + infall * 0.65 - time * 0.34 + 2.5));
+  float s3Conc = smoothstep(0.46, 0.84, 0.5 + 0.5 * cos(logR * 11.0 + infall * 0.9));
+  float s3Lane = mix(max(s3Conc * 0.78, s3Arm * 0.72), s3Arm, polarF);
+  float s3Dash = smoothstep(0.34, 0.76, 0.5 + 0.5 * cos(2.0 * theta - 2.6 * logR - time * 0.52));
+  float s3Env = smoothstep(1.55, 2.25, r) * outerEnv;
+  float s3Val = s3Lane * (0.25 + 0.75 * s3Dash) * s3Env;
+
+  // Soft underlying accretion plasma glow (restrained so dark inter-lane channels stay razor-legible in ASCII)
+  float baseBed = exp(-(r - 1.05) * mix(1.45, 0.88, polarF)) * innerEnv * outerEnv * 0.30;
+
+  // Inner ice-blue ISCO spark accents (restrained high-velocity Kurzgesagt accents)
+  float sparkWave = smoothstep(0.84, 0.97, 0.5 + 0.5 * cos(5.0 * theta + (spiralTwist * 1.1) * logR - time * 2.1));
+  float iceSpark = sparkWave * s1Env * (0.38 + 0.32 * polarF);
+
+  // Relativistic Doppler asymmetry in tilted views, relaxing to full radial symmetry at polar top-down
+  float doppler = 1.0 + dopplerBias * (1.0 - polarF) * 0.24 * cos(theta - 0.55);
+
+  float energy = (baseBed + s1Val * 0.95 + s2Val * 0.78 + s3Val * 0.46) * doppler;
+  energy *= (1.0 + uCharge * 0.65);
+
+  // Strict T^minus Galaxy color ramp (zero orange/yellow)
+  vec3 col = mix(C_SPACE, C_DEEP_PURPLE, smoothstep(0.05, 0.26, energy));
+  col = mix(col, C_ACCENT, smoothstep(0.22, 0.50, energy));
+  col = mix(col, C_PERIWINKLE, smoothstep(0.44, 0.78, energy));
+  col = mix(col, C_WHITE_CORE, smoothstep(0.74, 1.12, energy));
+
+  // Cool violet-to-periwinkle depth shift across radius + selective #97DFFC ice-blue glints
+  col = mix(col, mix(C_DEEP_PURPLE, C_ACCENT, 0.55), rNorm * 0.34 * (1.0 - s1Val));
+  col = mix(col, mix(C_ICE_BLUE, C_WHITE_CORE, 0.35), clamp(iceSpark * 0.78, 0.0, 0.78));
+
+  float alpha = clamp(energy * 1.18, 0.0, 1.0) * innerEnv * outerEnv;
+  return vec4(col * clamp(energy * 1.25, 0.0, 1.45), alpha);
 }
 
-vec4 sampleGradedVideo(vec2 uv, float settle, out float greenOut, out float lumOut) {
-  vec3 iceBlue = vec3(0.5922, 0.8745, 0.9882); // #97DFFC
-  float inBounds =
-    smoothstep(0.0, 0.02, uv.x) * (1.0 - smoothstep(0.98, 1.0, uv.x)) *
-    smoothstep(0.0, 0.02, uv.y) * (1.0 - smoothstep(0.98, 1.0, uv.y));
+/**
+ * Evaluate closed-form 3D relativistic helical & streaked polar jets along +/- y axis.
+ * Zero raymarching; depth-tested cleanly against the black hole shadow sphere.
+ */
+vec4 evalPolarJets(vec3 ro, vec3 rd, float tSphere, float coreShadow, float jetPower, float time) {
+  if (jetPower <= 0.004) return vec4(0.0);
 
-  vec3 src = vec3(0.0);
-  if (uHasVideo > 0.5) {
-    src = texture(uVideo, clamp(uv, 0.001, 0.999)).rgb * inBounds;
-  } else {
-    float r = length((uv - BH_CENTER) / BH_RADII);
-    float ring = exp(-pow((r - 1.12) * 5.2, 2.0));
-    src = vec3(0.55, 0.75, 0.70) * ring;
-  }
+  float a = dot(rd.xz, rd.xz);
+  if (a < 1e-5) return vec4(0.0);
 
-  // Complete green energy jet -> #97DFFC ice-blue remap (zero green leakage)
-  vec3 hsv = rgb2hsv(src);
-  float hDist = hueDist(hsv.x, 0.33);
-  float hueMask = 1.0 - smoothstep(0.07, 0.21, hDist);
-  float greenExcess = clamp((src.g - max(src.r, src.b)) * 5.2, 0.0, 1.0);
-  float satMask = smoothstep(0.08, 0.28, hsv.y);
-  float greenMask = clamp(max(hueMask * satMask, greenExcess * 1.15), 0.0, 1.0);
+  float tAxis = -dot(ro.xz, rd.xz) / a;
+  if (tAxis <= 0.0) return vec4(0.0);
 
-  vec3 deGreened = vec3(
-    src.r,
-    min(src.g, max(src.r, src.b) * 0.92),
-    max(src.b, src.g * 0.68)
-  );
+  // Occlude the far side of the jet behind the #000000 event horizon shadow
+  float occ = (coreShadow > 0.5 && tAxis > tSphere) ? (1.0 - coreShadow) : 1.0;
+  if (occ <= 0.01) return vec4(0.0);
 
-  float rawLum = dot(src, vec3(0.2126, 0.7152, 0.0722));
-  // Suppress raw video background haze (~0.12-0.19) once settled so obsidian space stays pitch-clean
-  float gateLo = mix(0.06, 0.16, settle);
-  float gateHi = mix(0.20, 0.34, settle);
-  float shadowGate = smoothstep(gateLo, gateHi, rawLum);
-  float shapedLum = clamp(pow(max(rawLum, 0.0), 0.88) * shadowGate, 0.0, 1.0);
+  vec3 pAxis = ro + tAxis * rd;
+  float s = pAxis.y;
+  float absS = abs(s);
+  if (absS < 0.84 || absS > 7.8) return vec4(0.0);
 
-  vec3 purpleAccretion = galaxyGrade(shapedLum, deGreened);
+  float dPerp = length(pAxis.xz);
 
-  float beamEnergy = clamp(max(rawLum, hsv.z) * 1.28, 0.0, 1.32) * shadowGate;
-  vec3 iceJet = mix(iceBlue, vec3(0.95, 0.99, 1.0), smoothstep(0.72, 1.24, beamEnergy) * 0.45) * beamEnergy;
+  // Collimated hyperboloid funnel widening cleanly from the poles
+  float w = 0.095 + 0.064 * pow(max(absS - 0.85, 0.0), 1.14);
+  if (dPerp > w * 2.6) return vec4(0.0);
 
-  vec3 graded = mix(purpleAccretion, iceJet, clamp(greenMask * 1.15, 0.0, 1.0));
-  greenOut = greenMask * shadowGate;
-  lumOut = shapedLum;
-  return vec4(graded, shapedLum);
+  // Axial start right at pole & smooth far taper
+  float axialEnv = smoothstep(0.86, 1.18, absS) * (1.0 - smoothstep(4.2, 7.6, absS));
+
+  // Signed screen-transverse coordinate across the jet axis for 3D helical ribbons
+  vec2 perpDir = normalize(vec2(-rd.z, rd.x) + vec2(1e-5));
+  float signedX = dot(pAxis.xz, perpDir);
+
+  // 1) Core collimated plasma beam
+  float coreBeam = exp(-pow(dPerp / (w * 0.56), 2.0));
+
+  // 2) Dual counter-wound Kurzgesagt helical ribbons spiraling outward along the jet
+  float helixPhaseA = absS * 3.55 - time * 5.4;
+  float helixPhaseB = absS * 3.55 - time * 5.4 + PI;
+  float hA = w * 0.86 * sin(helixPhaseA);
+  float hB = w * 0.86 * sin(helixPhaseB);
+  float ribW = max(0.032, w * 0.24);
+  float ribbonA = exp(-pow((signedX - hA) / ribW, 2.0)) * (0.55 + 0.45 * cos(helixPhaseA));
+  float ribbonB = exp(-pow((signedX - hB) / ribW, 2.0)) * (0.55 + 0.45 * cos(helixPhaseB));
+  float helices = clamp(ribbonA + ribbonB, 0.0, 1.35) * smoothstep(w * 1.9, w * 0.4, dPerp);
+
+  // 3) High-velocity streaked plasma dashes shooting outward from the poles
+  float laneId = floor((signedX / max(w, 0.05)) * 2.5 + 3.0);
+  float laneSeed = hash11(laneId + (s > 0.0 ? 11.3 : 29.7));
+  float streak = smoothstep(0.45, 0.88, 0.5 + 0.5 * sin(absS * 5.2 - time * (8.5 + laneSeed * 4.0) + laneSeed * TWO_PI));
+  float streakMask = streak * exp(-pow(dPerp / (w * 0.95), 2.0));
+
+  // Outer violet magnetic sheath
+  float outerSheath = exp(-pow(dPerp / (w * 1.65), 2.0)) * 0.32;
+
+  float total = (coreBeam * 0.72 + helices * 0.78 + streakMask * 0.52 + outerSheath) * axialEnv * jetPower * occ;
+  total *= (1.0 + uCharge * 0.55);
+
+  vec3 jetCol = mix(C_ACCENT, C_ICE_BLUE, smoothstep(0.08, 0.48, coreBeam + helices + streakMask * 0.6));
+  jetCol = mix(jetCol, C_WHITE_CORE, smoothstep(0.62, 1.25, coreBeam * 0.9 + helices * 0.55 + uCharge * 0.35));
+
+  return vec4(jetCol * total, clamp(total * 0.92, 0.0, 1.0));
 }
 
 void main() {
-  vec3 cObsidian   = vec3(0.0157, 0.0078, 0.0235); // #040206
-  vec3 cSpace      = vec3(0.1725, 0.0275, 0.2078); // #2C0735
-  vec3 cDeepPurple = vec3(0.3059, 0.0784, 0.5490); // #4E148C
-  vec3 cAccent     = vec3(0.3804, 0.2392, 0.7569); // #613DC1
-  vec3 cPeriwinkle = vec3(0.5216, 0.5412, 0.8902); // #858AE3
-  vec3 cIceBlue    = vec3(0.5922, 0.8745, 0.9882); // #97DFFC
-
-  // Subtle GPU pointer proximity gravitational lens ripple near the accretion rim
+  // Subtle GPU pointer proximity lensing ripple along the settled accretion rim
   vec2 ptrDelta = vUv - uPointer;
   ptrDelta.x *= uViewAsp;
   float ptrDist = length(ptrDelta);
-  float ptrRipple = exp(-pow(ptrDist * 4.2, 2.0)) * uPointerActive * uSettle;
+  float ptrRipple = exp(-pow(ptrDist * 4.4, 2.0)) * uPointerActive * uSettle;
 
-  // ---- SINGLE CONTINUOUS PROJECTIVE CAMERA ON THE REAL BLACK HOLE ----
-  vec2 p = vUv - uCamCenter;
-  // Perspective pitch foreshortening along Y (0 during intro/mid-scroll, smooth tilt at horizons)
-  float perspDenom = clamp(1.0 + p.y * uCamTilt * 0.34, 0.68, 1.48);
-  vec2 q = p / perspDenom;
+  // Build exact 3D perspective camera ray
+  vec2 ndc = vUv * 2.0 - 1.0;
+  // Subtle pointer gravitational lens deflection near rim
+  vec2 ndcDeflected = ndc - (vUv - uPointer) * (0.018 * ptrRipple);
+  vec3 rd = normalize(
+    uCamFwd +
+    ndcDeflected.x * uViewAsp * uTanHalfFov * uCamRight +
+    ndcDeflected.y * uTanHalfFov * uCamUp
+  );
+  vec3 ro = uCamPos;
 
-  // Aspect-matched cover fit (identity at uCamZoom = 1.0, uCamAnamorphicX = 1.0)
-  float baseScaleX = (uViewAsp < uVideoAsp) ? (uViewAsp / uVideoAsp) : 1.0;
-  float baseScaleY = (uViewAsp < uVideoAsp) ? 1.0 : (uVideoAsp / uViewAsp);
+  // ---- 1) Exact 3D #000000 Event Horizon Shadow Sphere ----
+  float tc = -dot(ro, rd);
+  vec3 closestPt = ro + max(tc, 0.0) * rd;
+  float b = length(closestPt);
+  float pixelAA = max(0.006, (2.2 * uTanHalfFov / max(uSceneH, 64.0)) * max(tc, 1.0));
+  float coreShadow = (tc > 0.0) ? (1.0 - smoothstep(R_H - pixelAA, R_H + pixelAA, b)) : 0.0;
+  float tSphere = (b < R_H && tc > 0.0) ? (tc - sqrt(max(0.0, R_H * R_H - b * b))) : 1e9;
 
-  vec2 scaled = vec2(q.x * baseScaleX / uCamAnamorphicX, q.y * baseScaleY) / uCamZoom;
+  // ---- 2) Analytic Gravitational Lensing + Front/Rear Equatorial Disk ----
+  vec3 accumCol = vec3(0.0);
+  float accumAlpha = 0.0;
 
-  // Normalize into the real black hole's exact shadow-sphere coordinates so orbital roll
-  // preserves the exact shadow contour without wobble or oval distortion
-  vec2 coreNorm = scaled / BH_RADII;
-  float rCore = length(coreNorm);
+  // Close-up settled bottom/top horizon factor (0 in intro & polar, 1 at settled horizons)
+  float horizonClose = (1.0 - uPolarFactor) * uSettle;
+  // Tight radial impact-parameter bound at settled horizons so open space above hero & below top dome stays 100% clean
+  float horizonBound = mix(1.0, 1.0 - smoothstep(1.20, 1.46, b), horizonClose);
+  // Behind-sphere Einstein lensing shines in tilted views, handing off seamlessly to direct 360 deg disk at polar plateau
+  float lensedWeight = 1.0 - smoothstep(0.28, 0.78, uPolarFactor);
 
-  float cR = cos(uCamRoll);
-  float sR = sin(uCamRoll);
-  vec2 rotNorm = vec2(cR * coreNorm.x - sR * coreNorm.y, sR * coreNorm.x + cR * coreNorm.y);
-  vec2 vidDelta = rotNorm * BH_RADII;
+  // 2a) Gravitationally bent rear disk (Einstein upper & lower arches in tilted intro & horizons)
+  if (b > R_H - pixelAA && tc > 0.0 && lensedWeight > 0.002 && horizonBound > 0.002) {
+    float u_b = max(b - 0.58 * R_H, 0.032);
+    float deflect = min(2.36, 1.14 / pow(u_b, 1.18));
+    vec3 e_r = closestPt / max(b, 1e-4);
+    vec3 rdBent = normalize(cos(deflect) * rd - sin(deflect) * e_r);
 
-  // Subtle gravitational lensing deflection near pointer
-  vec2 vidUv = BH_CENTER + vidDelta - (vUv - uPointer) * (0.008 * ptrRipple);
-
-  // Early-completing settle cleanup eliminates residual upper-frame haze during 7.8s -> 12.0s descent
-  float settleClean = smoothstep(0.06, 0.58, uSettle);
-
-  float vidGreen = 0.0;
-  float vidLum = 0.0;
-  vec3 vidCol = sampleGradedVideo(vidUv, settleClean, vidGreen, vidLum).rgb;
-
-  // White-hot supernova flash boost during peak blast (5.2s–7.8s):
-  // Keeps the explosion authentically luminous so 500-weight dark ASCII T^minus carves cleanly
-  if (uBlastPeak > 0.001) {
-    vec2 blastPos = (vUv - vec2(0.5, 0.5)) * vec2(uViewAsp * 0.56, 1.15);
-    float blastRad = length(blastPos);
-    float blastCore = exp(-pow(blastRad * 1.48, 2.0));
-    float blastBloom = exp(-pow(blastRad * 0.88, 2.0));
-    vec3 whiteHot = mix(cPeriwinkle, vec3(0.96, 0.985, 1.0), smoothstep(0.15, 0.88, blastCore));
-    whiteHot = mix(whiteHot, cIceBlue, (1.0 - blastCore) * 0.34 * blastBloom);
-    vidCol = mix(vidCol, whiteHot, clamp(uBlastPeak * (0.54 * blastBloom + 0.44 * blastCore), 0.0, 0.95));
-    vidCol += vec3(0.94, 0.97, 1.0) * blastCore * uBlastPeak * 0.24;
+    if (abs(rdBent.y) > 1e-4) {
+      float tRear = -closestPt.y / rdBent.y;
+      if (tRear > 0.0) {
+        vec3 hitRear = closestPt + tRear * rdBent;
+        vec4 rearDisk = evalDisk(hitRear.xz, uDiskOuterR, uPolarFactor, uTime, 1.0);
+        float archBoost = 1.0 + 0.34 * exp(-max(b - R_H, 0.0) * 3.6);
+        float vis = (1.0 - coreShadow) * lensedWeight * horizonBound;
+        accumCol += rearDisk.rgb * archBoost * vis;
+        accumAlpha = max(accumAlpha, rearDisk.a * vis);
+      }
+    }
   }
 
-  // ---- PURE #000000 EVENT HORIZON CORE + LIVE PHOTON RING CONTINUITY ----
-  // Physically locked to the exact projected shadow of master_blackhole_boomerang.mp4 (rCore <= 1.0)
-  float coreMask = (1.0 - smoothstep(0.94, 1.015, rCore)) * smoothstep(0.12, 0.55, uSettle);
+  // 2b) Relativistic photon ring + layered Kurzgesagt horizon corona hugging the exact shadow limb (b -> 1.00..1.35)
+  if (tc > 0.0) {
+    float distOut = b - R_H;
+    float ringAng = atan(closestPt.y, closestPt.x);
+    float ringShimmer = 0.70 + 0.30 * sin(ringAng * 3.0 - uTime * 1.45) * cos(ringAng * 2.0 + uTime * 0.85);
+    float ringStream = 0.5 + 0.5 * cos(ringAng * 6.0 - distOut * 34.0 - uTime * 1.9);
 
-  // Adaptive corona envelope:
-  // - Tightly hugs the event horizon crest at bottom horizon (p=0) and top-pinned dome (p=1)
-  // - Smoothly opens during mid-scroll (uMidBell -> 1) so the full authentic swirling accretion
-  //   structure of master_blackhole_boomerang.mp4 breathes around the central spherical black hole
-  float horizonOuterStart = mix(1.03, 1.015, uPin);
-  float horizonOuterEnd   = mix(1.24, 1.15, uPin);
-  float outerStart = mix(horizonOuterStart, 1.08, uMidBell);
-  float outerEnd   = mix(horizonOuterEnd, 1.85, uMidBell);
-  float outerDiskMask = mix(1.0, 1.0 - smoothstep(outerStart, outerEnd, rCore), settleClean);
+    // Rich, crisp photon ring & luminous horizon crescent on settled bottom/top horizons + polar core
+    float photonWidth = mix(mix(26.0, 31.0, uPin), 24.0, uPolarFactor);
+    float photonRing = exp(-pow((distOut - 0.016) * photonWidth, 2.0)) * (1.0 - coreShadow);
 
-  // Sample grazing photon-ring modulation directly from the live swirling video just outside rCore = 1.0
-  float angle = atan(rotNorm.y, rotNorm.x);
-  vec2 ringSampleUv = BH_CENTER + vec2(cos(angle + uTime * 0.06), sin(angle + uTime * 0.06)) * BH_RADII * 1.18;
-  float ringGreen = 0.0;
-  float ringLum = 0.0;
-  vec3 ringVid = sampleGradedVideo(ringSampleUv, settleClean, ringGreen, ringLum).rgb;
-  float liveMod = 0.62 + 0.68 * smoothstep(0.06, 0.72, max(vidLum, ringLum));
+    // Secondary striated horizon plasma band hugging b = 1.01..1.28 on bottom hero & top dome
+    float horizonArc = exp(-max(distOut, 0.0) * mix(9.2, 11.2, uPin))
+      * smoothstep(-0.006, 0.018, distOut) * (1.0 - coreShadow) * horizonClose;
+    float arcStripes = 0.62 + 0.38 * smoothstep(0.28, 0.78, ringStream);
 
-  // Crisp relativistic photon ring hugging the exact shadow limb (active once settled)
-  float distOut = rCore - 1.0;
-  float photonWidth  = mix(mix(46.0, 62.0, uPin), 28.0, uMidBell);
-  float lensingDecay = mix(mix(17.5, 26.0, uPin), 9.5, uMidBell);
-  float haloDecay    = mix(mix(10.5, 16.5, uPin), 4.6, uMidBell);
-  float photonRing   = exp(-pow((distOut - 0.008) * photonWidth, 2.0)) * uSettle;
-  float innerLensing = exp(-max(distOut, 0.0) * lensingDecay) * smoothstep(-0.015, 0.02, distOut) * uSettle;
-  float outerHalo    = exp(-max(distOut, 0.0) * haloDecay) * smoothstep(-0.005, 0.035, distOut) * uSettle;
-  float ptrLift = 1.0 + ptrRipple * 0.36;
+    float innerHalo = exp(-max(distOut, 0.0) * mix(mix(7.8, 9.6, uPin), 6.2, uPolarFactor))
+      * smoothstep(-0.01, 0.02, distOut) * (1.0 - coreShadow);
 
-  vec3 photonCol = mix(cPeriwinkle, vec3(0.96, 0.98, 1.0), 0.38 + 0.30 * liveMod);
-  photonCol = mix(photonCol, cIceBlue, clamp(max(vidGreen, ringGreen) * 0.72 + ptrRipple * 0.25, 0.0, 0.72));
-  vec3 haloCol = mix(cDeepPurple, cAccent, 0.45 + 0.35 * liveMod);
-  haloCol = mix(haloCol, cIceBlue, clamp(vidGreen * 0.45, 0.0, 0.4));
+    float ptrLift = 1.0 + ptrRipple * 0.45;
+    vec3 photonCol = mix(C_PERIWINKLE, C_WHITE_CORE, 0.64 + 0.24 * ringShimmer);
+    photonCol = mix(photonCol, C_ICE_BLUE, clamp(ptrRipple * 0.55 + uCharge * 0.45 + 0.16 * ringShimmer, 0.0, 0.75));
+    vec3 arcCol = mix(C_ACCENT, C_PERIWINKLE, smoothstep(0.25, 0.85, arcStripes * ringShimmer));
+    arcCol = mix(arcCol, C_WHITE_CORE, smoothstep(0.06, 0.01, distOut) * 0.65);
+    vec3 haloCol = mix(C_DEEP_PURPLE, C_ACCENT, 0.55 + 0.28 * ringShimmer);
 
-  // Combine authentic live video plasma + crisp grazing photon ring, then carve pure #000000 core
-  float diskWeight = mix(mix(0.88, 0.74, uPin), 1.06, uMidBell);
-  vec3 settledPlasma =
-    vidCol * outerDiskMask * (diskWeight + ptrRipple * 0.22) +
-    photonCol * photonRing * (0.68 + 0.30 * liveMod) * ptrLift +
-    haloCol * innerLensing * (0.30 + 0.20 * liveMod) * ptrLift +
-    cSpace * outerHalo * 0.22 +
-    ringVid * photonRing * 0.28;
+    float photonBoost = mix(1.0, 1.24, horizonClose);
+    accumCol += photonCol * photonRing * (0.90 + 0.30 * ringShimmer + uCharge * 0.75) * photonBoost * ptrLift;
+    accumCol += arcCol * horizonArc * arcStripes * 0.86 * ptrLift;
+    accumCol += haloCol * innerHalo * (0.34 + 0.16 * ringShimmer) * ptrLift;
+    accumAlpha = max(accumAlpha, clamp(photonRing * 0.98 + horizonArc * 0.82 + innerHalo * 0.52, 0.0, 1.0));
+  }
 
-  // Apply early outerDiskMask during descent so upper-hemisphere raw video artifacts vanish cleanly
-  vec3 introBase = vidCol * outerDiskMask;
-  vec3 sceneCol = mix(introBase, settledPlasma, uSettle);
+  // 2c) Direct equatorial disk:
+  //     - In tilted views: renders the exact near half cleanly IN FRONT of the #000000 shadow
+  //     - In top-down polar view (uPolarFactor -> 1): renders the ENTIRE 360 deg inward-spiraling disk seamlessly!
+  float frontCoversShadow = 0.0;
+  if (abs(rd.y) > 1e-4) {
+    float tFront = -ro.y / rd.y;
+    float maxT = tc + mix(0.04, 18.0, smoothstep(0.20, 0.72, uPolarFactor));
+    if (tFront > 0.0 && tFront < tSphere && tFront <= maxT) {
+      vec3 hitFront = ro + tFront * rd;
+      // Gentle polar relativistic compression right outside R_h so spiral arms hug the photon ring cleanly
+      vec2 diskXZ = hitFront.xz * mix(1.0, 0.955, uPolarFactor);
+      vec4 frontDisk = evalDisk(diskXZ, uDiskOuterR, uPolarFactor, uTime, 1.0);
+      float diskGate = horizonBound;
+      if (frontDisk.a * diskGate > 0.002) {
+        float frontCov = clamp(frontDisk.a * 1.18 * diskGate, 0.0, 1.0);
+        accumCol = mix(accumCol, frontDisk.rgb * diskGate, frontCov) + frontDisk.rgb * (0.18 * diskGate);
+        accumAlpha = max(accumAlpha, frontCov);
+        // Only allow the near tilted disk (not polar) to cross in front of the core shadow
+        frontCoversShadow = frontCov * (1.0 - smoothstep(0.25, 0.65, uPolarFactor));
+      }
+    }
+  }
 
-  // Enforce true pure #000000 black inside the real event horizon shadow
-  sceneCol *= (1.0 - coreMask);
+  // 2d) 3D Helical & Streaked Polar Jets along +/- y (intro & pre-blast surge)
+  vec4 jets = evalPolarJets(ro, rd, tSphere, coreShadow, uJetPower, uTime);
+  accumCol += jets.rgb;
+  accumAlpha = max(accumAlpha, jets.a);
 
-  // During intro (settle < 0.62), keep deep sky grounded at #040206 obsidian, then clear cleanly
-  float introSkyOpaque = 1.0 - smoothstep(0.18, 0.62, uSettle);
-  sceneCol = max(sceneCol, cObsidian * introSkyOpaque * (1.0 - coreMask));
+  // Enforce true pure #000000 inside the uncovered event horizon shadow
+  float pureCoreLock = coreShadow * (1.0 - frontCoversShadow);
+  accumCol *= (1.0 - pureCoreLock);
 
-  // Pre-rim obsidian occlusion skirt behind the pinned top dome (p -> 1):
-  // Smoothly masks scrolling below-the-fold headlines ~28px BEFORE they collide with the glowing rim,
-  // and veils the upper-left/right dome corners without affecting Layer 40 (T^minus & docked countdown)
-  float pinMask = smoothstep(0.68, 0.96, uPin) * uSettle;
-  float preRimSkirt = (1.0 - smoothstep(1.03, 1.22, rCore)) * pinMask;
-  float topCornerSkirt = smoothstep(0.87, 0.96, vUv.y) * pinMask;
-  float domeOccMask = clamp(max(preRimSkirt, topCornerSkirt), 0.0, 1.0);
-  sceneCol = max(sceneCol, cObsidian * domeOccMask * (1.0 - coreMask));
+  // ---- 3) Supernova Explosion Light: Pure White + Extra-Bright Ice-Blue-Tinted Highlights ----
+  if (uCharge > 0.001 || uBlastPeak > 0.001) {
+    vec2 blastPos = (vUv - vec2(0.5, 0.5)) * vec2(uViewAsp * 0.68, 1.0);
+    float blastR = length(blastPos);
+    float blastAng = atan(blastPos.y, blastPos.x);
 
-  // Premultiplied occlusion alpha:
-  // - 1.0 solidly inside the pure #000000 event horizon core + pre-rim top-dome skirt
-  // - Smooth alpha across the glowing ASCII accretion plasma & photon ring
-  // - 0.0 out in open obsidian space once settled
-  float plasmaLum = dot(sceneCol, vec3(0.2126, 0.7152, 0.0722));
-  float plasmaAlpha = clamp(
-    photonRing * 0.92 +
-    innerLensing * 0.56 +
-    outerHalo * 0.24 +
-    smoothstep(0.035, 0.42, plasmaLum) * outerDiskMask * 0.95,
-    0.0,
-    1.0
-  );
-  float finalAlpha = clamp(max(max(max(coreMask, domeOccMask), plasmaAlpha), introSkyOpaque), 0.0, 1.0);
+    // Rapid pre-detonation implosion core ignition
+    if (uCharge > 0.001) {
+      float coreSpark = exp(-pow(blastR * 3.8, 2.0)) * uCharge;
+      vec3 chargeLight = mix(C_ICE_BLUE, vec3(1.0), 0.65);
+      accumCol += chargeLight * coreSpark * 1.25;
+      accumAlpha = max(accumAlpha, clamp(coreSpark, 0.0, 1.0));
+    }
 
-  o = vec4(clamp(sceneCol, 0.0, 1.0), finalAlpha);
+    if (uBlastPeak > 0.001) {
+      // Blinding pure white (#FFFFFF / #F7FAFF) supernova core behind T^minus,
+      // radiating into un-clipped extra-bright #97DFFC ice-blue shockfront & crisp radial streaks
+      float coreWhite = exp(-pow(blastR * 1.65, 2.0));
+      float midHalo = exp(-pow(blastR * 0.88, 2.0));
+
+      // Expanding extra-bright ice-blue-tinted luminous shockfront ring
+      float rShock = mix(0.22, 0.96, uBlastProgress);
+      float shockRing = exp(-pow((blastR - rShock) * 8.5, 2.0));
+
+      // Crisp radial supernova energy streaks radiating outward
+      float raysA = pow(0.5 + 0.5 * cos(blastAng * 8.0 - uTime * 2.0), 3.0);
+      float raysB = pow(0.5 + 0.5 * cos(blastAng * 14.0 + uTime * 1.5 + 0.7), 4.0);
+      float radialRays = (raysA * 0.68 + raysB * 0.44) * exp(-blastR * 0.95);
+
+      // Keep pure white dominant right behind T^minus while preserving vivid un-clipped #97DFFC shockfront & rays
+      vec3 iceTintedWhite = mix(vec3(0.92, 0.98, 1.0), C_ICE_BLUE, 0.56);
+      vec3 brightIceRing = mix(C_ICE_BLUE, vec3(0.86, 0.97, 1.0), 0.42);
+      vec3 outerIceSpace = mix(C_DEEP_PURPLE, mix(C_PERIWINKLE, C_ICE_BLUE, 0.68), smoothstep(0.08, 0.72, midHalo + radialRays * 0.55));
+
+      vec3 blastCol = mix(outerIceSpace, iceTintedWhite, smoothstep(0.26, 0.78, midHalo * 0.85 + radialRays * 0.42));
+      blastCol = mix(blastCol, brightIceRing, clamp(shockRing * 0.88 + radialRays * 0.46 * (1.0 - coreWhite), 0.0, 0.92));
+      blastCol = mix(blastCol, vec3(1.0, 1.0, 1.0), smoothstep(0.32, 0.82, coreWhite * 1.05 + midHalo * 0.28));
+
+      float blastMix = clamp(uBlastPeak * (0.42 + 0.58 * midHalo + 0.34 * shockRing + 0.22 * radialRays), 0.0, 0.99);
+      accumCol = mix(accumCol, blastCol, blastMix);
+      accumAlpha = max(accumAlpha, clamp(uBlastPeak * 0.99, 0.0, 1.0));
+      pureCoreLock *= (1.0 - smoothstep(0.10, 0.45, uBlastPeak));
+    }
+  }
+
+  // During intro (settle < 0.55), keep sky grounded in #040206 obsidian; once settled, open space is alpha = 0.0
+  float introSkyOpaque = 1.0 - smoothstep(0.14, 0.56, uSettle);
+  accumCol = max(accumCol, C_OBSIDIAN * introSkyOpaque * (1.0 - pureCoreLock));
+
+  // Strict zero-bleed alpha:
+  // - 1.0 inside pure #000000 event horizon core
+  // - smooth plasma alpha across glowing accretion streamlines & photon ring
+  // - strictly 0.0 in open space above the settled hero horizon (zero bleed onto hero CTA!)
+  float plasmaLum = dot(accumCol, vec3(0.2126, 0.7152, 0.0722));
+  float settledPlasmaAlpha = smoothstep(0.025, 0.32, plasmaLum) * smoothstep(0.01, 0.22, accumAlpha);
+  float finalAlpha = clamp(max(max(pureCoreLock, settledPlasmaAlpha), introSkyOpaque), 0.0, 1.0);
+
+  o = vec4(clamp(accumCol, 0.0, 1.0), finalAlpha);
 }`;
 
 /** Pass 2: Anti-aliased 4-tap cell downsample onto the high-density ASCII grid */
@@ -334,11 +464,14 @@ void main() {
 
 /**
  * Pass 3: True Native WebGL2 ASCII Fragment Shader
- * - Strictly uses ` ^-t+=T*` (zero `.`, zero `:`, zero `·`)
- * - Pure `#000000` black (`alpha = 1.0`) inside the event horizon core for sharp contrast
- *   and clean masking of scrolling text under the pinned top dome
- * - Refined 500-weight `T^minus` explosion carve: preserves exact `26:15` SwiftUI geometry
- *   with crisp inter-letter gaps and zero outline bleed
+ * - Strictly uses ` ^-t+=T*` (zero `.`, zero `:`, zero `·`).
+ * - Pure `#000000` black (`alpha = 1.0`) locked inside the event horizon core.
+ * - Pure-ASCII `T^minus` supernova reveal:
+ *   * ZERO flat dark-gray fill (`carvedFill` deleted)
+ *   * 100% cell-quantized 4-tap sub-cell coverage
+ *   * Core strokes: predominantly crisp dark `#000000`/`#040206` `T` glyphs (~75% `T` + subtle `*`/`=`)
+ *   * Edges/serifs: lighter density-feathered `t`, `+`, `-`, `^` glyphs in deep obsidian-violet
+ *   * Bright pure-white + ice-blue explosion light shines untouched behind & between every character.
  */
 const FS_GLYPH = `#version 300 es
 precision highp float;
@@ -351,13 +484,24 @@ uniform sampler2D uAtlas;
 uniform sampler2D uWordmarkMask;
 uniform vec2  uGrid;
 uniform float uGlyphCount;
-uniform float uWordmarkCarve;   // 0..1 dark ASCII T^minus carve during peak white-hot blast
+uniform float uWordmarkCarve;   // 0..1 pure-ASCII T^minus reveal during peak supernova
+uniform float uBlastPeak;       // 0..1 white/ice supernova light window
 uniform float uSettle;
-uniform float uPin;
 uniform float uTime;
 uniform vec2  uPointer;
 uniform float uPointerActive;
 uniform float uViewAsp;
+
+const vec3 C_OBSIDIAN    = vec3(0.0157, 0.0078, 0.0235); // #040206
+const vec3 C_DEEP_VOID   = vec3(0.0745, 0.0078, 0.1137); // #13021D
+const vec3 C_ACCENT      = vec3(0.3804, 0.2392, 0.7569); // #613DC1
+const vec3 C_ICE_BLUE    = vec3(0.5922, 0.8745, 0.9882); // #97DFFC
+
+float cellHash(ivec2 c) {
+  vec2 p = fract(vec2(c) * vec2(0.1031, 0.1030));
+  p += dot(p, p.yx + 33.33);
+  return fract((p.x + p.y) * p.x);
+}
 
 void main() {
   vec2 g = vUv * uGrid;
@@ -369,49 +513,77 @@ void main() {
   vec4 cell = texelFetch(uCell, cellCoord, 0);
   vec4 bgTex = texture(uBg, vUv);
 
-  vec3 cObsidian   = vec3(0.0157, 0.0078, 0.0235); // #040206
-  vec3 cSpace      = vec3(0.1725, 0.0275, 0.2078); // #2C0735
-  vec3 cDeepPurple = vec3(0.3059, 0.0784, 0.5490); // #4E148C
-  vec3 cAccent     = vec3(0.3804, 0.2392, 0.7569); // #613DC1
-  vec3 cPeriwinkle = vec3(0.5216, 0.5412, 0.8902); // #858AE3
-
   float cellLum = dot(cell.rgb, vec3(0.2126, 0.7152, 0.0722));
   float bgLum = dot(bgTex.rgb, vec3(0.2126, 0.7152, 0.0722));
-  float energy = clamp(cellLum * 1.06, 0.0, 0.9999);
+  float energy = clamp(cellLum * 1.08, 0.0, 0.9999);
 
   // Subtle pointer proximity glyph density lift strictly along the glowing accretion rim
   vec2 ptrD = cellUv - uPointer;
   ptrD.x *= uViewAsp;
   float ptrBoost = exp(-pow(length(ptrD) * 4.5, 2.0)) * uPointerActive * uSettle * smoothstep(0.06, 0.25, energy);
-  float shapedEnergy = clamp(energy + ptrBoost * 0.14, 0.0, 0.9999);
+  float shapedEnergy = clamp(energy + ptrBoost * 0.15, 0.0, 0.9999);
 
-  // Sample exact 500-weight SwiftUI T^minus wordmark mask at cell center
-  vec3 wmSample = texture(uWordmarkMask, cellUv).rgb;
-  // Tighter threshold keeps inter-character gaps between T, ^, and minus razor-clean
-  float wmStroke = smoothstep(0.34, 0.72, wmSample.r) * uWordmarkCarve;
-  float wmHalo   = wmSample.g * uWordmarkCarve;
-  float wmCaret  = wmSample.b * uWordmarkCarve;
-
-  // Choose glyph from exact 8-slot atlas (" ^-t+=T*")
-  // Row 0: crisp 500 weight for live black hole
-  // Row 1: refined 550 medium weight for explosion T^minus carve (never chunky 700)
+  // Default live black hole glyph selection from strict 8-slot atlas (" ^-t+=T*")
   float idx = floor(shapedEnergy * uGlyphCount);
   float atlasRow = 0.0;
 
-  if (wmStroke > 0.24) {
-    float wave = fract(float(cellCoord.x) * 0.19 + float(cellCoord.y) * 0.13 + uTime * 1.45);
-    // Crisp structural spread across ^ - t + = T * (keeps strokes refined & airy, never muddy)
-    idx = clamp(1.0 + floor(wave * (uGlyphCount - 1.0)), 1.0, uGlyphCount - 1.0);
-    if (wmStroke > 0.68) {
-      idx = clamp(2.0 + floor(wave * 5.0), 2.0, uGlyphCount - 1.0);
+  // ---- Cell-Quantized Pure-ASCII T^minus Wordmark (Skipped when uWordmarkCarve == 0) ----
+  float wmCov = 0.0;
+  float wmHalo = 0.0;
+  float wmCaret = 0.0;
+  bool isWordmarkCell = false;
+
+  if (uWordmarkCarve > 0.001) {
+    // 4-tap sub-cell average strictly inside this ASCII cell (zero per-pixel overhang)
+    vec2 subOff = 0.24 / uGrid;
+    vec3 s0 = texture(uWordmarkMask, cellUv + vec2(-subOff.x, -subOff.y)).rgb;
+    vec3 s1 = texture(uWordmarkMask, cellUv + vec2( subOff.x, -subOff.y)).rgb;
+    vec3 s2 = texture(uWordmarkMask, cellUv + vec2(-subOff.x,  subOff.y)).rgb;
+    vec3 s3 = texture(uWordmarkMask, cellUv + vec2( subOff.x,  subOff.y)).rgb;
+    vec3 wmAvg = (s0 + s1 + s2 + s3) * 0.25;
+
+    wmCov = wmAvg.r * uWordmarkCarve;
+    wmHalo = wmAvg.g * uWordmarkCarve;
+    wmCaret = wmAvg.b * uWordmarkCarve;
+
+    if (wmCov >= 0.22) {
+      isWordmarkCell = true;
+      atlasRow = 1.0; // bold 700 weight for razor-legible supernova pure-ASCII T^minus
+
+      float h = cellHash(cellCoord);
+      float radDist = length((cellUv - vec2(0.5)) * vec2(uViewAsp, 1.0));
+      float wave = fract(h + radDist * 1.4 - uTime * 2.1);
+
+      if (wmCov >= 0.50) {
+        // Core stroke cells: predominantly crisp 'T' (~75%), with subtle electric '=' / '*' glints
+        if (wave < 0.75) {
+          idx = 6.0; // 'T'
+        } else if (wave < 0.89) {
+          idx = 7.0; // '*'
+        } else {
+          idx = 5.0; // '='
+        }
+      } else {
+        // Edge / serif / curve feather cells: lighter density-stepped ASCII glyphs ('^', '-', '+', 't')
+        float edgeNorm = clamp((wmCov - 0.22) / 0.28, 0.0, 0.999);
+        if (edgeNorm < 0.28) {
+          idx = 1.0; // '^'
+        } else if (edgeNorm < 0.54) {
+          idx = 2.0; // '-'
+        } else if (edgeNorm < 0.78) {
+          idx = 4.0; // '+'
+        } else {
+          idx = 3.0; // 't'
+        }
+      }
     }
-    atlasRow = 1.0;
   }
 
   vec2 tileSize = vec2(uGlyphCount, 2.0);
+  // Flip local cell Y (1.0 - paddedF.y) because atlas uploaded with UNPACK_FLIP_Y = false
   vec2 atlasUv = vec2(
     (idx + paddedF.x) / uGlyphCount,
-    (atlasRow + paddedF.y) * 0.5
+    (atlasRow + (1.0 - paddedF.y)) * 0.5
   );
   float rawCov = textureGrad(
     uAtlas,
@@ -419,56 +591,66 @@ void main() {
     dFdx(g) / tileSize,
     dFdy(g) / tileSize
   ).r;
-  float cov = smoothstep(0.16, 0.62, rawCov);
+  float cov = isWordmarkCell
+    ? smoothstep(0.10, 0.44, rawCov)
+    : smoothstep(0.16, 0.60, rawCov);
 
   float alpha = bgTex.a;
-  float introOpaque = 1.0 - smoothstep(0.18, 0.62, uSettle);
+  float introOpaque = 1.0 - smoothstep(0.14, 0.56, uSettle);
 
-  // Inside the pure #000000 event horizon core (high alpha, zero luminance):
-  // Distinguishes pure #000000 core (bgLum < 0.005) from #040206 obsidian pre-rim skirt (bgLum ~ 0.0106)
-  float isPureCore = smoothstep(0.85, 0.99, alpha) * (1.0 - smoothstep(0.003, 0.009, bgLum)) * smoothstep(0.25, 0.65, uSettle);
+  // Pure #000000 event horizon core lock (high alpha, zero luminance, outside supernova peak)
+  float isPureCore = smoothstep(0.90, 0.99, alpha)
+    * (1.0 - smoothstep(0.002, 0.010, bgLum))
+    * (1.0 - smoothstep(0.10, 0.45, uBlastPeak));
 
-  // Smooth plasma backing where accretion luminance exists + exact seamless #040206 obsidian floor
-  // inside the pinned top-dome pre-rim feather skirt so headings vanish cleanly without a dark seam
-  float backWeight = mix(0.46, 0.52, uSettle);
-  float pinSkirtFloor = smoothstep(0.68, 0.96, uPin) * uSettle * smoothstep(0.05, 0.95, alpha) * (1.0 - isPureCore);
-  vec3 baseBack = max(bgTex.rgb * backWeight, cObsidian * pinSkirtFloor);
+  // Hybrid plasma backing + crisp ASCII glyphs (pure white/ice-blue background shines through on blast)
+  float backWeight = mix(mix(0.42, 0.46, uSettle), 0.94, uBlastPeak);
+  vec3 baseBack = bgTex.rgb * backWeight;
 
-  float glyphGate = smoothstep(0.025, 0.13, shapedEnergy);
+  float glyphGate = smoothstep(0.025, 0.12, shapedEnergy) * (1.0 - isPureCore);
   vec3 glyphColor = mix(
-    cAccent * 1.05,
-    cell.rgb * mix(1.30, 1.54, shapedEnergy),
+    C_ACCENT * 1.08,
+    cell.rgb * mix(1.32, 1.56, shapedEnergy),
     smoothstep(0.05, 0.28, shapedEnergy)
   );
-  vec3 sceneCol = baseBack + glyphColor * cov * glyphGate * mix(1.0, 0.96, uSettle);
+  // During pure-white supernova sky (outside wordmark cells), keep subtle extra-bright ice-blue/white ASCII texture
+  vec3 blastGlyphCol = mix(C_ICE_BLUE, vec3(0.95, 0.99, 1.0), smoothstep(0.68, 0.96, cellLum));
+  glyphColor = mix(glyphColor, blastGlyphCol, uBlastPeak * 0.82);
+
+  vec3 sceneCol = baseBack + glyphColor * cov * glyphGate * mix(1.0, 0.94, uSettle) * (1.0 - uBlastPeak * 0.84);
 
   // Pure #000000 event horizon core lock
   sceneCol *= (1.0 - isPureCore);
 
-  // ---- Peak Explosion T^minus Dark-ASCII Carve (Refined 500 Medium Weight) ----
+  // ---- Pure-ASCII T^minus Composition (ZERO flat dark-gray fill, 100% crisp dark glyphs on bright light) ----
   if (uWordmarkCarve > 0.001) {
-    // Clean luminous rim lift around strokes
-    vec3 blastAura = mix(cPeriwinkle, vec3(0.96, 0.985, 1.0), 0.70);
-    sceneCol = mix(sceneCol, blastAura, clamp(wmHalo * 0.36 * (1.0 - wmStroke), 0.0, 0.42));
+    // Subtle extra-bright ice-blue luminous rim sheen right outside the dark ASCII letterforms
+    vec3 iceSheen = mix(vec3(1.0), C_ICE_BLUE, 0.36);
+    sceneCol = mix(sceneCol, iceSheen, clamp(wmHalo * 0.28 * (1.0 - smoothstep(0.24, 0.52, wmCov)), 0.0, 0.32));
 
-    // High-contrast dark obsidian/deep-purple ASCII glyphs carved directly into the white-hot core
-    vec3 darkGlyph = mix(cDeepPurple * 0.52, cObsidian, smoothstep(0.28, 0.80, wmStroke));
-    darkGlyph = mix(darkGlyph, cSpace * 0.9, wmCaret * 0.35);
+    if (isWordmarkCell) {
+      // Core 'T' strokes: pure #000000 ink; feathered edge glyphs: crisp deep obsidian-violet ink
+      vec3 edgeInk = mix(C_DEEP_VOID, C_OBSIDIAN, 0.62);
+      vec3 coreInk = vec3(0.0, 0.0, 0.0);
+      vec3 glyphInk = mix(edgeInk, coreInk, smoothstep(0.36, 0.60, wmCov));
+      // Subtle cool tint on caret '^' outer edge
+      glyphInk = mix(glyphInk, C_DEEP_VOID * 1.1, wmCaret * 0.22 * (1.0 - smoothstep(0.48, 0.70, wmCov)));
 
-    // Subtle recessed stroke interior + crisp dark ASCII glyphs (preserves airy inter-letter separation)
-    vec3 carvedFill = mix(sceneCol, mix(cSpace, cObsidian, 0.45), wmStroke * 0.36);
-    float carveAlpha = clamp(cov * smoothstep(0.22, 0.60, wmStroke), 0.0, 1.0);
-    sceneCol = mix(carvedFill, darkGlyph, carveAlpha * 0.98);
+      // Composite ONLY the ASCII glyph strokes themselves (cov) — zero flat slab behind them!
+      float strokeStrength = smoothstep(0.20, 0.46, wmCov);
+      float glyphAlpha = clamp(cov * mix(0.84, 1.0, strokeStrength), 0.0, 1.0);
+      sceneCol = mix(sceneCol, glyphInk, glyphAlpha);
+    }
   }
 
   float outAlpha = clamp(max(alpha, introOpaque), 0.0, 1.0);
-  float coronaGlyphAlpha = cov * smoothstep(0.12, 0.42, shapedEnergy) * smoothstep(0.03, 0.24, alpha);
+  float coronaGlyphAlpha = cov * smoothstep(0.10, 0.38, shapedEnergy) * smoothstep(0.02, 0.20, alpha) * (1.0 - isPureCore);
   outAlpha = clamp(max(outAlpha, coronaGlyphAlpha), 0.0, 1.0);
 
   o = vec4(clamp(sceneCol, 0.0, 1.0) * outAlpha, outAlpha);
 }`;
 
-/** Pass 4: Separable Gaussian bloom thresholded strictly above obsidian #040206 ground */
+/** Pass 4: Separable 5-tap linear-sampled Gaussian bloom thresholded above #040206 obsidian */
 const FS_BLUR = `#version 300 es
 precision highp float;
 in vec2 vUv;
@@ -496,10 +678,10 @@ void main() {
 }`;
 
 /**
- * Pass 5: 2-tier thresholded additive Gaussian bloom composite with premultiplied alpha.
- * - Inside the pure `#000000` event horizon (`alpha = 1.0`): cleanly occludes scrolling copy.
- * - Outside the rim (`alpha -> 0.0`): pure additive purple/ice optical glow over `#040206` space.
- * - Tightly attenuates bloom inside the `500`-weight `T^minus` carve strokes during supernova peak.
+ * Pass 5: Final Premultiplied Alpha Composite
+ * - Supports 2-tier bloom (desktop) and 1-tier bloom (mobile / adaptive budget).
+ * - Samples uWordmarkMask strictly on quantized ASCII cell coordinates matching FS_GLYPH
+ *   so there is ZERO stair-stepped per-pixel overhanging outline.
  */
 const FS_COMP = `#version 300 es
 precision highp float;
@@ -509,15 +691,37 @@ uniform sampler2D uBase;
 uniform sampler2D uBloom1;
 uniform sampler2D uBloom2;
 uniform sampler2D uWordmarkMask;
+uniform vec2  uGrid;
+uniform float uUseBloom2;
 uniform float uWordmarkCarve;
 uniform float uGlow;
+
 void main() {
   vec4 base = texture(uBase, vUv);
-  vec3 bloom = texture(uBloom1, vUv).rgb * 0.58 + texture(uBloom2, vUv).rgb * 0.42;
-  float wmMask = smoothstep(0.30, 0.68, texture(uWordmarkMask, vUv).r) * uWordmarkCarve;
-  float bloomAtten = 1.0 - wmMask * 0.92;
-  vec3 col = base.rgb + bloom * uGlow * bloomAtten;
-  o = vec4(clamp(col, 0.0, 1.0), clamp(base.a, 0.0, 1.0));
+  vec3 b1 = texture(uBloom1, vUv).rgb;
+  vec3 bloom = (uUseBloom2 > 0.5)
+    ? (b1 * 0.58 + texture(uBloom2, vUv).rgb * 0.42)
+    : b1;
+
+  float bloomAtten = 1.0;
+  if (uWordmarkCarve > 0.001) {
+    // Exact 4-tap cell-quantized mask match with FS_GLYPH -> zero per-pixel overhang & zero bloom washout over ASCII T^minus
+    vec2 cellUv = (floor(vUv * uGrid) + 0.5) / uGrid;
+    vec2 subOff = 0.24 / uGrid;
+    float wmCell = (
+      texture(uWordmarkMask, cellUv + vec2(-subOff.x, -subOff.y)).r +
+      texture(uWordmarkMask, cellUv + vec2( subOff.x, -subOff.y)).r +
+      texture(uWordmarkMask, cellUv + vec2(-subOff.x,  subOff.y)).r +
+      texture(uWordmarkMask, cellUv + vec2( subOff.x,  subOff.y)).r
+    ) * 0.25 * uWordmarkCarve;
+    bloomAtten = 1.0 - smoothstep(0.16, 0.30, wmCell) * 0.96;
+  }
+
+  // Keep open space above the settled horizon strictly transparent (zero bloom veil over hero CTA)
+  float bloomAlphaGate = smoothstep(0.01, 0.14, base.a);
+  vec3 col = base.rgb + bloom * uGlow * bloomAtten * mix(bloomAlphaGate, 1.0, 0.35);
+  float finalA = clamp(max(base.a, dot(bloom * uGlow * bloomAtten, vec3(0.2126, 0.7152, 0.0722)) * 0.42 * bloomAlphaGate), 0.0, 1.0);
+  o = vec4(clamp(col, 0.0, 1.0), finalA);
 }`;
 
 interface GLProgramBundle {
@@ -530,6 +734,12 @@ interface RenderTarget {
   fb: WebGLFramebuffer;
   w: number;
   h: number;
+}
+
+interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
 }
 
 function compileShader(
@@ -624,8 +834,8 @@ function freeRT(gl: WebGL2RenderingContext, rt: RenderTarget | null) {
 
 /**
  * 2-row high-resolution WebGL2 glyph atlas strictly containing ` ^-t+=T*`:
- * - Row 0 (top): crisp `500` medium weight for the live black hole accretion field
- * - Row 1 (bottom): refined `550` medium weight for the clean explosion `T^minus` carve
+ * - Row 0 (top): crisp `500` medium weight for the live 3D black hole accretion field
+ * - Row 1 (bottom): refined `550` medium weight for the pure-ASCII `T^minus` explosion
  */
 function buildGlyphAtlas(gl: WebGL2RenderingContext): WebGLTexture {
   const cellW = 72;
@@ -647,8 +857,8 @@ function buildGlyphAtlas(gl: WebGL2RenderingContext): WebGLTexture {
     ctx.fillText(ASCII_RAMP[i], (i + 0.5) * cellW, cellH * 0.52);
   }
 
-  // Row 1: refined 550 medium weight (crisp legibility without chunky bold bleed)
-  ctx.font = `550 ${Math.round(cellH * 0.74)}px "Geist Mono", "SF Mono", ui-monospace, Menlo, monospace`;
+  // Row 1: bold 700 weight for razor-legible pure-ASCII supernova T^minus (zero flat fill needed)
+  ctx.font = `700 ${Math.round(cellH * 0.86)}px "Geist Mono", "SF Mono", ui-monospace, Menlo, monospace`;
   for (let i = 0; i < ASCII_RAMP.length; i++) {
     ctx.fillText(ASCII_RAMP[i], (i + 0.5) * cellW, cellH * 1.52);
   }
@@ -705,12 +915,107 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
   return t * t * (3 - 2 * t);
 }
 
-function easeInOutCubic(t: number): number {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+function easeInOutQuint(t: number): number {
+  return t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2;
 }
 
 function mixNum(a: number, b: number, t: number): number {
   return a + (b - a) * t;
+}
+
+function degToRad(d: number): number {
+  return (d * Math.PI) / 180;
+}
+
+/**
+ * Exact 3D ray impact parameter b for a screen point (ndcX, ndcY) used to solve
+ * exact screen Y bounds of the top-pinned dome rim for the Layer 20 curved veil.
+ */
+function rayImpactParam(
+  camPos: Vec3,
+  camRight: Vec3,
+  camUp: Vec3,
+  camFwd: Vec3,
+  aspect: number,
+  tanHalfFov: number,
+  ndcX: number,
+  ndcY: number
+): number {
+  const rx =
+    camFwd.x +
+    ndcX * aspect * tanHalfFov * camRight.x +
+    ndcY * tanHalfFov * camUp.x;
+  const ry =
+    camFwd.y +
+    ndcX * aspect * tanHalfFov * camRight.y +
+    ndcY * tanHalfFov * camUp.y;
+  const rz =
+    camFwd.z +
+    ndcX * aspect * tanHalfFov * camRight.z +
+    ndcY * tanHalfFov * camUp.z;
+  const invLen = 1 / Math.max(1e-6, Math.hypot(rx, ry, rz));
+  const rdx = rx * invLen;
+  const rdy = ry * invLen;
+  const rdz = rz * invLen;
+  const tc = -(camPos.x * rdx + camPos.y * rdy + camPos.z * rdz);
+  if (tc <= 0) return 99;
+  const cx = camPos.x + tc * rdx;
+  const cy = camPos.y + tc * rdy;
+  const cz = camPos.z + tc * rdz;
+  return Math.hypot(cx, cy, cz);
+}
+
+/**
+ * Find the exact CSS screen Y (px from top) where the lower rim of the top-pinned
+ * black hole (impact parameter = targetR) crosses horizontal coordinate `ndcX`.
+ */
+function solveTopDomeRimY(
+  camPos: Vec3,
+  camRight: Vec3,
+  camUp: Vec3,
+  camFwd: Vec3,
+  aspect: number,
+  tanHalfFov: number,
+  cssH: number,
+  ndcX: number,
+  targetR: number
+): number {
+  // Top of viewport is ndcY = +1 (inside dome, small b); lower down is smaller ndcY (larger b)
+  let hi = 1.0; // inside or closer to dome center
+  let lo = -0.35; // clearly below the top dome
+  const bTop = rayImpactParam(
+    camPos,
+    camRight,
+    camUp,
+    camFwd,
+    aspect,
+    tanHalfFov,
+    ndcX,
+    hi
+  );
+  if (bTop >= targetR) {
+    return 0;
+  }
+  for (let i = 0; i < 12; i++) {
+    const mid = 0.5 * (lo + hi);
+    const b = rayImpactParam(
+      camPos,
+      camRight,
+      camUp,
+      camFwd,
+      aspect,
+      tanHalfFov,
+      ndcX,
+      mid
+    );
+    if (b < targetR) {
+      hi = mid;
+    } else {
+      lo = mid;
+    }
+  }
+  const ndcRim = 0.5 * (lo + hi);
+  return (0.5 - 0.5 * ndcRim) * cssH;
 }
 
 interface StarSpec {
@@ -721,7 +1026,6 @@ interface StarSpec {
   speed: number;
   size: number;
   tint: "periwinkle" | "accent" | "ice";
-  /** Normalized radial distance from bottom horizon crest for organic settle bloom */
   crestDist: number;
 }
 
@@ -758,40 +1062,49 @@ function createStarfield(count: number): StarSpec[] {
 export function AsciiBlackholeCanvas({
   onHeroReveal,
   onHorizonSync,
+  runwayRef,
   skipIntro = false,
 }: AsciiBlackholeCanvasProps) {
   const starCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const glCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
   const onRevealRef = useRef(onHeroReveal);
   const onSyncRef = useRef(onHorizonSync);
+  const runwayRefLatest = useRef(runwayRef);
 
   useEffect(() => {
     onRevealRef.current = onHeroReveal;
     onSyncRef.current = onHorizonSync;
-  }, [onHeroReveal, onHorizonSync]);
+    runwayRefLatest.current = runwayRef;
+  }, [onHeroReveal, onHorizonSync, runwayRef]);
 
   useEffect(() => {
     const glCanvas = glCanvasRef.current;
     const starCanvas = starCanvasRef.current;
-    const video = videoRef.current;
-    if (!glCanvas || !starCanvas || !video) return;
+    if (!glCanvas || !starCanvas) return;
 
     const reducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const startSettled = skipIntro || reducedMotion;
+    let qsSkipIntro = false;
+    try {
+      qsSkipIntro =
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("skipIntro") === "1";
+    } catch {
+      // ignore
+    }
+    const startSettled = skipIntro || qsSkipIntro || reducedMotion;
 
     let heroRevealed = startSettled;
     if (startSettled) {
       onRevealRef.current(true);
     }
 
-    // ---- Layer 0: Obsidian Cosmic Starfield + Global Viewport Cursor `T`-Glyph Field ----
+    // ---- Layer 0: Obsidian Cosmic Starfield + Global Viewport Cursor Glyph Aura ----
     const starCtx = starCanvas.getContext("2d");
-    const stars = createStarfield(112);
+    const stars = createStarfield(108);
 
-    // ---- Layer 30: Single Persistent WebGL2 Black Hole (`alpha: true`, premultiplied) ----
+    // ---- Layer 30: Single Persistent WebGL2 Procedural 3D Black Hole ----
     const gl = glCanvas.getContext("webgl2", {
       alpha: true,
       antialias: false,
@@ -807,7 +1120,7 @@ export function AsciiBlackholeCanvas({
       return;
     }
 
-    const pColor = linkProgram(gl, FS_COLOR);
+    const pScene = linkProgram(gl, FS_SCENE);
     const pCell = linkProgram(gl, FS_CELL);
     const pGlyph = linkProgram(gl, FS_GLYPH);
     const pBlur = linkProgram(gl, FS_BLUR);
@@ -818,24 +1131,6 @@ export function AsciiBlackholeCanvas({
 
     const atlasTex = buildGlyphAtlas(gl);
 
-    const videoTex = gl.createTexture()!;
-    gl.bindTexture(gl.TEXTURE_2D, videoTex);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      1,
-      1,
-      0,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      new Uint8Array([4, 2, 6, 255])
-    );
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
     let wordmarkTex: WebGLTexture | null = null;
     let lastMaskCssW = 0;
     let lastMaskCssH = 0;
@@ -844,10 +1139,12 @@ export function AsciiBlackholeCanvas({
     let ch = 0;
     let cssWGlobal = 1440;
     let cssHGlobal = 900;
-    let dprGlobal = 2;
+    let dprGlobal = 1.75;
     let cols = 160;
     let rows = 80;
-    let rtBg: RenderTarget | null = null;
+    let adaptiveDegraded = false;
+    let lastSceneScale = 0.5;
+    let rtScene: RenderTarget | null = null;
     let rtCell: RenderTarget | null = null;
     let rtGlyph: RenderTarget | null = null;
     let rtB1A: RenderTarget | null = null;
@@ -859,10 +1156,12 @@ export function AsciiBlackholeCanvas({
       const rect = glCanvas.getBoundingClientRect();
       const cssW = Math.max(1, Math.round(rect.width));
       const cssH = Math.max(1, Math.round(rect.height));
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const isMobile = cssW < 768;
+      // Strict laptop/mobile DPR budget: 1.75 desktop / 1.5 mobile
+      const dprCap = isMobile ? 1.5 : 1.75;
+      const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
       const nw = Math.max(2, Math.round(cssW * dpr));
       const nh = Math.max(2, Math.round(cssH * dpr));
-      const isMobile = cssW < 768;
 
       cssWGlobal = cssW;
       cssHGlobal = cssH;
@@ -873,11 +1172,13 @@ export function AsciiBlackholeCanvas({
         starCanvas.height = nh;
       }
 
-      // High-density ASCII grid for ultra-crisp fine-grain lensing arch & clean 500-weight explosion carve
-      const cellCss = isMobile ? 4.0 : 4.8;
+      // Crisp high-density ASCII grid (~280x100 desktop / ~92x112 mobile)
+      const cellCss = isMobile ? 4.2 : 5.0;
       const cellPx = Math.max(3, cellCss * dpr);
-      const nCols = Math.max(44, Math.floor(nw / cellPx));
-      const nRows = Math.max(26, Math.floor(nh / (cellPx * 1.76)));
+      const nCols = Math.max(48, Math.floor(nw / cellPx));
+      const nRows = Math.max(28, Math.floor(nh / (cellPx * 1.72)));
+
+      const sceneScale = adaptiveDegraded ? 0.38 : isMobile ? 0.45 : 0.5;
 
       if (
         Math.abs(cssW - lastMaskCssW) > 16 ||
@@ -889,7 +1190,14 @@ export function AsciiBlackholeCanvas({
         wordmarkTex = buildWordmarkMaskTexture(gl, wordmarkTex, cssW, cssH);
       }
 
-      if (nw === cw && nh === ch && nCols === cols && nRows === rows && rtBg) {
+      if (
+        nw === cw &&
+        nh === ch &&
+        nCols === cols &&
+        nRows === rows &&
+        sceneScale === lastSceneScale &&
+        rtScene
+      ) {
         return;
       }
 
@@ -897,10 +1205,11 @@ export function AsciiBlackholeCanvas({
       ch = nh;
       cols = nCols;
       rows = nRows;
+      lastSceneScale = sceneScale;
       glCanvas.width = cw;
       glCanvas.height = ch;
 
-      freeRT(gl, rtBg);
+      freeRT(gl, rtScene);
       freeRT(gl, rtCell);
       freeRT(gl, rtGlyph);
       freeRT(gl, rtB1A);
@@ -908,14 +1217,14 @@ export function AsciiBlackholeCanvas({
       freeRT(gl, rtB2A);
       freeRT(gl, rtB2B);
 
-      const bgW = Math.max(64, Math.round(cw * 0.5));
-      const bgH = Math.max(64, Math.round(ch * 0.5));
+      const bgW = Math.max(64, Math.round(cw * sceneScale));
+      const bgH = Math.max(64, Math.round(ch * sceneScale));
       const b1W = Math.max(32, Math.round(cw * 0.25));
       const b1H = Math.max(32, Math.round(ch * 0.25));
       const b2W = Math.max(16, Math.round(cw * 0.125));
       const b2H = Math.max(16, Math.round(ch * 0.125));
 
-      rtBg = createRT(gl, bgW, bgH, gl.LINEAR);
+      rtScene = createRT(gl, bgW, bgH, gl.LINEAR);
       rtCell = createRT(gl, cols, rows, gl.NEAREST);
       rtGlyph = createRT(gl, cw, ch, gl.LINEAR);
       rtB1A = createRT(gl, b1W, b1H, gl.LINEAR);
@@ -924,7 +1233,6 @@ export function AsciiBlackholeCanvas({
       rtB2B = createRT(gl, b2W, b2H, gl.LINEAR);
     };
 
-    // Rebuild wordmark mask once Newsreader webfont finishes loading so serif T is exact
     if (typeof document !== "undefined" && document.fonts?.ready) {
       document.fonts.ready
         .then(() => {
@@ -961,7 +1269,7 @@ export function AsciiBlackholeCanvas({
       }
     };
 
-    // Damped global pointer tracking (drives both viewport-wide `T`-glyph field & subtle lensing ripple)
+    // Damped pointer tracking (disabled on touch devices)
     let pointerTargetX = 0.5;
     let pointerTargetY = 0.5;
     let pointerX = 0.5;
@@ -983,47 +1291,27 @@ export function AsciiBlackholeCanvas({
       passive: true,
     });
 
-    const tryPlay = () => {
-      if (video.readyState >= 1) {
-        try {
-          video.currentTime = startSettled ? VIDEO_LOOP_START_SEC + 0.45 : 0;
-          video.playbackRate = startSettled ? 0.82 : 0.72;
-        } catch {
-          // ignore
-        }
-      }
-      video.play().catch(() => {});
-    };
-    video.addEventListener("loadedmetadata", tryPlay);
-    tryPlay();
-
-    const resumePlay = () => {
-      if (video.paused) {
-        video.play().catch(() => {});
-      }
-    };
-    window.addEventListener("pointerdown", resumePlay, { passive: true });
-    window.addEventListener("wheel", resumePlay, { passive: true });
-    window.addEventListener("touchstart", resumePlay, { passive: true });
-
-    let introElapsed = startSettled ? 12.0 : 0.0;
+    let introElapsed = startSettled ? INTRO_TOTAL_SEC : 0.0;
     let smoothedPin = 0.0;
-    let lastVideoTime = -1;
     let lastTs = performance.now();
     let lastBgDraw = 0;
     let rafId = 0;
 
-    // Optional deterministic QA pin: ?introAt=6.6
+    // Rolling 30-frame EMA adaptive performance governor
+    let dtEma = 0.0166;
+    let overBudgetSec = 0;
+
+    // Optional deterministic QA pin: ?introAt=1.8 | 4.2 | 5.8
     let pinnedIntroAt: number | null = null;
     try {
       const qs = new URLSearchParams(window.location.search);
       const rawPin = qs.get("introAt");
       if (rawPin !== null) {
         const parsed = Number(rawPin);
-        if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 14) {
+        if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 10) {
           pinnedIntroAt = parsed;
           introElapsed = parsed;
-          if (parsed >= 9.2) {
+          if (parsed >= HERO_REVEAL_SEC) {
             heroRevealed = true;
             onRevealRef.current(true);
           }
@@ -1033,22 +1321,16 @@ export function AsciiBlackholeCanvas({
       // ignore
     }
 
-    /**
-     * Layer 0 Renderer:
-     * 1) Restrained obsidian atmosphere glow strictly hugging the black hole horizon side
-     * 2) Sparse `* + ^ -` cosmic starfield that blooms radially outward as the black hole settles
-     * 3) Global Cursor `T`-Glyph Field across the entire viewport (subtle circular aura with
-     *    shimmer & micro-scale, capped at restrained opacity so it never interferes with copy/cursor)
-     */
     const drawBackgroundField = (tSec: number, pin: number, settle: number) => {
       if (!starCtx || cssWGlobal <= 1 || cssHGlobal <= 1) return;
       const dpr = dprGlobal;
       starCtx.setTransform(1, 0, 0, 1, 0, 0);
       starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
 
-      // 1) Very restrained deep-purple horizon atmosphere whisper on pure #040206 obsidian
+      // Restrained deep-purple horizon atmosphere whisper on #040206 obsidian
       const glowY = cssHGlobal * mixNum(0.84, 0.14, pin) * dpr;
-      const glowRad = Math.max(cssWGlobal, cssHGlobal) * mixNum(0.36, 0.24, pin) * dpr;
+      const glowRad =
+        Math.max(cssWGlobal, cssHGlobal) * mixNum(0.34, 0.22, pin) * dpr;
       const grad = starCtx.createRadialGradient(
         cssWGlobal * 0.5 * dpr,
         glowY,
@@ -1057,8 +1339,14 @@ export function AsciiBlackholeCanvas({
         glowY,
         glowRad
       );
-      grad.addColorStop(0, `rgba(78, 20, 140, ${(mixNum(0.11, 0.06, pin) * settle).toFixed(3)})`);
-      grad.addColorStop(0.5, `rgba(44, 7, 53, ${(mixNum(0.04, 0.02, pin) * settle).toFixed(3)})`);
+      grad.addColorStop(
+        0,
+        `rgba(78, 20, 140, ${(mixNum(0.11, 0.055, pin) * settle).toFixed(3)})`
+      );
+      grad.addColorStop(
+        0.5,
+        `rgba(44, 7, 53, ${(mixNum(0.04, 0.02, pin) * settle).toFixed(3)})`
+      );
       grad.addColorStop(1, "rgba(4, 2, 6, 0)");
       starCtx.fillStyle = grad;
       starCtx.fillRect(0, 0, starCanvas.width, starCanvas.height);
@@ -1069,8 +1357,8 @@ export function AsciiBlackholeCanvas({
       const ptrCssX = pointerX * cssWGlobal;
       const ptrCssY = (1 - pointerY) * cssHGlobal;
 
-      // 2) Sparse cosmic ASCII starfield (`* + ^ -`) emerging radially outward on settle
-      const starWave = smoothstep(0.54, 1.0, settle);
+      // Sparse cosmic ASCII starfield (`* + ^ -`) emerging radially outward on settle
+      const starWave = smoothstep(0.5, 1.0, settle);
       if (starWave > 0.005) {
         const calmBelowFold = mixNum(1.0, 0.65, pin);
         for (let i = 0; i < stars.length; i++) {
@@ -1086,7 +1374,7 @@ export function AsciiBlackholeCanvas({
           const sy = Math.round(st.ny * cssHGlobal * dpr);
           const twinkle = 0.42 + 0.58 * Math.sin(tSec * st.speed + st.phase);
           const alpha = clamp01(
-            (0.14 + 0.30 * twinkle) * calmBelowFold * localAppear
+            (0.14 + 0.3 * twinkle) * calmBelowFold * localAppear
           );
 
           starCtx.font = `500 ${Math.round(st.size * dpr)}px "Geist Mono", "SF Mono", ui-monospace, Menlo, monospace`;
@@ -1101,7 +1389,7 @@ export function AsciiBlackholeCanvas({
         }
       }
 
-      // 3) Tighter Dynamic Multi-Glyph Cursor Aura (`^ - t + = T *`) across the entire viewport
+      // Dynamic Multi-Glyph Cursor Aura (`^ - t + = T *`) on desktop pointer
       if (!reducedMotion && pointerActive > 0.01 && settle > 0.65) {
         const cursorGlyphs = ["^", "-", "t", "+", "=", "T", "*"];
         const gridCss = 17;
@@ -1134,10 +1422,9 @@ export function AsciiBlackholeCanvas({
             const falloff = Math.pow(norm, 1.85);
             const shimmer =
               0.76 + 0.24 * Math.sin(tSec * 2.4 + col * 0.65 + row * 0.48);
-            const alpha = Math.min(0.3, falloff * shimmer * fieldFade * 0.34);
+            const alpha = Math.min(0.28, falloff * shimmer * fieldFade * 0.32);
             if (alpha < 0.01) continue;
 
-            // Deterministic spatio-temporal cycle across the full brand glyph set (^ - t + = T *)
             const cellSeed = (col * 17 + row * 31) & 63;
             const cyclePos =
               tSec * 2.3 + cellSeed * 0.37 - (dist / radiusCss) * 2.2;
@@ -1150,7 +1437,6 @@ export function AsciiBlackholeCanvas({
             const fontPx = Math.round((8.5 + 2.5 * falloff * shimmer) * dpr);
             starCtx.font = `500 ${fontPx}px "Geist Mono", "SF Mono", ui-monospace, Menlo, monospace`;
 
-            // #858AE3 periwinkle body + selective #97DFFC ice-blue inner glints + #613DC1 outer rim
             const glint = Math.sin(tSec * 3.1 + col * 1.13 + row * 0.87);
             starCtx.fillStyle =
               dist < 36 || (dist < 62 && glint > 0.65)
@@ -1178,8 +1464,20 @@ export function AsciiBlackholeCanvas({
         return;
       }
 
-      const dt = Math.min(0.05, Math.max(0.001, (ts - lastTs) * 0.001));
+      const rawDt = Math.max(0.001, (ts - lastTs) * 0.001);
+      const dt = Math.min(0.05, rawDt);
       lastTs = ts;
+
+      // Adaptive performance governor (30-frame rolling EMA)
+      dtEma = dtEma * 0.935 + Math.min(rawDt, 0.1) * 0.065;
+      if (!adaptiveDegraded && dtEma > 0.02) {
+        overBudgetSec += dt;
+        if (overBudgetSec > 1.5) {
+          adaptiveDegraded = true;
+        }
+      } else {
+        overBudgetSec = Math.max(0, overBudgetSec - dt * 0.5);
+      }
 
       // Silky damped pointer motion
       const pLerp = Math.min(1, dt * 8.5);
@@ -1188,223 +1486,335 @@ export function AsciiBlackholeCanvas({
       pointerActive +=
         (pointerActiveTarget - pointerActive) * Math.min(1, dt * 5.2);
 
-      // Scroll progress: 0 = bottom horizon, 1 = top-pinned inverted event horizon
-      const scrollSpan = Math.max(280, window.innerHeight * 0.84);
-      const rawPin = clamp01(window.scrollY / scrollSpan);
-      smoothedPin += (rawPin - smoothedPin) * Math.min(1, dt * 11.0);
-      if (Math.abs(rawPin - smoothedPin) < 0.0005) {
+      // Exact native CSS sticky scroll runway progress: s in [0, 1]
+      let rawPin = 0;
+      const runwayEl = runwayRefLatest.current?.current;
+      if (runwayEl) {
+        const rect = runwayEl.getBoundingClientRect();
+        const scrollable = Math.max(1, rect.height - window.innerHeight);
+        rawPin = clamp01(-rect.top / scrollable);
+      } else {
+        const fallbackSpan = Math.max(420, window.innerHeight * 2.0);
+        rawPin = clamp01(window.scrollY / fallbackSpan);
+      }
+
+      smoothedPin += (rawPin - smoothedPin) * Math.min(1, dt * 12.0);
+      if (Math.abs(rawPin - smoothedPin) < 0.0004) {
         smoothedPin = rawPin;
       }
 
-      // Intro clock progression (scrolling skips/accelerates intro cleanly)
+      // Intro clock progression (early scrolling smoothly accelerates intro)
       if (pinnedIntroAt !== null) {
         introElapsed = pinnedIntroAt;
-      } else if (introElapsed < 12.0) {
-        const scrollBoost = window.scrollY > 24 ? 5.5 : 1.0;
-        introElapsed = Math.min(12.0, introElapsed + dt * scrollBoost);
+      } else if (introElapsed < INTRO_TOTAL_SEC) {
+        const scrollBoost = window.scrollY > 24 ? 5.2 : 1.0;
+        introElapsed = Math.min(INTRO_TOTAL_SEC, introElapsed + dt * scrollBoost);
       }
 
-      // Trigger organic ASCII materialization as the camera settles into the bottom horizon
-      if (!heroRevealed && introElapsed >= 9.2) {
+      if (!heroRevealed && introElapsed >= HERO_REVEAL_SEC) {
         heroRevealed = true;
         onRevealRef.current(true);
       }
 
-      // Synchronize master_blackhole_boomerang.mp4 to continuous choreography
-      if (video.readyState >= 2) {
-        const vTime = video.currentTime || 0;
-
-        if (pinnedIntroAt !== null) {
-          let targetVideoT = VIDEO_LOOP_START_SEC + 0.5;
-          if (pinnedIntroAt < 5.2) {
-            targetVideoT = (pinnedIntroAt / 5.2) * 4.25;
-          } else if (pinnedIntroAt < 7.8) {
-            targetVideoT = 4.25 + ((pinnedIntroAt - 5.2) / 2.6) * 1.45;
-          } else if (pinnedIntroAt < 12.0) {
-            targetVideoT = 5.7 + ((pinnedIntroAt - 7.8) / 4.2) * 7.35;
-          }
-          if (Math.abs(vTime - targetVideoT) > 0.25) {
-            try {
-              video.currentTime = targetVideoT;
-            } catch {
-              // ignore
-            }
-          }
-        } else if (introElapsed < 12.0) {
-          let targetRate = 0.72;
-          if (introElapsed < 5.2) {
-            targetRate = 0.8;
-          } else if (introElapsed < 7.8) {
-            targetRate = 0.62;
-          } else {
-            targetRate = 1.78;
-          }
-          if (Math.abs(video.playbackRate - targetRate) > 0.06) {
-            video.playbackRate = targetRate;
-          }
-        } else {
-          if (Math.abs(video.playbackRate - 0.82) > 0.05) {
-            video.playbackRate = 0.82;
-          }
-          if (vTime >= VIDEO_TOTAL_SEC - 0.08) {
-            try {
-              video.currentTime = VIDEO_LOOP_START_SEC + 0.04;
-            } catch {
-              // ignore
-            }
-          }
-        }
-
-        if (vTime !== lastVideoTime) {
-          lastVideoTime = vTime;
-          gl.bindTexture(gl.TEXTURE_2D, videoTex);
-          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-          gl.texImage2D(
-            gl.TEXTURE_2D,
-            0,
-            gl.RGBA,
-            gl.RGBA,
-            gl.UNSIGNED_BYTE,
-            video
-          );
-          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-        }
-      }
-
       syncBuffers();
-      if (!rtBg || !rtCell || !rtGlyph || !rtB1A || !rtB1B || !rtB2A || !rtB2B) {
+      if (
+        !rtScene ||
+        !rtCell ||
+        !rtGlyph ||
+        !rtB1A ||
+        !rtB1B ||
+        !rtB2A ||
+        !rtB2B
+      ) {
         return;
       }
 
-      const tSec = ts * 0.001;
+      const tSec = pinnedIntroAt !== null ? pinnedIntroAt : ts * 0.001;
       const isMobile = cssWGlobal < 768;
       const viewAsp = cw / Math.max(1, ch);
-      const videoAsp =
-        video.videoWidth > 0 && video.videoHeight > 0
-          ? video.videoWidth / video.videoHeight
-          : 16 / 9;
+      const tanHalfFov = Math.tan(degToRad(23)); // 46 deg vertical FOV
 
-      // ---- 1) Peak white-hot supernova & refined 500-weight dark ASCII T^minus carve ----
+      // =====================================================================
+      // 1) STAGE A -> B -> C TIMING & SUPERNOVA ENVELOPES (Approved 7.25s)
+      // =====================================================================
+      // Stage A (0.00s -> 3.60s): Cosmic Opening (tilted 3/4 + helical polar jets)
+      const stageAProg = clamp01(introElapsed / 3.6);
+
+      // Stage B (3.60s -> 4.95s, 1.35s total):
+      //   0.30s rapid surge (3.60 -> 3.90) -> ~0.78s pure-white/ice-blue blast & T^minus -> 0.27s radial snap
+      const charge =
+        smoothstep(3.55, 3.88, introElapsed) *
+        (1.0 - smoothstep(3.9, 4.14, introElapsed));
       const blastPeak =
-        smoothstep(5.1, 6.1, introElapsed) *
-        (1.0 - smoothstep(7.1, 8.2, introElapsed));
+        smoothstep(3.78, 4.02, introElapsed) *
+        (1.0 - smoothstep(4.64, 4.95, introElapsed));
+      const blastProgress = clamp01((introElapsed - 3.78) / (4.95 - 3.78));
       const wordmarkCarve =
-        smoothstep(5.45, 6.25, introElapsed) *
-        (1.0 - smoothstep(7.05, 7.95, introElapsed));
+        smoothstep(3.92, 4.08, introElapsed) *
+        (1.0 - smoothstep(4.56, 4.84, introElapsed));
 
-      // ---- 2) Single Continuous Black Hole Camera Curve ----
-      // Settle (7.8s -> 12.0s): continuous zoom + upward pitch directly into the real black hole
-      const settle = easeInOutCubic(clamp01((introElapsed - 7.8) / 4.2));
-      // Scroll (p: 0 -> 1): Option 1A constant planetary-scale upward sweep + orbital pitch/roll
-      const pEase = smoothstep(0.0, 1.0, smoothedPin);
+      // Stage C (4.85s -> 7.25s): Unbroken 3D Camera Sweep -> Settled Bottom Horizon
+      const settle = easeInOutQuint(clamp01((introElapsed - 4.85) / 2.4));
 
-      const BH_RX = 0.086;
-      const BH_RY = 0.104;
-      const baseScaleY = viewAsp < videoAsp ? 1.0 : videoAsp / viewAsp;
+      // Polar jets: vivid during 3.60s opening, surge at charge, recede cleanly before settled hero
+      const jetPower =
+        (1.0 + charge * 0.45) * (1.0 - smoothstep(4.45, 5.45, introElapsed));
 
-      // Approved Round 3 subtle mid-scroll plateau (p ~ 0.42-0.58):
-      // Zooms out mid-scroll into a true 1:1 spherical black hole in viewport center,
-      // then smoothly zooms back into the downward-curving top-pinned dome.
-      const midRise = smoothstep(0.1, 0.42, pEase);
-      const midFall = 1.0 - smoothstep(0.58, 0.9, pEase);
-      const midBell = midRise * midFall;
-
-      const bottomZoom = isMobile ? 3.25 : 4.65;
-      const topZoom = isMobile ? 3.25 : 4.55;
-      const midZoom = isMobile ? 1.62 : 2.55; // ~477px desktop / ~284px mobile true circular core
-      const horizonZoom = mixNum(bottomZoom, topZoom, pEase);
-      const scrollZoom = mixNum(horizonZoom, midZoom, midBell);
-
-      const bottomAnamo = isMobile ? 0.72 : 1.34;
-      const topAnamo = isMobile ? 0.72 : 1.44;
-      // Exact 1:1 circular aspect correction in screen pixels regardless of viewport ratio
-      const trueSphereAnamo = BH_RY / (BH_RX * videoAsp);
-      const horizonAnamo = mixNum(bottomAnamo, topAnamo, pEase);
-      const scrollAnamo = mixNum(horizonAnamo, trueSphereAnamo, midBell);
-
-      // Exact bottom-horizon & top-pinned dome depths
+      // =====================================================================
+      // 2) UNBROKEN 3D ORBITAL CAMERA TRAJECTORY (Intro -> Horizon -> Polar -> Top Dome)
+      // =====================================================================
+      // Solve exact bottom horizon and top dome distances & pitch angles for current viewport
       const bottomApex = isMobile ? 0.225 : 0.255; // ~230px desktop / ~190px mobile
-      const topApex = isMobile ? 0.155 : 0.148;    // ~133px desktop / ~131px mobile
+      const topApex = isMobile ? 0.155 : 0.152; // ~137px desktop / ~131px mobile
 
-      const hShadowBottom = (BH_RY * bottomZoom) / baseScaleY;
-      const hShadowTop = (BH_RY * topZoom) / baseScaleY;
+      const distBottom = isMobile ? 2.02 : 1.56;
+      const alphaBottom = Math.asin(1 / distBottom);
+      const topLimbAngleBottom = Math.atan(
+        (-1 + 2 * bottomApex) * tanHalfFov
+      );
+      const pitchBottom = alphaBottom - topLimbAngleBottom; // positive = camera tilts UP -> BH at bottom
 
-      const cyBottom = -hShadowBottom + bottomApex;
-      const cyTop = 1.0 + hShadowTop - topApex;
-      // Monotonic glide through viewport center during plateau (never reverses)
-      const linearCy = mixNum(cyBottom, cyTop, pEase);
-      const scrollCy = mixNum(linearCy, 0.5, midBell * 0.92);
+      const distTop = isMobile ? 2.12 : 1.58;
+      const alphaTop = Math.asin(1 / distTop);
+      const botLimbAngleTop = Math.atan((1 - 2 * topApex) * tanHalfFov);
+      const pitchTop = -(botLimbAngleTop + alphaTop); // negative = camera tilts DOWN -> BH at top
 
-      // Continuous camera parameters from Intro (settle = 0) -> Settled Scroll Orbit (settle = 1)
-      const camZoom = mixNum(1.0, scrollZoom, settle);
-      const camAnamorphicX = mixNum(1.0, scrollAnamo, settle);
-      const camCy = mixNum(0.515, scrollCy, settle);
-      // Zero perspective tilt during the central spherical plateau for true radial symmetry
-      const camTilt = mixNum(0.0, mixNum(0.26, -0.26, pEase) * (1.0 - midBell), settle);
-      // Continuous orbital roll (0 -> PI) as the camera sweeps from top limb to bottom limb
-      const camRoll = pEase * Math.PI * settle;
+      // Responsive polar top-down distance so #000000 shadow fits countdown cleanly on desktop AND mobile
+      const targetPolarRadiusPx = isMobile
+        ? Math.min(cssWGlobal * 0.355, cssHGlobal * 0.175)
+        : Math.min(cssWGlobal * 0.165, cssHGlobal * 0.258);
+      const polarTanAlpha =
+        (targetPolarRadiusPx / (cssHGlobal * 0.5)) * tanHalfFov;
+      const polarAlpha = Math.atan(Math.max(0.08, polarTanAlpha));
+      const distPolarClamped = Math.max(3.9, Math.min(8.2, 1 / Math.sin(polarAlpha)));
 
-      // Pixel-locked HorizonCountdown traveling in the exact center of the black hole:
-      // Bottom horizon (1.0x) -> expanding inside central sphere (1.24x desktop / 1.12x mobile)
-      // -> scaling back cleanly inside the pure #000000 top-pinned dome (0.72x / 0.70x)
-      const bottomCountdownY = cssHGlobal * (1.0 - bottomApex * 0.47);
-      const topCountdownY = isMobile ? 64 : 54;
-      const coreScreenY = cssHGlobal * (1.0 - camCy);
-      const cdBaseY = mixNum(bottomCountdownY, topCountdownY, pEase);
-      const countdownCenterY = mixNum(cdBaseY, coreScreenY, midBell);
-      const baseCdScale = mixNum(1.0, isMobile ? 0.7 : 0.72, pEase);
-      const midCdScale = isMobile ? 1.12 : 1.24;
-      const countdownScale = mixNum(baseCdScale, midCdScale, midBell);
+      // ---- Three Scroll Segments across s in [0, 1] ----
+      // 1) Lift-Off (0.00 -> 0.28): Bottom Horizon -> Top-Down Polar
+      // 2) Polar Top-Down Dwell Plateau (0.28 -> 0.66): Locked elev=88 deg with subtle live scroll-coupled spin
+      // 3) Sweep to Top-Pinned Dome (0.66 -> 1.00): Polar -> Inverted Top Dome
+      const s = smoothedPin;
+      const segLift = smoothstep(0.0, 0.28, s);
+      const segPlateau = clamp01((s - 0.28) / (0.66 - 0.28));
+      const segDock = smoothstep(0.66, 1.0, s);
+
+      // Polar dwell factor (0 at horizons, 1 across s: 0.28..0.66)
+      const polarFactor =
+        smoothstep(0.14, 0.30, s) * (1.0 - smoothstep(0.64, 0.84, s)) * settle;
+
+      // Elevation angle along meridian (26 deg bottom -> 88 deg polar -> 154 deg top dome)
+      const scrollElevDeg =
+        mixNum(26, 88, segLift) + (154 - 88) * segDock;
+      // Slight gentle zoom-in across the polar plateau so it feels alive while dwelling
+      const plateauDist = mixNum(distPolarClamped, distPolarClamped * 0.94, segPlateau);
+      const scrollDist =
+        segDock > 0
+          ? mixNum(plateauDist, distTop, segDock)
+          : mixNum(distBottom, plateauDist, segLift);
+
+      const scrollPitch =
+        segDock > 0
+          ? mixNum(0, pitchTop, segDock)
+          : mixNum(pitchBottom, 0, segLift);
+
+      // Gentle azimuthal orbit during polar plateau (scroll-coupled spin)
+      const scrollAzim =
+        segLift * degToRad(12) +
+        segPlateau * degToRad(42) +
+        segDock * degToRad(16);
+
+      // Intro Stage A -> B camera values (centered tilted 3/4 view + classic -22 deg bank)
+      const introDistBase = isMobile ? 8.2 : 6.45;
+      const introDist = mixNum(introDistBase, introDistBase * 0.86, stageAProg) - charge * 0.35;
+      const introElevDeg = mixNum(17.5, 14.5, stageAProg);
+      const introRoll = mixNum(degToRad(-22), degToRad(-18), stageAProg);
+
+      // Unbroken blend from Intro (settle = 0) -> Settled Scroll Camera (settle = 1)
+      const elevRad = degToRad(mixNum(introElevDeg, scrollElevDeg, settle));
+      const camDist = mixNum(introDist, scrollDist, settle);
+      const pitchOffset = mixNum(0, scrollPitch, settle);
+      const bankRoll = mixNum(introRoll, 0, settle);
+      const azimRad = mixNum(0, scrollAzim, settle);
+
+      // Construct gimbal-lock-free orthonormal orbital camera basis in y-z meridian, then rotate by azim around Y
+      const sinE = Math.sin(elevRad);
+      const cosE = Math.cos(elevRad);
+      const sinA = Math.sin(azimRad);
+      const cosA = Math.cos(azimRad);
+
+      // Local meridian vectors (before azimuthal rotation around Y):
+      // radial = (0, sinE, cosE), baseFwd = -radial, baseUp = (0, cosE, -sinE), baseRight = (1, 0, 0)
+      const rotY = (vx: number, vy: number, vz: number): Vec3 => ({
+        x: vx * cosA + vz * sinA,
+        y: vy,
+        z: -vx * sinA + vz * cosA,
+      });
+
+      const camPos = rotY(0, camDist * sinE, camDist * cosE);
+      const baseFwd = rotY(0, -sinE, -cosE);
+      const baseUp = rotY(0, cosE, -sinE);
+      const baseRight = rotY(1, 0, 0);
+
+      // Apply pitchOffset in (baseFwd, baseUp) plane so BH stays centered horizontally
+      const cosP = Math.cos(pitchOffset);
+      const sinP = Math.sin(pitchOffset);
+      const fwd0: Vec3 = {
+        x: cosP * baseFwd.x + sinP * baseUp.x,
+        y: cosP * baseFwd.y + sinP * baseUp.y,
+        z: cosP * baseFwd.z + sinP * baseUp.z,
+      };
+      const up0: Vec3 = {
+        x: -sinP * baseFwd.x + cosP * baseUp.x,
+        y: -sinP * baseFwd.y + cosP * baseUp.y,
+        z: -sinP * baseFwd.z + cosP * baseUp.z,
+      };
+
+      // Apply subtle intro bank roll around fwd0 (relaxes to 0 deg smoothly across Stage C)
+      const cosR = Math.cos(bankRoll);
+      const sinR = Math.sin(bankRoll);
+      const camRight: Vec3 = {
+        x: cosR * baseRight.x + sinR * up0.x,
+        y: cosR * baseRight.y + sinR * up0.y,
+        z: cosR * baseRight.z + sinR * up0.z,
+      };
+      const camUp: Vec3 = {
+        x: -sinR * baseRight.x + cosR * up0.x,
+        y: -sinR * baseRight.y + cosR * up0.y,
+        z: -sinR * baseRight.z + cosR * up0.z,
+      };
+      const camFwd = fwd0;
+
+      // Breathing accretion disk extent: wide in intro & polar, strictly inside camDist at bottom/top horizons (zero near-lens clip!)
+      const horizonOuterR = Math.min(camDist * 0.78, isMobile ? 1.56 : 1.38);
+      const settledOuterR = mixNum(horizonOuterR, 5.4, polarFactor);
+      const diskOuterR = mixNum(5.2, settledOuterR, settle);
+
+      // =====================================================================
+      // 3) EXACT 3D-TO-DOM COUNTDOWN & LAYER 20 CURVED PRE-RIM VEIL SYNC
+      // =====================================================================
+      const bottomCountdownY = cssHGlobal * (1.0 - bottomApex * 0.48);
+      const topCountdownY = isMobile ? 60 : 54;
+      const polarCenterY = cssHGlobal * 0.5;
+      const cdBaseY = mixNum(bottomCountdownY, topCountdownY, smoothstep(0.0, 1.0, s));
+      const countdownCenterY = mixNum(cdBaseY, polarCenterY, polarFactor);
+
+      const baseCdScale = mixNum(1.0, isMobile ? 0.7 : 0.72, smoothstep(0.0, 1.0, s));
+      const midCdScale = isMobile ? 1.08 : 1.22;
+      const countdownScale = mixNum(baseCdScale, midCdScale, polarFactor);
+
+      // Solve exact 3D-projected circle hugging the top-pinned dome's outer glowing rim (b = 1.16)
+      let domeCenterX = cssWGlobal * 0.5;
+      let domeCenterY = -cssHGlobal * 0.6;
+      let domeRadiusPx = cssHGlobal * 0.75;
+      let domeEdgeY = 48;
+
+      if (s > 0.62 && settle > 0.5) {
+        const rimCenterY = solveTopDomeRimY(
+          camPos,
+          camRight,
+          camUp,
+          camFwd,
+          viewAsp,
+          tanHalfFov,
+          cssHGlobal,
+          0.0,
+          1.16
+        );
+        const edgeNdcX = 0.85;
+        const rimEdgeY = solveTopDomeRimY(
+          camPos,
+          camRight,
+          camUp,
+          camFwd,
+          viewAsp,
+          tanHalfFov,
+          cssHGlobal,
+          edgeNdcX,
+          1.16
+        );
+        const halfChordX = edgeNdcX * (cssWGlobal * 0.5);
+        const sagitta = Math.max(8, rimCenterY - rimEdgeY);
+        const radius = (halfChordX * halfChordX + sagitta * sagitta) / (2 * sagitta);
+        domeCenterX = cssWGlobal * 0.5;
+        domeRadiusPx = radius;
+        domeCenterY = rimCenterY - radius;
+        domeEdgeY = rimEdgeY;
+      }
 
       onSyncRef.current?.({
-        pinProgress: pEase,
+        pinProgress: s,
         settleProgress: settle,
         countdownCenterY,
         countdownScale,
+        domeCenterX,
+        domeCenterY,
+        domeRadiusPx,
+        domeEdgeY,
         viewportW: cssWGlobal,
       });
 
-      // Redraw Layer 0 (starfield + global cursor `T`-glyph field) at smooth ~33fps
-      if (ts - lastBgDraw > 28) {
+      // Expose read-only runtime telemetry for automated visual & performance verification
+      const useBloom2 = !isMobile && !adaptiveDegraded;
+      if (typeof window !== "undefined") {
+        (
+          window as unknown as Record<string, unknown>
+        ).__TMINUS_BH_TELEMETRY__ = {
+          fps: Number((1 / Math.max(0.001, dtEma)).toFixed(1)),
+          frameMs: Number((dtEma * 1000).toFixed(2)),
+          bloomTiers: useBloom2 ? 2 : 1,
+          degraded: adaptiveDegraded,
+          cols,
+          rows,
+          dpr: dprGlobal,
+          introElapsed: Number(introElapsed.toFixed(3)),
+          pinProgress: Number(s.toFixed(4)),
+          polarFactor: Number(polarFactor.toFixed(4)),
+          elevDeg: Number(((elevRad * 180) / Math.PI).toFixed(1)),
+        };
+      }
+
+      // Redraw Layer 0 starfield + cursor aura at smooth ~30fps
+      if (ts - lastBgDraw > 32) {
         lastBgDraw = ts;
-        drawBackgroundField(tSec, pEase, settle);
+        drawBackgroundField(tSec, s, settle);
       }
 
       gl.disable(gl.BLEND);
 
-      // ---- PASS 1: Single Continuous Black Hole Camera & Pure #000000 Core ----
-      setTarget(rtBg);
-      gl.useProgram(pColor.prog);
-      bindTex(0, videoTex, pColor.u.uVideo);
-      gl.uniform1f(pColor.u.uHasVideo, video.readyState >= 2 ? 1.0 : 0.0);
-      gl.uniform1f(pColor.u.uTime, tSec);
-      gl.uniform1f(pColor.u.uViewAsp, viewAsp);
-      gl.uniform1f(pColor.u.uVideoAsp, videoAsp);
-      gl.uniform1f(pColor.u.uSettle, settle);
-      gl.uniform1f(pColor.u.uPin, pEase);
-      gl.uniform1f(pColor.u.uMidBell, midBell * settle);
-      gl.uniform1f(pColor.u.uBlastPeak, blastPeak);
-      gl.uniform2f(pColor.u.uCamCenter, 0.5, camCy);
-      gl.uniform1f(pColor.u.uCamZoom, camZoom);
-      gl.uniform1f(pColor.u.uCamAnamorphicX, camAnamorphicX);
-      gl.uniform1f(pColor.u.uCamTilt, camTilt);
-      gl.uniform1f(pColor.u.uCamRoll, camRoll);
-      gl.uniform2f(pColor.u.uPointer, pointerX, pointerY);
-      gl.uniform1f(pColor.u.uPointerActive, pointerActive);
+      // ---- PASS 1: Analytic 3D Procedural Black Hole ----
+      setTarget(rtScene);
+      gl.useProgram(pScene.prog);
+      gl.uniform1f(pScene.u.uTime, tSec);
+      gl.uniform1f(pScene.u.uViewAsp, viewAsp);
+      gl.uniform1f(pScene.u.uSceneH, rtScene.h);
+      gl.uniform1f(pScene.u.uTanHalfFov, tanHalfFov);
+      gl.uniform3f(pScene.u.uCamPos, camPos.x, camPos.y, camPos.z);
+      gl.uniform3f(pScene.u.uCamRight, camRight.x, camRight.y, camRight.z);
+      gl.uniform3f(pScene.u.uCamUp, camUp.x, camUp.y, camUp.z);
+      gl.uniform3f(pScene.u.uCamFwd, camFwd.x, camFwd.y, camFwd.z);
+      gl.uniform1f(pScene.u.uSettle, settle);
+      gl.uniform1f(pScene.u.uPin, segDock);
+      gl.uniform1f(pScene.u.uPolarFactor, polarFactor);
+      gl.uniform1f(pScene.u.uDiskOuterR, diskOuterR);
+      gl.uniform1f(pScene.u.uJetPower, jetPower);
+      gl.uniform1f(pScene.u.uCharge, charge);
+      gl.uniform1f(pScene.u.uBlastPeak, blastPeak);
+      gl.uniform1f(pScene.u.uBlastProgress, blastProgress);
+      gl.uniform2f(pScene.u.uPointer, pointerX, pointerY);
+      gl.uniform1f(pScene.u.uPointerActive, pointerActive);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-      // ---- PASS 2: 4-Tap Cell Downsample ----
+      // ---- PASS 2: 4-Tap AA Cell Downsample ----
       setTarget(rtCell);
       gl.useProgram(pCell.prog);
-      bindTex(0, rtBg.tex, pCell.u.uBg);
-      gl.uniform2f(pCell.u.uBgInv, 1.0 / rtBg.w, 1.0 / rtBg.h);
+      bindTex(0, rtScene.tex, pCell.u.uBg);
+      gl.uniform2f(pCell.u.uBgInv, 1.0 / rtScene.w, 1.0 / rtScene.h);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-      // ---- PASS 3: Native WebGL2 ASCII Pass + Refined 500-Weight T^minus Carve ----
+      // ---- PASS 3: Native WebGL2 ASCII Pass + Cell-Quantized Pure-ASCII T^minus ----
       setTarget(rtGlyph);
       gl.useProgram(pGlyph.prog);
       bindTex(0, rtCell.tex, pGlyph.u.uCell);
-      bindTex(1, rtBg.tex, pGlyph.u.uBg);
+      bindTex(1, rtScene.tex, pGlyph.u.uBg);
       bindTex(2, atlasTex, pGlyph.u.uAtlas);
       if (wordmarkTex) {
         bindTex(3, wordmarkTex, pGlyph.u.uWordmarkMask);
@@ -1412,15 +1822,15 @@ export function AsciiBlackholeCanvas({
       gl.uniform2f(pGlyph.u.uGrid, cols, rows);
       gl.uniform1f(pGlyph.u.uGlyphCount, ASCII_RAMP.length);
       gl.uniform1f(pGlyph.u.uWordmarkCarve, wordmarkCarve);
+      gl.uniform1f(pGlyph.u.uBlastPeak, blastPeak);
       gl.uniform1f(pGlyph.u.uSettle, settle);
-      gl.uniform1f(pGlyph.u.uPin, pEase);
       gl.uniform1f(pGlyph.u.uTime, tSec);
       gl.uniform2f(pGlyph.u.uPointer, pointerX, pointerY);
       gl.uniform1f(pGlyph.u.uPointerActive, pointerActive);
       gl.uniform1f(pGlyph.u.uViewAsp, viewAsp);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-      // ---- PASS 4: 2-Tier Thresholded Separable Gaussian Bloom ----
+      // ---- PASS 4: Thresholded Separable Gaussian Bloom (2-tier desktop / 1-tier mobile) ----
       gl.useProgram(pBlur.prog);
       setTarget(rtB1A);
       bindTex(0, rtGlyph.tex, pBlur.u.uTex);
@@ -1434,17 +1844,19 @@ export function AsciiBlackholeCanvas({
       gl.uniform1f(pBlur.u.uThreshold, 0.0);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-      setTarget(rtB2A);
-      bindTex(0, rtB1B.tex, pBlur.u.uTex);
-      gl.uniform2f(pBlur.u.uDir, 2.2 / rtB2A.w, 0.0);
-      gl.uniform1f(pBlur.u.uThreshold, 0.0);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (useBloom2) {
+        setTarget(rtB2A);
+        bindTex(0, rtB1B.tex, pBlur.u.uTex);
+        gl.uniform2f(pBlur.u.uDir, 2.2 / rtB2A.w, 0.0);
+        gl.uniform1f(pBlur.u.uThreshold, 0.0);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-      setTarget(rtB2B);
-      bindTex(0, rtB2A.tex, pBlur.u.uTex);
-      gl.uniform2f(pBlur.u.uDir, 0.0, 2.2 / rtB2B.h);
-      gl.uniform1f(pBlur.u.uThreshold, 0.0);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+        setTarget(rtB2B);
+        bindTex(0, rtB2A.tex, pBlur.u.uTex);
+        gl.uniform2f(pBlur.u.uDir, 0.0, 2.2 / rtB2B.h);
+        gl.uniform1f(pBlur.u.uThreshold, 0.0);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      }
 
       // ---- PASS 5: Final Premultiplied Alpha Composite ----
       setTarget(null);
@@ -1453,13 +1865,15 @@ export function AsciiBlackholeCanvas({
       gl.useProgram(pComp.prog);
       bindTex(0, rtGlyph.tex, pComp.u.uBase);
       bindTex(1, rtB1B.tex, pComp.u.uBloom1);
-      bindTex(2, rtB2B.tex, pComp.u.uBloom2);
+      bindTex(2, useBloom2 ? rtB2B.tex : rtB1B.tex, pComp.u.uBloom2);
       if (wordmarkTex) {
         bindTex(3, wordmarkTex, pComp.u.uWordmarkMask);
       }
+      gl.uniform2f(pComp.u.uGrid, cols, rows);
+      gl.uniform1f(pComp.u.uUseBloom2, useBloom2 ? 1.0 : 0.0);
       gl.uniform1f(pComp.u.uWordmarkCarve, wordmarkCarve);
       const glowAmount =
-        mixNum(0.42, 0.52, settle) + blastPeak * 0.28 + midBell * 0.1;
+        mixNum(0.46, 0.54, settle) * (1.0 - blastPeak * 0.64) + polarFactor * 0.14;
       gl.uniform1f(pComp.u.uGlow, glowAmount);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
@@ -1468,14 +1882,10 @@ export function AsciiBlackholeCanvas({
 
     return () => {
       window.cancelAnimationFrame(rafId);
-      video.removeEventListener("loadedmetadata", tryPlay);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerleave", handlePointerLeave);
-      window.removeEventListener("pointerdown", resumePlay);
-      window.removeEventListener("wheel", resumePlay);
-      window.removeEventListener("touchstart", resumePlay);
 
-      freeRT(gl, rtBg);
+      freeRT(gl, rtScene);
       freeRT(gl, rtCell);
       freeRT(gl, rtGlyph);
       freeRT(gl, rtB1A);
@@ -1483,10 +1893,9 @@ export function AsciiBlackholeCanvas({
       freeRT(gl, rtB2A);
       freeRT(gl, rtB2B);
       gl.deleteTexture(atlasTex);
-      gl.deleteTexture(videoTex);
       if (wordmarkTex) gl.deleteTexture(wordmarkTex);
       gl.deleteVertexArray(vao);
-      gl.deleteProgram(pColor.prog);
+      gl.deleteProgram(pScene.prog);
       gl.deleteProgram(pCell.prog);
       gl.deleteProgram(pGlyph.prog);
       gl.deleteProgram(pBlur.prog);
@@ -1496,27 +1905,14 @@ export function AsciiBlackholeCanvas({
 
   return (
     <>
-      <video
-        ref={videoRef}
-        src="/api/sandbox/video"
-        playsInline
-        muted
-        loop
-        preload="auto"
-        crossOrigin="anonymous"
-        aria-hidden="true"
-        className="pointer-events-none fixed h-px w-px opacity-0"
-      />
-
-      {/* Layer 0: Obsidian space starfield (`* + ^ -`) + Global viewport cursor `T`-glyph field */}
+      {/* Layer 0: Obsidian space starfield (`* + ^ -`) + Global viewport cursor glyph aura */}
       <canvas
         ref={starCanvasRef}
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 z-0 h-[100dvh] w-full"
       />
 
-      {/* Layer 30: Single persistent 60fps WebGL2 ASCII black hole
-          (pure #000000 event horizon core + continuous camera dive & scroll orbit) */}
+      {/* Layer 30: Single persistent 60fps WebGL2 Procedural 3D ASCII Black Hole */}
       <canvas
         ref={glCanvasRef}
         aria-hidden="true"
