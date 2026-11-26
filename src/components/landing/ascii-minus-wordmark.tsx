@@ -30,6 +30,8 @@ interface AsciiMinusWordmarkProps {
 
 /**
  * Vector `MINUS` Filled Internally With Crisp Pre-Baked Micro-ASCII:
+ * - Defers all canvas/DOM work until `active || instant` so cold load has zero
+ *   overhead before the opening dying star paints.
  * - Ink-cropped upright `Inter Tight` 700 vector letterforms clipped cleanly via
  *   offscreen `maskCanvas` (`destination-in`), eliminating dead top/bottom padding
  *   so vertical spacing above and below `MINUS` is visually exact.
@@ -51,6 +53,9 @@ export function AsciiMinusWordmark({
   const monoProbeRef = useRef<HTMLSpanElement | null>(null);
 
   useEffect(() => {
+    // Do zero canvas allocation or layout work during the 9s intro before hero reveal
+    if (!active && !instant) return;
+
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas) return;

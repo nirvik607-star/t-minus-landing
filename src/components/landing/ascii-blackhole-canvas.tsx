@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { drawWordmarkMaskCanvas } from "@/components/landing/t-minus-wordmark";
 import { LAUNCH_TARGET_MS } from "@/lib/waitlist";
+
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 /**
  * Shared scroll & 3D camera telemetry published every animation frame so
@@ -48,9 +51,9 @@ interface AsciiBlackholeCanvasProps {
  */
 const ASCII_RAMP = " .:-^tT";
 
-// ---- Snappy Intro Choreography Timings (3.20s Full Settle, 2.65s Hero Overlap) ----
-const INTRO_TOTAL_SEC = 3.2;
-const HERO_REVEAL_SEC = 2.65;
+// ---- Full Unhurried Act I -> V Intro Choreography (9.00s Total, 9.00s Hero Reveal) ----
+const INTRO_TOTAL_SEC = 9.0;
+const HERO_REVEAL_SEC = 9.0;
 
 const VS_QUAD = `#version 300 es
 precision highp float;
@@ -699,7 +702,7 @@ void main() {
 
 /**
  * Pass 4 (Direct-to-Screen): Crisp 1:1 Native-Pixel Volumetric ASCII + Bloom Composite
- * - Merges glyph shading & bloom composite into a single fullscreen pass (eliminates rtGlyph!)
+ * - Merges glyph shading & bloom composite into a single fullscreen pass (eliminates rtGlyph)
  * - Strict 7-step ` .:-^tT` ramp with narrow boundary crossfade (zero 60Hz threshold popping)
  * - Clean low-energy noise gate prevents buzzing outer halo cells
  * - Pure `#000000` locked inside the event horizon core
@@ -959,51 +962,59 @@ interface Vec3 {
   z: number;
 }
 
-function compileShader(
+/**
+ * Parallel-friendly batch shader compilation:
+ * Submits all compileShader + linkProgram calls before querying LINK_STATUS
+ * so Chromium/ANGLE can compile all 4 shaders concurrently without pipeline stalls.
+ */
+function linkProgramsBatch(
   gl: WebGL2RenderingContext,
-  type: number,
-  src: string
-): WebGLShader {
-  const s = gl.createShader(type);
-  if (!s) throw new Error("Unable to create shader");
-  gl.shaderSource(s, src);
-  gl.compileShader(s);
-  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(s) || "unknown error";
-    gl.deleteShader(s);
-    throw new Error(`Shader compile error: ${log}`);
-  }
-  return s;
-}
+  fsSources: string[]
+): GLProgramBundle[] {
+  const vs = gl.createShader(gl.VERTEX_SHADER);
+  if (!vs) throw new Error("Unable to create vertex shader");
+  gl.shaderSource(vs, VS_QUAD);
+  gl.compileShader(vs);
 
-function linkProgram(
-  gl: WebGL2RenderingContext,
-  fsSrc: string
-): GLProgramBundle {
-  const vs = compileShader(gl, gl.VERTEX_SHADER, VS_QUAD);
-  const fs = compileShader(gl, gl.FRAGMENT_SHADER, fsSrc);
-  const prog = gl.createProgram();
-  if (!prog) throw new Error("Unable to create WebGL2 program");
-  gl.attachShader(prog, vs);
-  gl.attachShader(prog, fs);
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    const log = gl.getProgramInfoLog(prog) || "unknown error";
-    gl.deleteProgram(prog);
-    throw new Error(`Program link error: ${log}`);
+  const entries = fsSources.map((fsSrc) => {
+    const fs = gl.createShader(gl.FRAGMENT_SHADER);
+    if (!fs) throw new Error("Unable to create fragment shader");
+    gl.shaderSource(fs, fsSrc);
+    gl.compileShader(fs);
+
+    const prog = gl.createProgram();
+    if (!prog) throw new Error("Unable to create WebGL2 program");
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    return { fs, prog };
+  });
+
+  const bundles: GLProgramBundle[] = [];
+  for (const { fs, prog } of entries) {
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      const pLog = gl.getProgramInfoLog(prog) || "";
+      const fsLog = gl.getShaderInfoLog(fs) || "";
+      const vsLog = gl.getShaderInfoLog(vs) || "";
+      gl.deleteProgram(prog);
+      gl.deleteShader(fs);
+      gl.deleteShader(vs);
+      throw new Error(`Program link error: ${pLog} ${fsLog} ${vsLog}`.trim());
+    }
+    gl.deleteShader(fs);
+
+    const u: Record<string, WebGLUniformLocation | null> = {};
+    const count = gl.getProgramParameter(prog, gl.ACTIVE_UNIFORMS) as number;
+    for (let i = 0; i < count; i++) {
+      const info = gl.getActiveUniform(prog, i);
+      if (info) {
+        u[info.name] = gl.getUniformLocation(prog, info.name);
+      }
+    }
+    bundles.push({ prog, u });
   }
   gl.deleteShader(vs);
-  gl.deleteShader(fs);
-
-  const u: Record<string, WebGLUniformLocation | null> = {};
-  const count = gl.getProgramParameter(prog, gl.ACTIVE_UNIFORMS) as number;
-  for (let i = 0; i < count; i++) {
-    const info = gl.getActiveUniform(prog, i);
-    if (info) {
-      u[info.name] = gl.getUniformLocation(prog, info.name);
-    }
-  }
-  return { prog, u };
+  return bundles;
 }
 
 function createRT(
@@ -1096,6 +1107,27 @@ function buildNativeGlyphAtlas(
   gl.bindTexture(gl.TEXTURE_2D, tex);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return tex;
+}
+
+function createDummyWordmarkTexture(gl: WebGL2RenderingContext): WebGLTexture {
+  const tex = gl.createTexture()!;
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    2,
+    2,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    new Uint8Array(16)
+  );
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -1283,6 +1315,7 @@ export function AsciiBlackholeCanvas({
   const starCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const glCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const monoProbeRef = useRef<HTMLSpanElement | null>(null);
+  const ssrSeedRef = useRef<HTMLDivElement | null>(null);
   const onRevealRef = useRef(onHeroReveal);
   const onSyncRef = useRef(onHorizonSync);
   const runwayRefLatest = useRef(runwayRef);
@@ -1293,15 +1326,23 @@ export function AsciiBlackholeCanvas({
     runwayRefLatest.current = runwayRef;
   }, [onHeroReveal, onHorizonSync, runwayRef]);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const glCanvas = glCanvasRef.current;
     const starCanvas = starCanvasRef.current;
     if (!glCanvas || !starCanvas) return;
 
     let querySkipIntro = false;
+    let pinnedIntroAt: number | null = null;
     try {
       const qs = new URLSearchParams(window.location.search);
       querySkipIntro = qs.get("skipIntro") === "1";
+      const rawPin = qs.get("introAt");
+      if (rawPin !== null) {
+        const parsed = Number(rawPin);
+        if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 14) {
+          pinnedIntroAt = parsed;
+        }
+      }
     } catch {
       // ignore
     }
@@ -1311,9 +1352,13 @@ export function AsciiBlackholeCanvas({
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const startSettled = skipIntro || querySkipIntro || reducedMotion;
 
-    let heroRevealed = startSettled;
-    if (startSettled) {
+    let heroRevealed =
+      startSettled || (pinnedIntroAt !== null && pinnedIntroAt >= HERO_REVEAL_SEC);
+    if (heroRevealed) {
       onRevealRef.current(true);
+    }
+    if (startSettled && ssrSeedRef.current) {
+      ssrSeedRef.current.style.display = "none";
     }
 
     const starCtx = starCanvas.getContext("2d");
@@ -1330,22 +1375,18 @@ export function AsciiBlackholeCanvas({
     });
 
     if (!gl) {
+      if (ssrSeedRef.current) ssrSeedRef.current.style.display = "none";
       onRevealRef.current(true);
       return;
     }
 
-    const pScene = linkProgram(gl, FS_SCENE);
-    const pCell = linkProgram(gl, FS_CELL);
-    const pBlur = linkProgram(gl, FS_BLUR);
-    const pGlyphComp = linkProgram(gl, FS_GLYPH_COMP);
+    const [pScene, pCell, pBlur, pGlyphComp] = linkProgramsBatch(gl, [FS_SCENE, FS_CELL, FS_BLUR, FS_GLYPH_COMP]);
 
     const vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
 
-    let monoFamily = '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
-    if (monoProbeRef.current) {
-      monoFamily = window.getComputedStyle(monoProbeRef.current).fontFamily;
-    }
+    let monoFamily =
+      '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
 
     let atlasTex: WebGLTexture | null = null;
     let lastAtlasCellW = 0;
@@ -1353,6 +1394,7 @@ export function AsciiBlackholeCanvas({
     let lastAtlasFont = "";
 
     let wordmarkTex: WebGLTexture | null = null;
+    let wordmarkBuilt = false;
     let lastMaskCssW = 0;
     let lastMaskCssH = 0;
 
@@ -1375,7 +1417,7 @@ export function AsciiBlackholeCanvas({
     let rtBA: RenderTarget | null = null;
     let rtBB: RenderTarget | null = null;
 
-    // Cached runway metrics (ZERO per-frame getBoundingClientRect calls!)
+    // Cached runway metrics (computed asynchronously after Frame 1 so Frame 1 has zero forced reflow)
     let runwayTopDocY = 0;
     let runwayScrollable = Math.max(420, (window.innerHeight || 900) * 1.8);
 
@@ -1404,15 +1446,40 @@ export function AsciiBlackholeCanvas({
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     };
 
-    const syncBuffers = (forceAtlas = false) => {
-      const rect = glCanvas.getBoundingClientRect();
-      const cssW = Math.max(1, Math.round(rect.width || window.innerWidth));
-      const cssH = Math.max(1, Math.round(rect.height || window.innerHeight));
+    const ensureWordmarkTexture = (force = false) => {
+      if (startSettled) return;
+      if (
+        !force &&
+        wordmarkBuilt &&
+        Math.abs(cssWGlobal - lastMaskCssW) <= 16 &&
+        Math.abs(cssHGlobal - lastMaskCssH) <= 16
+      ) {
+        return;
+      }
+      lastMaskCssW = cssWGlobal;
+      lastMaskCssH = cssHGlobal;
+      wordmarkTex = buildWordmarkMaskTexture(
+        gl,
+        wordmarkTex,
+        cssWGlobal,
+        cssHGlobal
+      );
+      wordmarkBuilt = true;
+    };
+
+    const syncBuffers = (forceAtlas = false, isInitialMount = false) => {
+      // On initial mount, avoid forced layout reflow: canvas is `fixed inset-0`
+      let cssW = Math.max(1, Math.round(window.innerWidth || 1440));
+      let cssH = Math.max(1, Math.round(window.innerHeight || 900));
+      if (!isInitialMount) {
+        const rect = glCanvas.getBoundingClientRect();
+        cssW = Math.max(1, Math.round(rect.width || cssW));
+        cssH = Math.max(1, Math.round(rect.height || cssH));
+      }
+
       const isMobile = cssW < 640;
       const isTablet = cssW >= 640 && cssW < 1024;
 
-      // Nearest-neighbor ASCII stays razor-sharp at 1.25x desktop (1.0x under adaptive load)
-      // and 1.5x mobile while drastically cutting pixel shader load.
       const maxDpr = adaptiveDegraded ? 1.0 : cssW >= 1024 ? 1.25 : 1.5;
       const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 1), maxDpr);
       const nw = Math.max(2, Math.round(cssW * dpr));
@@ -1422,17 +1489,11 @@ export function AsciiBlackholeCanvas({
       cssHGlobal = cssH;
       dprGlobal = dpr;
 
-      // Starfield runs at 1x CSS resolution for ultra-light CPU cost
-      if (starCanvas.width !== cssW || starCanvas.height !== cssH) {
-        starCanvas.width = cssW;
-        starCanvas.height = cssH;
-      }
-
-      if (monoProbeRef.current) {
+      // Avoid getComputedStyle forced reflow before Frame 1
+      if (!isInitialMount && monoProbeRef.current) {
         monoFamily = window.getComputedStyle(monoProbeRef.current).fontFamily;
       }
 
-      // Clean, genuinely legible ASCII cell pitch at every DPR
       const cellCssW = isMobile ? 6.0 : isTablet ? 6.8 : 7.5;
       const cellCssH = isMobile ? 8.8 : isTablet ? 9.6 : 10.5;
       const nCellPxW = Math.max(6, Math.round(cellCssW * dpr));
@@ -1463,31 +1524,15 @@ export function AsciiBlackholeCanvas({
         );
       }
 
-      if (
-        !startSettled &&
-        (Math.abs(cssW - lastMaskCssW) > 16 ||
-          Math.abs(cssH - lastMaskCssH) > 16 ||
-          !wordmarkTex)
-      ) {
-        lastMaskCssW = cssW;
-        lastMaskCssH = cssH;
-        wordmarkTex = buildWordmarkMaskTexture(gl, wordmarkTex, cssW, cssH);
-      } else if (!wordmarkTex) {
-        wordmarkTex = gl.createTexture()!;
-        gl.bindTexture(gl.TEXTURE_2D, wordmarkTex);
-        gl.texImage2D(
-          gl.TEXTURE_2D,
-          0,
-          gl.RGBA,
-          2,
-          2,
-          0,
-          gl.RGBA,
-          gl.UNSIGNED_BYTE,
-          new Uint8Array(16)
-        );
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      // Defer heavy wordmark mask rasterization off initial mount unless QA pinned right at supernova
+      if (!wordmarkTex) {
+        if (pinnedIntroAt !== null && pinnedIntroAt >= 3.75 && !startSettled) {
+          ensureWordmarkTexture(true);
+        } else {
+          wordmarkTex = createDummyWordmarkTexture(gl);
+        }
+      } else if (!isInitialMount && wordmarkBuilt && !startSettled) {
+        ensureWordmarkTexture(false);
       }
 
       if (
@@ -1516,6 +1561,11 @@ export function AsciiBlackholeCanvas({
       glCanvas.width = cw;
       glCanvas.height = ch;
 
+      if (starCanvas.width !== cssW || starCanvas.height !== cssH) {
+        starCanvas.width = cssW;
+        starCanvas.height = cssH;
+      }
+
       freeRT(gl, rtScene);
       freeRT(gl, rtCell);
       freeRT(gl, rtBA);
@@ -1530,47 +1580,15 @@ export function AsciiBlackholeCanvas({
       rtCell = createRT(gl, cols, rows, gl.NEAREST);
       rtBA = createRT(gl, bW, bH, gl.LINEAR);
       rtBB = createRT(gl, bW, bH, gl.LINEAR);
-      clearOffscreenRTs();
+      if (!isInitialMount) {
+        clearOffscreenRTs();
+      }
     };
 
-    // Initial buffer + runway metric setup
-    syncBuffers(true);
-    syncRunwayMetrics();
+    // Fast zero-reflow initial buffer setup so Frame 1 can paint immediately
+    syncBuffers(true, true);
 
     let disposed = false;
-    if (typeof document !== "undefined" && document.fonts?.ready) {
-      document.fonts.ready
-        .then(() => {
-          if (disposed) return;
-          if (!startSettled && cssWGlobal > 0 && cssHGlobal > 0) {
-            wordmarkTex = buildWordmarkMaskTexture(
-              gl,
-              wordmarkTex,
-              cssWGlobal,
-              cssHGlobal
-            );
-          }
-          syncBuffers(true);
-          syncRunwayMetrics();
-        })
-        .catch(() => {});
-    }
-
-    const roCanvas = new ResizeObserver(() => {
-      if (disposed) return;
-      syncBuffers();
-      syncRunwayMetrics();
-    });
-    roCanvas.observe(glCanvas);
-
-    const runwayElInit = runwayRefLatest.current?.current;
-    let roRunway: ResizeObserver | null = null;
-    if (runwayElInit) {
-      roRunway = new ResizeObserver(() => {
-        if (!disposed) syncRunwayMetrics();
-      });
-      roRunway.observe(runwayElInit);
-    }
 
     const bindTex = (
       unit: number,
@@ -1623,39 +1641,29 @@ export function AsciiBlackholeCanvas({
       passive: true,
     });
 
-    let introElapsed = startSettled ? INTRO_TOTAL_SEC : 0.0;
-    let resolveElapsed = startSettled ? 2.0 : 0.0;
+    let introElapsed =
+      pinnedIntroAt !== null
+        ? Math.min(INTRO_TOTAL_SEC, pinnedIntroAt)
+        : startSettled
+          ? INTRO_TOTAL_SEC
+          : 0.0;
+    let resolveElapsed =
+      pinnedIntroAt !== null
+        ? Math.max(0, pinnedIntroAt - INTRO_TOTAL_SEC)
+        : startSettled
+          ? 2.0
+          : 0.0;
     let smoothedPin = 0.0;
     let lastTs = performance.now();
     let lastBgDraw = 0;
     let rafId = 0;
     let loopRunning = false;
+    let firstStarPaintPerfMs: number | null = null;
 
     let dtEma = 0.0166;
     let overBudgetSec = 0;
     let lastPulseEdgeSec = -1;
     let lastPulseTriggerPerfMs = 0;
-
-    // Optional deterministic QA pin: ?introAt=0.35 | 1.38 | 1.85 | 2.75 | 3.25
-    let pinnedIntroAt: number | null = null;
-    try {
-      const qs = new URLSearchParams(window.location.search);
-      const rawPin = qs.get("introAt");
-      if (rawPin !== null) {
-        const parsed = Number(rawPin);
-        if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 14) {
-          pinnedIntroAt = parsed;
-          introElapsed = Math.min(INTRO_TOTAL_SEC, parsed);
-          resolveElapsed = Math.max(0, parsed - INTRO_TOTAL_SEC);
-          if (parsed >= HERO_REVEAL_SEC) {
-            heroRevealed = true;
-            onRevealRef.current(true);
-          }
-        }
-      }
-    } catch {
-      // ignore
-    }
 
     const drawBackgroundField = (
       tSec: number,
@@ -1664,12 +1672,15 @@ export function AsciiBlackholeCanvas({
       starWave: number
     ) => {
       if (!starCtx || cssWGlobal <= 1 || cssHGlobal <= 1) return;
+      if (starWave <= 0.005 && settle <= 0.05) return;
+
       starCtx.setTransform(1, 0, 0, 1, 0, 0);
       starCtx.clearRect(0, 0, cssWGlobal, cssHGlobal);
 
       if (settle > 0.05) {
         const glowY = cssHGlobal * mixNum(0.84, 0.09, pin);
-        const glowRad = Math.max(cssWGlobal, cssHGlobal) * mixNum(0.26, 0.14, pin);
+        const glowRad =
+          Math.max(cssWGlobal, cssHGlobal) * mixNum(0.26, 0.14, pin);
         const grad = starCtx.createRadialGradient(
           cssWGlobal * 0.5,
           glowY,
@@ -1778,29 +1789,25 @@ export function AsciiBlackholeCanvas({
       starCtx.globalAlpha = 1;
     };
 
-    const frame = (ts: number) => {
-      if (disposed || document.hidden) {
-        loopRunning = false;
-        return;
-      }
-
-      rafId = window.requestAnimationFrame(frame);
-
-      const rawDt = Math.max(0.001, (ts - lastTs) * 0.001);
-      // Smooth UI/pointer interpolation uses capped dt, while intro timeline tracks real wall-clock time
+    const renderFrame = (ts: number, isFirstPaint = false) => {
+      const rawDt = isFirstPaint
+        ? 0.001
+        : Math.max(0.001, (ts - lastTs) * 0.001);
       const dt = Math.min(0.05, rawDt);
       const wallDt = Math.min(0.4, rawDt);
       lastTs = ts;
 
-      dtEma = dtEma * 0.92 + Math.min(rawDt, 0.12) * 0.08;
-      if (!adaptiveDegraded && dtEma > 0.026) {
-        overBudgetSec += wallDt;
-        if (overBudgetSec > 0.75) {
-          adaptiveDegraded = true;
-          syncBuffers();
+      if (!isFirstPaint) {
+        dtEma = dtEma * 0.92 + Math.min(rawDt, 0.12) * 0.08;
+        if (!adaptiveDegraded && dtEma > 0.026) {
+          overBudgetSec += wallDt;
+          if (overBudgetSec > 0.75) {
+            adaptiveDegraded = true;
+            syncBuffers();
+          }
+        } else {
+          overBudgetSec = Math.max(0, overBudgetSec - wallDt * 0.5);
         }
-      } else {
-        overBudgetSec = Math.max(0, overBudgetSec - wallDt * 0.5);
       }
 
       const pLerp = Math.min(1, dt * 8.5);
@@ -1810,7 +1817,9 @@ export function AsciiBlackholeCanvas({
         (pointerActiveTarget - pointerActive) * Math.min(1, dt * 5.2);
 
       // Zero-reflow scroll progress from cached runway metrics
-      const rawPin = clamp01((window.scrollY - runwayTopDocY) / runwayScrollable);
+      const rawPin = clamp01(
+        (window.scrollY - runwayTopDocY) / runwayScrollable
+      );
       const scrollDt = Math.min(0.18, rawDt);
       smoothedPin += (rawPin - smoothedPin) * Math.min(1, scrollDt * 14.0);
       if (Math.abs(rawPin - smoothedPin) < 0.0004) {
@@ -1820,14 +1829,19 @@ export function AsciiBlackholeCanvas({
       if (pinnedIntroAt !== null) {
         introElapsed = Math.min(INTRO_TOTAL_SEC, pinnedIntroAt);
         resolveElapsed = Math.max(0, pinnedIntroAt - INTRO_TOTAL_SEC);
-      } else if (introElapsed < INTRO_TOTAL_SEC) {
+      } else if (!isFirstPaint && introElapsed < INTRO_TOTAL_SEC) {
         const scrollBoost = window.scrollY > 24 ? 6.5 : 1.0;
         introElapsed = Math.min(
           INTRO_TOTAL_SEC,
           introElapsed + wallDt * scrollBoost
         );
-      } else {
+      } else if (!isFirstPaint) {
         resolveElapsed = Math.min(10, resolveElapsed + wallDt);
+      }
+
+      // Safety net: guarantee wordmark texture is built well before supernova carve at 4.02s
+      if (!startSettled && !wordmarkBuilt && introElapsed >= 3.2) {
+        ensureWordmarkTexture(true);
       }
 
       const isResolvedNow =
@@ -1847,52 +1861,52 @@ export function AsciiBlackholeCanvas({
       const tanHalfFov = Math.tan(degToRad(23));
 
       // =====================================================================
-      // 1) SNAPPY ACT I -> V TIMING (3.20s Total, 2.65s Hero Reveal Overlap)
+      // 1) FULL UNHURRIED ACT I -> V TIMING (9.00s Total, 9.00s Hero Reveal)
       // =====================================================================
-      const starVis = 1.0 - smoothstep(1.0, 1.14, introElapsed);
-      const tremble = smoothstep(0.18, 0.55, introElapsed);
-      const collapseT = clamp01((introElapsed - 0.52) / (1.08 - 0.52));
+      const starVis = 1.0 - smoothstep(3.75, 3.92, introElapsed);
+      const tremble = smoothstep(1.25, 2.4, introElapsed);
+      const collapseT = clamp01((introElapsed - 2.4) / (3.85 - 2.4));
       const collapseEase = Math.pow(collapseT, 2.1);
       const starRadius =
         mixNum(1.28, 0.14, collapseEase) +
         Math.sin(tSec * 12.0) * 0.024 * tremble * (1.0 - collapseEase);
       const starShift = clamp01(
-        smoothstep(0.22, 0.58, introElapsed) * 0.25 +
-          smoothstep(0.55, 1.02, introElapsed) * 0.75
+        smoothstep(1.4, 2.55, introElapsed) * 0.25 +
+          smoothstep(2.45, 3.82, introElapsed) * 0.75
       );
       const starCrack = clamp01(
-        smoothstep(0.15, 0.55, introElapsed) * 0.55 +
-          smoothstep(0.55, 0.98, introElapsed) * 0.45
+        smoothstep(1.15, 2.45, introElapsed) * 0.55 +
+          smoothstep(2.45, 3.78, introElapsed) * 0.45
       );
       const implode =
-        smoothstep(0.48, 0.72, introElapsed) *
-        (1.0 - smoothstep(1.04, 1.16, introElapsed));
+        smoothstep(2.25, 2.85, introElapsed) *
+        (1.0 - smoothstep(3.78, 3.95, introElapsed));
 
       const charge =
-        smoothstep(0.84, 1.04, introElapsed) *
-        (1.0 - smoothstep(1.06, 1.18, introElapsed));
+        smoothstep(3.38, 3.82, introElapsed) *
+        (1.0 - smoothstep(3.86, 4.12, introElapsed));
 
       const blastPeak =
-        smoothstep(1.04, 1.14, introElapsed) *
-        (1.0 - smoothstep(1.62, 1.88, introElapsed));
-      const blastProgress = clamp01((introElapsed - 1.04) / (1.92 - 1.04));
+        smoothstep(3.8, 4.02, introElapsed) *
+        (1.0 - smoothstep(5.1, 5.75, introElapsed));
+      const blastProgress = clamp01((introElapsed - 3.8) / (5.85 - 3.8));
       const ejecta =
-        smoothstep(1.04, 1.14, introElapsed) *
-        (1.0 - smoothstep(1.82, 2.32, introElapsed));
-      const ejectaProg = clamp01((introElapsed - 1.04) / (2.32 - 1.04));
+        smoothstep(3.8, 4.02, introElapsed) *
+        (1.0 - smoothstep(5.6, 6.55, introElapsed));
+      const ejectaProg = clamp01((introElapsed - 3.8) / (6.55 - 3.8));
       const wordmarkCarve =
-        smoothstep(1.12, 1.22, introElapsed) *
-        (1.0 - smoothstep(1.62, 1.76, introElapsed));
+        smoothstep(4.02, 4.22, introElapsed) *
+        (1.0 - smoothstep(4.95, 5.2, introElapsed));
 
-      const bhBirth = smoothstep(1.52, 1.88, introElapsed);
-      const diskBirth = smoothstep(1.58, 1.98, introElapsed);
+      const bhBirth = smoothstep(4.65, 5.35, introElapsed);
+      const diskBirth = smoothstep(4.8, 5.6, introElapsed);
 
-      const jetBreakout = smoothstep(0.84, 1.04, introElapsed);
-      const jetFade = 1.0 - smoothstep(2.05, 2.55, introElapsed);
+      const jetBreakout = smoothstep(3.38, 3.82, introElapsed);
+      const jetFade = 1.0 - smoothstep(6.25, 7.45, introElapsed);
       const jetPower =
         jetBreakout * (1.0 + charge * 0.6 + blastPeak * 0.35) * jetFade;
 
-      const settle = easeInOutQuint(clamp01((introElapsed - 2.1) / 1.1));
+      const settle = easeInOutQuint(clamp01((introElapsed - 6.6) / 2.4));
 
       const lockPulse =
         !startSettled && introElapsed >= INTRO_TOTAL_SEC - 0.001
@@ -1903,7 +1917,7 @@ export function AsciiBlackholeCanvas({
       const starWave = startSettled
         ? 1.0
         : isResolvedNow
-          ? smoothstep(0.0, 0.85, Math.max(0, introElapsed - HERO_REVEAL_SEC) + resolveElapsed)
+          ? smoothstep(0.0, 0.95, resolveElapsed)
           : 0.0;
 
       const warmTint = starVis * (1.0 - smoothstep(0.18, 0.72, starShift));
@@ -1999,20 +2013,21 @@ export function AsciiBlackholeCanvas({
         segPlateau * degToRad(42) +
         segDock * degToRad(16);
 
+      // Full 0..6.55s unhurried intro camera trajectory
       const mobileScale = isMobile ? 1.24 : 1.0;
-      const dAct1 = mixNum(7.5, 6.8, smoothstep(0.0, 0.6, introElapsed));
-      const dAct2 = mixNum(dAct1, 7.15, smoothstep(0.6, 1.08, introElapsed));
+      const dAct1 = mixNum(7.5, 6.8, smoothstep(0.0, 2.4, introElapsed));
+      const dAct2 = mixNum(dAct1, 7.15, smoothstep(2.4, 3.85, introElapsed));
       const introDist =
-        mixNum(dAct2, 5.85, smoothstep(1.2, 2.1, introElapsed)) * mobileScale;
+        mixNum(dAct2, 5.85, smoothstep(4.05, 6.55, introElapsed)) * mobileScale;
       const introElevDeg = mixNum(
         19.0,
         15.0,
-        smoothstep(0.0, 2.1, introElapsed)
+        smoothstep(0.0, 6.55, introElapsed)
       );
       const introRoll = mixNum(
         degToRad(-22),
         degToRad(-18),
-        smoothstep(0.0, 2.1, introElapsed)
+        smoothstep(0.0, 6.55, introElapsed)
       );
 
       const elevRad = degToRad(mixNum(introElevDeg, scrollElevDeg, settle));
@@ -2150,39 +2165,9 @@ export function AsciiBlackholeCanvas({
         viewportW: cssWGlobal,
       });
 
-      if (typeof window !== "undefined") {
-        (
-          window as unknown as Record<string, unknown>
-        ).__TMINUS_BH_TELEMETRY__ = {
-          fps: Number((1 / Math.max(0.001, dtEma)).toFixed(1)),
-          frameMs: Number((dtEma * 1000).toFixed(2)),
-          degraded: adaptiveDegraded,
-          cols,
-          rows,
-          cellPxW,
-          cellPxH,
-          dpr: dprGlobal,
-          introElapsed: Number(introElapsed.toFixed(3)),
-          resolveElapsed: Number(resolveElapsed.toFixed(3)),
-          heroResolved: isResolvedNow,
-          pinProgress: Number(s.toFixed(4)),
-          polarFactor: Number(polarFactor.toFixed(4)),
-          polarGate: Number(polarGate.toFixed(4)),
-          tickPulse: Number(tickPulse.toFixed(4)),
-          tickProg: Number(tickProg.toFixed(4)),
-          tickElapsedSinceEdgeMs,
-          pulseEdgeWholeSec: lastPulseEdgeSec,
-          lastPulseTriggerPerfMs: Number(lastPulseTriggerPerfMs.toFixed(2)),
-          polarDiameterPx: Math.round(polarDiameterPx),
-          domeApexRimY: Math.round(domeApexRimY),
-          domeEdgeY: Math.round(domeEdgeY),
-          elevDeg: Number(((elevRad * 180) / Math.PI).toFixed(1)),
-        };
-      }
-
-      // Throttled 1x-DPR starfield (~14fps idle, ~25fps on pointer move)
+      // Throttled 1x-DPR starfield (~14fps idle, ~25fps on pointer move; skipped during Act I-III)
       const bgIntervalMs = pointerActive > 0.02 ? 40 : 72;
-      if (ts - lastBgDraw >= bgIntervalMs) {
+      if ((starWave > 0.005 || settle > 0.05) && ts - lastBgDraw >= bgIntervalMs) {
         lastBgDraw = ts;
         drawBackgroundField(tSec, s, settle, starWave);
       }
@@ -2310,12 +2295,64 @@ export function AsciiBlackholeCanvas({
       gl.uniform1f(pGlyphComp.u.uViewAsp, viewAsp);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.disable(gl.SCISSOR_TEST);
+
+      if (firstStarPaintPerfMs === null && starVis > 0.5) {
+        firstStarPaintPerfMs = Number(performance.now().toFixed(2));
+      }
+      if (ssrSeedRef.current && ssrSeedRef.current.style.display !== "none") {
+        ssrSeedRef.current.style.display = "none";
+      }
+
+      if (typeof window !== "undefined") {
+        (
+          window as unknown as Record<string, unknown>
+        ).__TMINUS_BH_TELEMETRY__ = {
+          fps: Number((1 / Math.max(0.001, dtEma)).toFixed(1)),
+          frameMs: Number((dtEma * 1000).toFixed(2)),
+          degraded: adaptiveDegraded,
+          cols,
+          rows,
+          cellPxW,
+          cellPxH,
+          dpr: dprGlobal,
+          firstStarPaintPerfMs,
+          wordmarkBuilt,
+          introElapsed: Number(introElapsed.toFixed(3)),
+          resolveElapsed: Number(resolveElapsed.toFixed(3)),
+          heroResolved: isResolvedNow,
+          pinProgress: Number(s.toFixed(4)),
+          polarFactor: Number(polarFactor.toFixed(4)),
+          polarGate: Number(polarGate.toFixed(4)),
+          tickPulse: Number(tickPulse.toFixed(4)),
+          tickProg: Number(tickProg.toFixed(4)),
+          tickElapsedSinceEdgeMs,
+          pulseEdgeWholeSec: lastPulseEdgeSec,
+          lastPulseTriggerPerfMs: Number(lastPulseTriggerPerfMs.toFixed(2)),
+          polarDiameterPx: Math.round(polarDiameterPx),
+          domeApexRimY: Math.round(domeApexRimY),
+          domeEdgeY: Math.round(domeEdgeY),
+          elevDeg: Number(((elevRad * 180) / Math.PI).toFixed(1)),
+        };
+      }
     };
 
-    const startLoop = () => {
+    const frame = (ts: number) => {
+      if (disposed || document.hidden) {
+        loopRunning = false;
+        return;
+      }
+      rafId = window.requestAnimationFrame(frame);
+      renderFrame(ts, false);
+    };
+
+    const startLoop = (paintImmediately = false) => {
       if (disposed || loopRunning || document.hidden) return;
       loopRunning = true;
-      lastTs = performance.now();
+      const now = performance.now();
+      lastTs = now;
+      if (paintImmediately) {
+        renderFrame(now, true);
+      }
       rafId = window.requestAnimationFrame(frame);
     };
 
@@ -2329,20 +2366,93 @@ export function AsciiBlackholeCanvas({
       if (document.hidden) {
         stopLoop();
       } else {
-        startLoop();
+        startLoop(false);
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
 
-    startLoop();
+    // Paint Frame 1 immediately on mount so the warm dying star appears with zero rAF delay
+    startLoop(true);
+
+    // Defer non-critical layout observers, font refinement, and supernova wordmark texture
+    // until AFTER Frame 1 is already on screen
+    let roCanvas: ResizeObserver | null = null;
+    let roRunway: ResizeObserver | null = null;
+    let postMountTimer = 0;
+    let wordmarkIdleId = 0;
+    let wordmarkTimer = 0;
+
+    postMountTimer = window.setTimeout(() => {
+      if (disposed) return;
+      syncRunwayMetrics();
+      roCanvas = new ResizeObserver(() => {
+        if (disposed) return;
+        syncBuffers(false, false);
+        syncRunwayMetrics();
+      });
+      roCanvas.observe(glCanvas);
+
+      const runwayElInit = runwayRefLatest.current?.current;
+      if (runwayElInit) {
+        roRunway = new ResizeObserver(() => {
+          if (!disposed) syncRunwayMetrics();
+        });
+        roRunway.observe(runwayElInit);
+      }
+    }, 0);
+
+    // Build wordmark mask well before 4.02s supernova carve without ever blocking Frame 1
+    if (!startSettled && !wordmarkBuilt) {
+      const scheduleWordmarkBuild = () => {
+        if (disposed || wordmarkBuilt) return;
+        ensureWordmarkTexture(true);
+      };
+      if (typeof (window as unknown as { requestIdleCallback?: unknown }).requestIdleCallback === "function") {
+        wordmarkIdleId = (
+          window as Window & {
+            requestIdleCallback: (
+              cb: () => void,
+              opts?: { timeout: number }
+            ) => number;
+          }
+        ).requestIdleCallback(scheduleWordmarkBuild, { timeout: 1400 });
+      } else {
+        wordmarkTimer = window.setTimeout(scheduleWordmarkBuild, 450);
+      }
+    }
+
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      document.fonts.ready
+        .then(() => {
+          if (disposed) return;
+          if (!startSettled) {
+            window.setTimeout(() => {
+              if (!disposed) ensureWordmarkTexture(true);
+            }, 220);
+          }
+          syncBuffers(true, false);
+          syncRunwayMetrics();
+        })
+        .catch(() => {});
+    }
 
     return () => {
       disposed = true;
+      window.clearTimeout(postMountTimer);
+      window.clearTimeout(wordmarkTimer);
+      if (
+        wordmarkIdleId &&
+        typeof (window as unknown as { cancelIdleCallback?: unknown }).cancelIdleCallback === "function"
+      ) {
+        (
+          window as Window & { cancelIdleCallback: (id: number) => void }
+        ).cancelIdleCallback(wordmarkIdleId);
+      }
       stopLoop();
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerleave", handlePointerLeave);
-      roCanvas.disconnect();
+      roCanvas?.disconnect();
       roRunway?.disconnect();
       freeRT(gl, rtScene);
       freeRT(gl, rtCell);
@@ -2372,6 +2482,23 @@ export function AsciiBlackholeCanvas({
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 z-0 h-full w-full"
       />
+      {!skipIntro ? (
+        <div
+          ref={ssrSeedRef}
+          data-star-ssr-seed="true"
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 z-[25] flex items-center justify-center bg-[#040206] motion-reduce:hidden"
+        >
+          <div
+            className="h-[46dvh] w-[46dvh] rounded-full sm:h-[58dvh] sm:w-[58dvh]"
+            style={{
+              background:
+                "radial-gradient(circle, #FFF8E8 0%, #F4D8AE 22%, #C9915E 39%, rgba(143, 87, 55, 0.58) 54%, rgba(240, 199, 144, 0.16) 72%, rgba(4, 2, 6, 0) 100%)",
+              filter: "blur(1px)",
+            }}
+          />
+        </div>
+      ) : null}
       <canvas
         ref={glCanvasRef}
         aria-hidden="true"
