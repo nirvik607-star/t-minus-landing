@@ -9,7 +9,8 @@ const useIsomorphicLayoutEffect =
 
 /**
  * Shared scroll & 3D camera telemetry published every animation frame so
- * `HorizonCountdown`, hero lift-off, and the slim Layer 20 curved pre-rim veil
+ * `HorizonCountdown`, hero lift-off, Layer 20 curved pre-rim veil,
+ * perimeter telemetry HUD, vernier rail, and the polar 60-tick bezel
  * stay pixel-locked at 60fps with the real 3D black hole.
  */
 export interface HorizonSyncState {
@@ -25,7 +26,7 @@ export interface HorizonSyncState {
   heroResolved: boolean;
   /** Screen Y (px from top) where the countdown centers inside the pure #000000 core */
   countdownCenterY: number;
-  /** Scale factor for Horizon Strip mode (1.0 bottom -> 0.64/0.60 slim top dome) */
+  /** Scale factor for Horizon Strip mode (1.0 bottom -> 0.64/0.58 slim top dome) */
   countdownScale: number;
   /** Exact 3D-projected top-dome circle in CSS px for the slim Layer 20 curved pre-rim veil */
   domeCenterX: number;
@@ -35,6 +36,25 @@ export interface HorizonSyncState {
   domeEdgeY: number;
   /** Current viewport width in CSS px */
   viewportW: number;
+  /** Current intro clock (0..9.90s) for perimeter HUD phase telemetry */
+  introElapsed: number;
+  /** Current 3D orbital camera elevation in degrees (26° -> 88° -> 154°) */
+  elevDeg: number;
+  /** Current orbital scroll azimuth in degrees (counter-rotates UI-3 outer bezel ring) */
+  scrollAzimDeg: number;
+  /** Live polar UTC 1-second escapement pulse (0..1) */
+  tickPulse: number;
+  /** Live polar UTC 1-second escapement wave progress (0..1) */
+  tickProg: number;
+}
+
+export interface AsciiBlackholeControl {
+  /** Immediately resolves the intro into the settled hero horizon with lock pulse */
+  skipIntro: () => void;
+  /** Smoothly replays the full 9.90s stellar evolution -> black hole sequence from t = 0 */
+  replayIntro: () => void;
+  /** Triggers subtle horizon ripple (toggle/typing) or full gravitational shockwave (waitlist submit) */
+  pulseHorizon: (kind: "subtle" | "shockwave") => void;
 }
 
 interface AsciiBlackholeCanvasProps {
@@ -42,6 +62,8 @@ interface AsciiBlackholeCanvasProps {
   onHorizonSync?: (state: HorizonSyncState) => void;
   /** Reference to the native CSS sticky scroll runway wrapper */
   runwayRef?: React.RefObject<HTMLDivElement | null>;
+  /** Imperative control handle for SKIP ->, REPLAY, and waitlist gravitational pulses */
+  controlRef?: React.MutableRefObject<AsciiBlackholeControl | null>;
   skipIntro?: boolean;
 }
 
@@ -51,9 +73,9 @@ interface AsciiBlackholeCanvasProps {
  */
 const ASCII_RAMP = " .:-^tT";
 
-// ---- Full Unhurried Act I -> V Intro Choreography (9.00s Total, 9.00s Hero Reveal) ----
-const INTRO_TOTAL_SEC = 9.0;
-const HERO_REVEAL_SEC = 9.0;
+// ---- Part A: Realistic Stellar Evolution -> Growing Black Hole (9.90s Total) ----
+const INTRO_TOTAL_SEC = 9.9;
+const HERO_REVEAL_SEC = 9.9;
 
 const VS_QUAD = `#version 300 es
 precision highp float;
@@ -65,9 +87,10 @@ void main() {
 }`;
 
 /**
- * Pass 1: Analytic 3D Dying Star -> Gravitational Implosion ->
- *         3D Filamentary Supernova -> Relativistic Black Hole + Sculpted Spiral Disk
- *         + 3D Helical Polar Jets + Polar-Only UTC 1-Second Escapement Pulse
+ * Pass 1: Analytic 3D Red-Supergiant Swell -> Runaway Core Collapse ->
+ *         Multi-Shell Core-Bounce Supernova -> Growing Pinpoint Black Hole
+ *         + Spiral Fallback Accretion Disk + 3D Helical Polar Jets
+ *         + Polar-Only UTC 1-Second Escapement Pulse + Waitlist Coupling
  */
 const FS_SCENE = `#version 300 es
 precision highp float;
@@ -85,18 +108,29 @@ uniform vec3  uCamRight;
 uniform vec3  uCamUp;
 uniform vec3  uCamFwd;
 
-// Act I -> III uniforms
+// Act I -> IV stellar evolution & black hole nucleation uniforms
 uniform float uStarVis;
 uniform float uStarRadius;
+uniform float uStarSwell;
+uniform float uStarSpinPhase;
+uniform float uPinch;
 uniform float uStarShift;
 uniform float uStarCrack;
 uniform float uImplode;
 uniform float uEjecta;
 uniform float uEjectaProg;
 uniform float uBhBirth;
+uniform float uBhRadius;
+uniform float uFallback;
+uniform float uFallbackProg;
 uniform float uDiskBirth;
 uniform float uLockPulse;
 uniform float uLockWaveProg;
+
+// Waitlist gravitational coupling (UI-2)
+uniform float uUiRipple;
+uniform float uUiShock;
+uniform float uUiShockProg;
 
 // Polar-only UTC 1-second escapement pulse (strictly 0 on hero & top dome)
 uniform float uTickPulse;
@@ -127,11 +161,14 @@ const vec3 C_PERIWINKLE  = vec3(0.5216, 0.5412, 0.8902); // #858AE3
 const vec3 C_ICE_BLUE    = vec3(0.5922, 0.8745, 0.9882); // #97DFFC
 const vec3 C_WHITE_CORE  = vec3(0.9686, 0.9804, 1.0000); // #F7FAFF
 
-// Natural Warm-White Dying Star Palette
+// Initial Warm-White Star -> Bloated Amber-Copper Red Supergiant Palette
 const vec3 C_STAR_CORE   = vec3(1.0000, 0.9725, 0.9098); // #FFF8E8
 const vec3 C_STAR_MID    = vec3(0.9216, 0.7882, 0.5961); // #EBC998
 const vec3 C_STAR_LIMB   = vec3(0.5608, 0.3412, 0.2157); // #8F5737
 const vec3 C_STAR_CORONA = vec3(0.9412, 0.7804, 0.5647); // #F0C790
+const vec3 C_SG_MID      = vec3(0.8510, 0.5098, 0.2941); // #D9824B
+const vec3 C_SG_LIMB     = vec3(0.5608, 0.2392, 0.1569); // #8F3D28
+const vec3 C_SG_CORONA   = vec3(0.9176, 0.5490, 0.3176); // #EA8C51
 
 float hash11(float p) {
   p = fract(p * 0.1031);
@@ -140,89 +177,127 @@ float hash11(float p) {
   return fract(p);
 }
 
-float starTurbulence(vec3 p, float t) {
-  float a = sin(p.x * 5.2 + t * 0.95) * cos(p.y * 5.6 - t * 0.78) * sin(p.z * 5.4 + t * 0.65);
-  float b = sin((p.x + p.z) * 8.6 - t * 1.45) * cos((p.y - p.x) * 9.2 + t * 1.20);
-  float c = cos((p.y + p.z) * 14.5 + t * 2.15) * sin((p.x - p.y * 0.7) * 13.0 - t * 1.75);
-  return 0.5 + 0.30 * a + 0.17 * b + 0.10 * c;
+float starTurbulence(vec3 p, float t, float swell) {
+  float scale = mix(1.0, 0.72, swell);
+  vec3 q = p * scale;
+  float a = sin(q.x * 5.0 + t * 0.88) * cos(q.y * 5.4 - t * 0.74) * sin(q.z * 5.2 + t * 0.62);
+  float b = sin((q.x + q.z) * 8.4 - t * 1.38) * cos((q.y - q.x) * 9.0 + t * 1.15);
+  float c = cos((q.y + q.z) * 14.0 + t * 2.05) * sin((q.x - q.y * 0.7) * 12.6 - t * 1.68);
+  return 0.5 + 0.32 * a + 0.18 * b + 0.10 * c;
 }
 
 vec4 evalDyingStar(vec3 ro, vec3 rd, vec3 closestPt, float b, float tc, float pixelAA) {
   if (uStarVis <= 0.002 || tc <= 0.0) return vec4(0.0);
 
-  float R = max(0.12, uStarRadius);
+  float Rbase = max(0.09, uStarRadius);
   vec2 planeXY = vec2(dot(closestPt, uCamRight), dot(closestPt, uCamUp));
   float ang = atan(planeXY.y, planeXY.x);
-  float pulseWave = 0.5 + 0.5 * sin(uTime * 9.0 + ang * 3.0);
 
-  vec3 corePal = mix(C_STAR_CORE, vec3(1.0, 1.0, 1.0), uStarShift);
-  vec3 midPal = mix(C_STAR_MID, mix(C_ICE_BLUE, C_WHITE_CORE, 0.36), uStarShift);
-  vec3 limbPal = mix(C_STAR_LIMB, mix(C_DEEP_PURPLE, C_ACCENT, 0.55), uStarShift);
-  vec3 coronaPal = mix(C_STAR_CORONA, mix(C_ICE_BLUE, C_PERIWINKLE, 0.48), uStarShift);
+  // Subtle equatorial oblateness as angular momentum spikes during collapse
+  vec2 oblateXY = vec2(
+    planeXY.x / (1.0 + uPinch * 0.14),
+    planeXY.y / (1.0 - uPinch * 0.11)
+  );
+  float bEval = mix(b, length(oblateXY), uPinch);
+
+  // Convective red-supergiant limb ripples (+-3.2%) driven by uStarSwell
+  float limbRipple = (
+    0.019 * sin(ang * 5.0 + uStarSpinPhase * 1.35 + uTime * 1.1) +
+    0.013 * cos(ang * 9.0 - uStarSpinPhase * 1.9 + 0.7)
+  ) * uStarSwell;
+  float R = Rbase * (1.0 + limbRipple);
+  float pulseWave = 0.5 + 0.5 * sin(uTime * 8.5 + ang * 3.0);
+
+  // Act 1 red-supergiant palette (#FFF8E8 -> #D9824B -> #8F3D28) -> Act 2 shock blueshift (#F7FAFF -> #97DFFC)
+  vec3 warmMid = mix(C_STAR_MID, C_SG_MID, uStarSwell);
+  vec3 warmLimb = mix(C_STAR_LIMB, C_SG_LIMB, uStarSwell);
+  vec3 warmCorona = mix(C_STAR_CORONA, C_SG_CORONA, uStarSwell);
+
+  vec3 corePal = mix(C_STAR_CORE, C_WHITE_CORE, uStarShift);
+  vec3 midPal = mix(warmMid, mix(C_ICE_BLUE, C_WHITE_CORE, 0.42), uStarShift);
+  vec3 limbPal = mix(warmLimb, mix(C_DEEP_PURPLE, C_ACCENT, 0.58), uStarShift);
+  vec3 coronaPal = mix(warmCorona, mix(C_ICE_BLUE, C_PERIWINKLE, 0.44), uStarShift);
 
   vec3 starCol = vec3(0.0);
   float starAlpha = 0.0;
 
-  float sphereMask = 1.0 - smoothstep(R - pixelAA * 1.5, R + pixelAA * 1.5, b);
-  if (b < R + pixelAA * 2.0) {
-    float zHalf = sqrt(max(0.0, R * R - min(b, R) * min(b, R)));
+  float sphereMask = 1.0 - smoothstep(R - pixelAA * 1.5, R + pixelAA * 1.5, bEval);
+  if (bEval < R + pixelAA * 2.0) {
+    float zHalf = sqrt(max(0.0, R * R - min(bEval, R) * min(bEval, R)));
     vec3 pHit = ro + (tc - zHalf) * rd;
     vec3 N = normalize(pHit);
 
-    float spin = uTime * (0.42 + uImplode * 2.2);
-    float cs = cos(spin);
-    float sn = sin(spin);
+    // Smooth CPU-integrated angular momentum spin-up (zero phase discontinuity)
+    float cs = cos(uStarSpinPhase);
+    float sn = sin(uStarSpinPhase);
     vec3 Nr = vec3(N.x * cs + N.z * sn, N.y, -N.x * sn + N.z * cs);
 
-    float gran = starTurbulence(Nr, uTime * (1.05 + uStarCrack * 0.95));
-    float hotCells = smoothstep(0.45, 0.86, gran);
-    float darkLanes = smoothstep(0.52, 0.14, gran);
+    float gran = starTurbulence(Nr, uTime * (0.95 + uStarCrack * 0.85), uStarSwell);
+    float hotCells = smoothstep(0.42, 0.86, gran);
+    float darkLanes = smoothstep(0.54, 0.14, gran);
 
-    float f1 = abs(sin(Nr.x * 9.5 + Nr.y * 6.2 + uTime * 2.2) + cos(Nr.z * 8.4 - Nr.y * 7.1));
-    float f2 = abs(cos(Nr.y * 11.2 - Nr.z * 7.8 - uTime * 2.5) + sin(Nr.x * 10.1 + Nr.z * 6.5));
-    float crackMask = (1.0 - smoothstep(0.02, 0.21, min(f1, f2))) * uStarCrack;
+    // Giant asymmetric convective supergiant plumes + surface crust fissures
+    float swellAsym = mix(1.0, 0.82 + 0.28 * sin(Nr.x * 2.8 + Nr.y * 2.1 + 0.5), uStarSwell * (1.0 - uStarShift));
+    float f1 = abs(sin(Nr.x * 9.2 + Nr.y * 6.0 + uStarSpinPhase * 0.7) + cos(Nr.z * 8.2 - Nr.y * 6.8));
+    float f2 = abs(cos(Nr.y * 10.8 - Nr.z * 7.5 - uStarSpinPhase * 0.9) + sin(Nr.x * 9.8 + Nr.z * 6.2));
+    float crackMask = (1.0 - smoothstep(0.02, 0.22, min(f1, f2))) * uStarCrack;
     crackMask *= (0.68 + 0.32 * pulseWave);
 
     float ndotv = clamp(dot(N, -rd), 0.0, 1.0);
-    float limbDark = pow(ndotv, 0.78);
-    float rimFlare = pow(1.0 - ndotv, 3.2) * (0.44 + 0.48 * uStarCrack);
+    float limbExp = mix(0.76, 1.26, uStarSwell) * (1.0 - uStarShift * 0.36);
+    float limbDark = pow(ndotv, limbExp) * swellAsym;
+    float rimFlare = pow(1.0 - ndotv, 3.0) * (0.40 + 0.30 * uStarSwell + 0.48 * uStarCrack);
 
-    vec3 surfCol = mix(limbPal, midPal, clamp(limbDark * 0.80 + hotCells * 0.36, 0.0, 1.0));
-    surfCol = mix(surfCol, corePal, smoothstep(0.54, 0.94, limbDark * 0.64 + hotCells * 0.48));
-    surfCol *= (1.0 - darkLanes * 0.54 * (1.0 - uStarShift * 0.35));
+    vec3 surfCol = mix(limbPal, midPal, clamp(limbDark * 0.82 + hotCells * 0.38, 0.0, 1.0));
+    surfCol = mix(surfCol, corePal, smoothstep(0.50, 0.92, limbDark * 0.62 + hotCells * 0.50));
+    surfCol *= (1.0 - darkLanes * mix(0.50, 0.62, uStarSwell) * (1.0 - uStarShift * 0.42));
 
-    vec3 crackCol = mix(C_ICE_BLUE, vec3(1.0), 0.56);
-    surfCol = mix(surfCol, crackCol * 1.15, clamp(crackMask * 0.94, 0.0, 0.96));
-    surfCol += mix(coronaPal, C_ICE_BLUE, 0.48 + 0.52 * uStarShift) * rimFlare * 0.86;
+    vec3 warmCrackCol = mix(C_STAR_CORE, vec3(1.0, 0.86, 0.62), 0.35);
+    vec3 shockCrackCol = mix(C_ICE_BLUE, C_WHITE_CORE, 0.55);
+    vec3 crackCol = mix(warmCrackCol, shockCrackCol, smoothstep(0.08, 0.68, uStarShift));
+    surfCol = mix(surfCol, crackCol * 1.18, clamp(crackMask * 0.92, 0.0, 0.96));
+    surfCol += mix(coronaPal, C_ICE_BLUE, 0.36 + 0.64 * uStarShift) * rimFlare * 0.88;
 
-    float compressBoost = 1.0 + uImplode * 0.42 + uCharge * 0.75;
+    float compressBoost = 1.0 + uStarSwell * 0.08 + uImplode * 0.46 + uCharge * 0.82;
     starCol = surfCol * compressBoost * sphereMask;
     starAlpha = max(starAlpha, sphereMask);
   }
 
-  float distOut = max(0.0, b - R);
-  float coronaScale = max(0.26, R * 0.42);
+  // Corona + Solar-flare prominence loops lifting outward (0.22R -> 0.58R)
+  float distOut = max(0.0, bEval - R);
+  float coronaScale = max(0.24, Rbase * mix(0.42, 0.64, uStarSwell));
   float normOut = distOut / coronaScale;
   if (normOut < 3.4) {
-    float streamA = 0.5 + 0.5 * cos(ang * 6.0 - uTime * 0.95 + distOut * 2.2);
-    float streamB = 0.5 + 0.5 * cos(ang * 11.0 + uTime * 1.35 - distOut * 2.8);
-    float streamers = pow(max(streamA, streamB * 0.85), 2.8);
+    float streamA = 0.5 + 0.5 * cos(ang * 6.0 - uTime * 0.95 + distOut * 2.0);
+    float streamB = 0.5 + 0.5 * cos(ang * 11.0 + uTime * 1.35 - distOut * 2.6);
+    float streamers = pow(max(streamA, streamB * 0.85), 2.7);
 
-    float loopR = 0.22 + 0.24 * (0.5 + 0.5 * sin(ang * 5.0 + uTime * 0.75));
-    float promArc = exp(-pow((normOut - loopR) * 7.6, 2.0))
-      * smoothstep(0.45, 0.90, 0.5 + 0.5 * cos(ang * 5.0 - uTime * 0.6))
-      * (1.0 - sphereMask) * (0.62 + 0.45 * uStarCrack);
+    // Prominence magnetic arcs lift outward from 0.22R to 0.58R as the supergiant swells
+    float loopLiftR = mix(0.22, 0.58, uStarSwell) * Rbase;
+    float loopArcA = abs(sin(ang * 3.0 + uStarSpinPhase * 0.55));
+    float loopArcB = abs(sin(ang * 5.0 - uStarSpinPhase * 0.72 + 1.1));
+    float loopHeightA = loopLiftR * pow(loopArcA, 0.75);
+    float loopHeightB = loopLiftR * 0.76 * pow(loopArcB, 0.85);
+    float loopBandA = exp(-pow((distOut - loopHeightA) / max(0.055, Rbase * 0.075), 2.0))
+      * smoothstep(0.18, 0.88, loopArcA)
+      * smoothstep(0.38, 0.86, 0.5 + 0.5 * cos(ang * 3.0 - 0.6 + uStarSpinPhase * 0.35));
+    float loopBandB = exp(-pow((distOut - loopHeightB) / max(0.048, Rbase * 0.068), 2.0))
+      * smoothstep(0.22, 0.90, loopArcB)
+      * smoothstep(0.46, 0.90, 0.5 + 0.5 * cos(ang * 5.0 + 1.4 - uStarSpinPhase * 0.45));
+    float promArc = clamp(loopBandA + loopBandB * 0.75, 0.0, 1.25)
+      * (1.0 - sphereMask) * (0.48 + 0.58 * uStarSwell + 0.34 * uStarCrack);
 
-    float innerCorona = exp(-normOut * 4.1) * (0.48 + 0.52 * streamers) * (1.0 - sphereMask * 0.85);
+    float innerCorona = exp(-normOut * mix(4.2, 3.3, uStarSwell)) * (0.46 + 0.54 * streamers) * (1.0 - sphereMask * 0.86);
     float outerHalo = exp(-normOut * 1.95) * (0.10 + 0.16 * streamers) * (1.0 - sphereMask * 0.94);
     float outerCut = 1.0 - smoothstep(2.0, 3.2, normOut);
 
-    vec3 cInner = mix(coronaPal, corePal, 0.35);
-    vec3 cOuter = mix(mix(C_STAR_LIMB * 0.78, C_DEEP_PURPLE, uStarShift), C_ICE_BLUE, uStarCrack * 0.52);
-    vec3 coronaRgb = (cInner * (innerCorona * 0.82 + promArc * 0.80) + cOuter * outerHalo) * outerCut;
+    vec3 cInner = mix(coronaPal, corePal, 0.34);
+    vec3 cProm = mix(mix(C_SG_CORONA, C_STAR_CORE, 0.38), C_ICE_BLUE, uStarShift);
+    vec3 cOuter = mix(mix(warmLimb * 0.76, C_DEEP_PURPLE, uStarShift), C_ICE_BLUE, uStarCrack * 0.46 * uStarShift);
+    vec3 coronaRgb = (cInner * innerCorona * 0.80 + cProm * promArc * 0.86 + cOuter * outerHalo) * outerCut;
 
-    starCol += coronaRgb * (1.0 + uImplode * 0.32 + uCharge * 0.55);
-    starAlpha = max(starAlpha, clamp((innerCorona * 0.85 + promArc * 0.78 + outerHalo * 0.42) * outerCut, 0.0, 1.0));
+    starCol += coronaRgb * (1.0 + uImplode * 0.36 + uCharge * 0.62);
+    starAlpha = max(starAlpha, clamp((innerCorona * 0.85 + promArc * 0.82 + outerHalo * 0.42) * outerCut, 0.0, 1.0));
   }
 
   return vec4(starCol * uStarVis, clamp(starAlpha * uStarVis, 0.0, 1.0));
@@ -233,26 +308,28 @@ vec4 evalImplosionStreams(vec3 closestPt, float b, float tc) {
 
   vec2 planeXY = vec2(dot(closestPt, uCamRight), dot(closestPt, uCamUp));
   float ang = atan(planeXY.y, planeXY.x);
-  float logB = log(max(b, 0.07));
+  float logB = log(max(b, 0.06));
 
-  float armA = pow(0.5 + 0.5 * cos(ang * 12.0 + logB * 3.6 + uTime * 2.8), 4.8);
-  float armB = pow(0.5 + 0.5 * cos(ang * 19.0 - logB * 4.4 - uTime * 2.1 + 1.1), 5.5);
-  float dashA = smoothstep(0.32, 0.86, 0.5 + 0.5 * cos(logB * 15.0 + uTime * 12.0 + ang * 2.0));
-  float dashB = smoothstep(0.38, 0.90, 0.5 + 0.5 * cos(logB * 21.0 + uTime * 15.0 - ang * 3.0));
+  // Inward radial velocity accelerates as core radius plunges
+  float rushRate = 1.0 + (1.0 - clamp(uStarRadius / 1.6, 0.0, 1.0)) * 1.45;
+  float armA = pow(0.5 + 0.5 * cos(ang * 12.0 + logB * 3.8 + uStarSpinPhase * 1.2), 4.6);
+  float armB = pow(0.5 + 0.5 * cos(ang * 19.0 - logB * 4.5 - uStarSpinPhase * 0.95 + 1.1), 5.2);
+  float dashA = smoothstep(0.30, 0.86, 0.5 + 0.5 * cos(logB * 15.0 + uTime * 12.5 * rushRate + ang * 2.0));
+  float dashB = smoothstep(0.36, 0.90, 0.5 + 0.5 * cos(logB * 21.0 + uTime * 15.5 * rushRate - ang * 3.0));
 
-  float radialEnv = smoothstep(max(0.08, uStarRadius * 0.65), max(0.24, uStarRadius * 1.15), b)
-    * exp(-max(0.0, b - uStarRadius) * 0.94);
+  float radialEnv = smoothstep(max(0.07, uStarRadius * 0.62), max(0.20, uStarRadius * 1.12), b)
+    * exp(-max(0.0, b - uStarRadius) * 0.88);
 
-  float pinchR = max(0.22, uStarRadius * 1.32);
-  float pinchRing = exp(-pow((b - pinchR) * 7.6, 2.0)) * (0.50 + 0.50 * cos(ang * 8.0 - uTime * 4.8));
+  float pinchR = max(0.18, uStarRadius * 1.30);
+  float pinchRing = exp(-pow((b - pinchR) * 7.8, 2.0)) * (0.50 + 0.50 * cos(ang * 8.0 - uStarSpinPhase * 2.2));
 
-  float streamEnergy = (armA * dashA * 0.90 + armB * dashB * 0.70) * radialEnv + pinchRing * 0.64;
+  float streamEnergy = (armA * dashA * 0.92 + armB * dashB * 0.72) * radialEnv + pinchRing * 0.68;
   vec3 col = mix(C_DEEP_PURPLE, C_ACCENT, smoothstep(0.06, 0.30, streamEnergy));
-  col = mix(col, C_ICE_BLUE, smoothstep(0.24, 0.68, streamEnergy + pinchRing * 0.45));
-  col = mix(col, C_WHITE_CORE, smoothstep(0.72, 1.22, streamEnergy + uCharge * 0.45));
+  col = mix(col, C_ICE_BLUE, smoothstep(0.22, 0.66, streamEnergy + pinchRing * 0.48));
+  col = mix(col, C_WHITE_CORE, smoothstep(0.70, 1.18, streamEnergy + uCharge * 0.48));
 
-  float intensity = streamEnergy * uImplode * (0.98 + uCharge * 0.48);
-  return vec4(col * intensity, clamp(intensity * 0.92, 0.0, 1.0));
+  float intensity = streamEnergy * uImplode * (1.02 + uCharge * 0.52);
+  return vec4(col * intensity, clamp(intensity * 0.94, 0.0, 1.0));
 }
 
 vec4 evalSupernovaEjecta(vec3 closestPt, float b, float tc) {
@@ -262,66 +339,115 @@ vec4 evalSupernovaEjecta(vec3 closestPt, float b, float tc) {
   float ang = atan(planeXY.y, planeXY.x);
 
   float p = uEjectaProg;
-  float rMain = mix(0.28, 7.8, pow(p, 0.72));
-  float rInner = mix(0.18, 4.6, pow(p, 0.86));
+  // Forward shock blasts outward from the 0.11 core; reverse inner shock decelerates for Act 4 fallback
+  float rMain = mix(0.11, 8.4, pow(p, 0.70));
+  float rMid = mix(0.11, 5.4, pow(p, 0.82));
+  float rReverse = mix(0.11, 3.1, sin(min(p * 1.32, 1.0) * PI * 0.55));
 
-  float rtRipple = 0.20 * sin(ang * 7.0 + p * 4.5)
-    + 0.13 * cos(ang * 13.0 - p * 6.2 + 0.8)
-    + 0.07 * sin(ang * 21.0 + p * 8.0);
-  float shellDist = b - (rMain + rtRipple * (0.32 + p * 0.78));
-  float shellW = mix(0.22, 0.68, p);
+  float rtRipple = 0.22 * sin(ang * 7.0 + p * 4.5)
+    + 0.14 * cos(ang * 13.0 - p * 6.2 + 0.8)
+    + 0.08 * sin(ang * 21.0 + p * 8.0);
+  float shellDist = b - (rMain + rtRipple * (0.28 + p * 0.82));
+  float shellW = mix(0.20, 0.72, p);
   float mainShell = exp(-pow(shellDist / shellW, 2.0));
 
-  float innerDist = b - (rInner + rtRipple * 0.42);
-  float innerW = mix(0.18, 0.56, p);
-  float innerShell = exp(-pow(innerDist / innerW, 2.0));
+  float midDist = b - (rMid + rtRipple * 0.50);
+  float midW = mix(0.18, 0.58, p);
+  float midShell = exp(-pow(midDist / midW, 2.0));
 
-  float webA = smoothstep(0.36, 0.88, 0.5 + 0.5 * cos(ang * 10.0 - b * 2.5 + uTime * 2.0));
-  float webB = smoothstep(0.40, 0.90, 0.5 + 0.5 * cos(ang * 17.0 + b * 3.2 - uTime * 1.5));
+  float revDist = b - (rReverse + rtRipple * 0.26);
+  float revW = mix(0.15, 0.42, p);
+  float revShell = exp(-pow(revDist / revW, 2.0)) * (1.0 - smoothstep(0.58, 0.96, p));
+
+  float webA = smoothstep(0.34, 0.88, 0.5 + 0.5 * cos(ang * 10.0 - b * 2.5 + uTime * 1.9));
+  float webB = smoothstep(0.38, 0.90, 0.5 + 0.5 * cos(ang * 17.0 + b * 3.2 - uTime * 1.5));
   float filaments = max(webA, webB * 0.82);
 
-  float rayPattern = pow(0.5 + 0.5 * cos(ang * 9.0 - uTime * 1.2), 3.6) * 0.58
-    + pow(0.5 + 0.5 * cos(ang * 15.0 + uTime * 1.0 + 0.5), 4.6) * 0.40;
+  float rayPattern = pow(0.5 + 0.5 * cos(ang * 9.0 - uTime * 1.15), 3.6) * 0.58
+    + pow(0.5 + 0.5 * cos(ang * 15.0 + uTime * 0.95 + 0.5), 4.6) * 0.40;
   float trailingInterior = (1.0 - smoothstep(rMain * 0.68, rMain * 1.05, b))
-    * smoothstep(0.30, max(0.65, rInner * 0.55), b)
-    * (0.18 + 0.82 * rayPattern) * (1.0 - p * 0.75);
+    * smoothstep(0.22, max(0.55, rMid * 0.52), b)
+    * (0.18 + 0.82 * rayPattern) * (1.0 - p * 0.76);
 
-  float energy = mainShell * (0.50 + 0.60 * filaments)
-    + innerShell * (0.42 + 0.48 * webA) * 0.75
-    + trailingInterior * 0.36;
+  float energy = mainShell * (0.50 + 0.62 * filaments)
+    + midShell * (0.40 + 0.48 * webA) * 0.72
+    + revShell * (0.36 + 0.52 * webB) * 0.62
+    + trailingInterior * 0.34;
 
   vec3 col = mix(C_SPACE, C_DEEP_PURPLE, smoothstep(0.05, 0.26, energy));
   col = mix(col, C_ACCENT, smoothstep(0.22, 0.48, energy));
   col = mix(col, C_PERIWINKLE, smoothstep(0.42, 0.74, energy));
-  col = mix(col, C_ICE_BLUE, clamp(mainShell * 0.78 + innerShell * 0.42, 0.0, 0.84));
+  col = mix(col, C_ICE_BLUE, clamp(mainShell * 0.76 + midShell * 0.42 + revShell * 0.35, 0.0, 0.86));
   col = mix(col, C_WHITE_CORE, smoothstep(0.84, 1.32, energy * (1.0 - p * 0.55)));
 
-  float blastDuck = 1.0 - uBlastPeak * 0.35;
-  float fade = uEjecta * mix(1.12, 0.54, smoothstep(0.32, 0.92, p)) * blastDuck;
+  float blastDuck = 1.0 - uBlastPeak * 0.36;
+  float fade = uEjecta * mix(1.14, 0.52, smoothstep(0.34, 0.92, p)) * blastDuck;
   return vec4(col * energy * fade, clamp(energy * fade * 0.94, 0.0, 1.0));
 }
 
 /**
- * Volumetric 3D Accretion Disk tuned for calm laminar ASCII flow:
- * - Smooth rotational cadence eliminates 60Hz threshold-crossing jitter.
+ * Act 4 Spiral Fallback Ribbons:
+ * Pulls decelerating inner supernova ejecta inward along tightening logarithmic
+ * spiral trajectories straight into the growing black hole's forming accretion disk.
  */
-vec4 evalDisk(vec2 xz, float outerR, float polarF, float time, float dopplerBias) {
+vec4 evalFallbackRibbons(vec3 closestPt, float b, float tc, float rh) {
+  if (uFallback <= 0.002 || tc <= 0.0) return vec4(0.0);
+  float rInnerGate = rh * 1.03;
+  if (b < rInnerGate * 0.92 || b > 5.8) return vec4(0.0);
+
+  vec2 planeXY = vec2(dot(closestPt, uCamRight), dot(closestPt, uCamUp));
+  float ang = atan(planeXY.y, planeXY.x);
+  float logRatio = log(max(b / max(0.08, rh), 1.01));
+
+  // Spiral wind tightens dramatically as fallback material conserves angular momentum
+  float twist = mix(4.2, 8.8, uFallbackProg);
+  float spin = uTime * 2.45 + uFallbackProg * 4.2;
+
+  float ribA = pow(0.5 + 0.5 * cos(3.0 * ang + twist * logRatio - spin), 5.0);
+  float ribB = pow(0.5 + 0.5 * cos(5.0 * ang + (twist * 0.82) * logRatio - spin * 1.22 + 1.3), 6.2);
+  float dash = smoothstep(0.28, 0.88, 0.5 + 0.5 * cos(logRatio * 10.0 + uTime * 6.8 - ang * 2.0));
+
+  float outerRim = mix(4.8, 2.25, uFallbackProg);
+  float env = smoothstep(rInnerGate * 0.96, rInnerGate * 1.24, b)
+    * (1.0 - smoothstep(outerRim * 0.58, outerRim, b));
+
+  // Shock-heated plunge glow right as fallback streams join the photon ring / ISCO
+  float plungeHeat = exp(-max(0.0, b - rInnerGate) * 2.2) * (0.45 + 0.55 * ribA);
+  float energy = ((ribA * 0.95 + ribB * 0.65) * (0.48 + 0.52 * dash) * env + plungeHeat * 0.52) * uFallback;
+
+  vec3 col = mix(C_DEEP_PURPLE, C_ACCENT, smoothstep(0.05, 0.28, energy));
+  col = mix(col, C_PERIWINKLE, smoothstep(0.24, 0.58, energy));
+  col = mix(col, C_ICE_BLUE, clamp(plungeHeat * 0.78 + smoothstep(0.52, 0.95, energy) * 0.65, 0.0, 0.92));
+  col = mix(col, C_WHITE_CORE, smoothstep(0.88, 1.35, energy + plungeHeat * 0.35));
+
+  return vec4(col * energy * 1.12, clamp(energy * 0.95, 0.0, 1.0));
+}
+
+/**
+ * Volumetric 3D Accretion Disk tuned for calm laminar ASCII flow:
+ * - Scales proportionally with rh during Act 4 black hole growth (0.04 -> 1.00)
+ *   and is mathematically identical to settled rh = 1.0.
+ */
+vec4 evalDisk(vec2 xz, float outerR, float polarF, float time, float dopplerBias, float rh) {
   if (uDiskBirth <= 0.002) return vec4(0.0);
 
-  float r = length(xz);
-  if (r < 1.02 || r > outerR) return vec4(0.0);
+  float rRaw = length(xz);
+  float rScale = max(0.16, rh);
+  float r = rRaw / rScale;
+  float effOuterR = outerR / rScale;
+  if (r < 1.02 || r > effOuterR) return vec4(0.0);
 
   float theta = atan(xz.y, xz.x);
   float logR = log(r);
 
   float birthRadiusGate = smoothstep(
-    mix(outerR * 0.88, 1.02, uDiskBirth),
-    mix(outerR * 1.05, 1.13, uDiskBirth),
+    mix(effOuterR * 0.88, 1.02, uDiskBirth),
+    mix(effOuterR * 1.05, 1.13, uDiskBirth),
     r
   );
   float innerEnv = mix(birthRadiusGate, smoothstep(1.025, 1.12, r), smoothstep(0.65, 1.0, uDiskBirth));
-  float outerEnv = 1.0 - smoothstep(outerR * 0.58, outerR, r);
-  float rNorm = clamp((r - 1.05) / max(0.6, outerR - 1.05), 0.0, 1.0);
+  float outerEnv = 1.0 - smoothstep(effOuterR * 0.58, effOuterR, r);
+  float rNorm = clamp((r - 1.05) / max(0.6, effOuterR - 1.05), 0.0, 1.0);
 
   float birthTwist = (1.0 - uDiskBirth) * 5.2;
   float spiralTwist = mix(3.4 + birthTwist, 13.6, polarF);
@@ -343,7 +469,7 @@ vec4 evalDisk(vec2 xz, float outerR, float polarF, float time, float dopplerBias
   float s2Lane = mix(max(s2Conc * 0.88, s2ArmA * 0.86), max(s2ArmA, s2ArmB * 0.88), polarF);
   float s2DashA = smoothstep(0.26, 0.70, 0.5 + 0.5 * cos(3.0 * theta - 3.6 * logR - time * 0.68 + 0.6));
   float s2DashB = smoothstep(0.30, 0.74, 0.5 + 0.5 * cos(4.0 * theta + 2.8 * logR - time * 0.56));
-  float s2Env = smoothstep(1.06, 1.24, r) * (1.0 - smoothstep(outerR * 0.52, outerR * 0.94, r));
+  float s2Env = smoothstep(1.06, 1.24, r) * (1.0 - smoothstep(effOuterR * 0.52, effOuterR * 0.94, r));
   float s2Val = s2Lane * max(s2DashA, s2DashB * 0.86) * s2Env;
 
   // ---- Stratum 3: Sweeping Outer Violet Arcs ----
@@ -373,7 +499,7 @@ vec4 evalDisk(vec2 xz, float outerR, float polarF, float time, float dopplerBias
   float doppler = 1.0 + dopplerBias * (1.0 - polarF) * 0.24 * cos(theta - 0.55);
 
   float energy = (baseBed + s1Val * 1.00 + s2Val * 0.84 + s3Val * 0.52) * doppler * uDiskBirth;
-  energy = energy * (1.0 + uCharge * 0.65) + tickWave * 1.45;
+  energy = energy * (1.0 + uCharge * 0.65 + uUiRipple * 0.28 + uUiShock * 0.55) + tickWave * 1.45;
 
   vec3 col = mix(C_SPACE, C_DEEP_PURPLE, smoothstep(0.04, 0.24, energy));
   col = mix(col, C_ACCENT, smoothstep(0.20, 0.48, energy));
@@ -381,13 +507,13 @@ vec4 evalDisk(vec2 xz, float outerR, float polarF, float time, float dopplerBias
   col = mix(col, C_WHITE_CORE, smoothstep(0.74, 1.12, energy));
 
   col = mix(col, mix(C_DEEP_PURPLE, C_ACCENT, 0.55), rNorm * 0.34 * (1.0 - s1Val));
-  col = mix(col, mix(C_ICE_BLUE, C_WHITE_CORE, 0.40), clamp(iceSpark * 0.72 + tickWave * 2.8, 0.0, 0.94));
+  col = mix(col, mix(C_ICE_BLUE, C_WHITE_CORE, 0.40), clamp(iceSpark * 0.72 + tickWave * 2.8 + uUiRipple * 0.24 + uUiShock * 0.52, 0.0, 0.94));
 
   float alpha = clamp(energy * 1.24, 0.0, 1.0) * innerEnv * outerEnv;
   return vec4(col * clamp(energy * 1.26, 0.0, 1.50), alpha);
 }
 
-vec4 evalPolarJets(vec3 ro, vec3 rd, float tSphere, float coreShadow, float jetPower, float time) {
+vec4 evalPolarJets(vec3 ro, vec3 rd, float tSphere, float coreShadow, float jetPower, float time, float rh) {
   if (jetPower <= 0.004) return vec4(0.0);
 
   float a = dot(rd.xz, rd.xz);
@@ -402,23 +528,23 @@ vec4 evalPolarJets(vec3 ro, vec3 rd, float tSphere, float coreShadow, float jetP
   vec3 pAxis = ro + tAxis * rd;
   float s = pAxis.y;
   float absS = abs(s);
-  float minAxial = mix(0.24, 0.84, uBhBirth);
-  if (absS < minAxial || absS > 8.2) return vec4(0.0);
+  float minAxial = mix(0.16, max(0.22, rh * 0.86), uBhBirth);
+  if (absS < minAxial || absS > 8.4) return vec4(0.0);
 
   float dPerp = length(pAxis.xz);
-  float w = 0.095 + 0.064 * pow(max(absS - minAxial, 0.0), 1.14);
+  float w = 0.088 + 0.062 * pow(max(absS - minAxial, 0.0), 1.14);
   if (dPerp > w * 2.6) return vec4(0.0);
 
-  float axialEnv = smoothstep(minAxial, minAxial + 0.34, absS) * (1.0 - smoothstep(4.4, 8.0, absS));
+  float axialEnv = smoothstep(minAxial, minAxial + 0.32, absS) * (1.0 - smoothstep(4.5, 8.2, absS));
   vec2 perpDir = normalize(vec2(-rd.z, rd.x) + vec2(1e-5));
   float signedX = dot(pAxis.xz, perpDir);
 
   float coreBeam = exp(-pow(dPerp / (w * 0.56), 2.0));
-  float helixPhaseA = absS * 3.55 - time * 5.0;
-  float helixPhaseB = absS * 3.55 - time * 5.0 + PI;
+  float helixPhaseA = absS * 3.55 - time * 5.2;
+  float helixPhaseB = absS * 3.55 - time * 5.2 + PI;
   float hA = w * 0.86 * sin(helixPhaseA);
   float hB = w * 0.86 * sin(helixPhaseB);
-  float ribW = max(0.032, w * 0.24);
+  float ribW = max(0.030, w * 0.24);
   float ribbonA = exp(-pow((signedX - hA) / ribW, 2.0)) * (0.55 + 0.45 * cos(helixPhaseA));
   float ribbonB = exp(-pow((signedX - hB) / ribW, 2.0)) * (0.55 + 0.45 * cos(helixPhaseB));
   float helices = clamp(ribbonA + ribbonB, 0.0, 1.35) * smoothstep(w * 1.9, w * 0.4, dPerp);
@@ -429,17 +555,17 @@ vec4 evalPolarJets(vec3 ro, vec3 rd, float tSphere, float coreShadow, float jetP
   float streakMask = streak * exp(-pow(dPerp / (w * 0.95), 2.0));
   float outerSheath = exp(-pow(dPerp / (w * 1.65), 2.0)) * 0.28;
 
-  float total = (coreBeam * 0.72 + helices * 0.80 + streakMask * 0.54 + outerSheath) * axialEnv * jetPower * occ;
-  total *= (1.0 + uCharge * 0.55);
+  float total = (coreBeam * 0.74 + helices * 0.80 + streakMask * 0.54 + outerSheath) * axialEnv * jetPower * occ;
+  total *= (1.0 + uCharge * 0.58);
 
-  vec3 jetCol = mix(C_ACCENT, C_ICE_BLUE, smoothstep(0.08, 0.48, coreBeam + helices + streakMask * 0.6));
-  jetCol = mix(jetCol, C_WHITE_CORE, smoothstep(0.62, 1.25, coreBeam * 0.9 + helices * 0.55 + uCharge * 0.35));
+  vec3 jetCol = mix(C_ACCENT, C_ICE_BLUE, smoothstep(0.08, 0.46, coreBeam + helices + streakMask * 0.6));
+  jetCol = mix(jetCol, C_WHITE_CORE, smoothstep(0.60, 1.22, coreBeam * 0.92 + helices * 0.55 + uCharge * 0.35));
   return vec4(jetCol * total, clamp(total * 0.92, 0.0, 1.0));
 }
 
 void main() {
   // Fast GPU early-out for empty sky pixels when settled on bottom hero or docked top dome
-  if (uSettle > 0.99 && uPolarFactor < 0.01 && uLockPulse < 0.002) {
+  if (uSettle > 0.99 && uPolarFactor < 0.01 && uLockPulse < 0.002 && uUiShock < 0.002) {
     if (uPin > 0.98 && vUv.y < 0.68) {
       o = vec4(0.0);
       return;
@@ -469,9 +595,10 @@ void main() {
   float b = length(closestPt);
   float pixelAA = max(0.005, (2.0 * uTanHalfFov / max(uSceneH, 64.0)) * max(tc, 1.0));
 
-  float effectiveRh = mix(0.30, R_H, smoothstep(0.0, 0.85, uBhBirth));
+  // Act 4 physical pinpoint singularity -> growing event horizon radius (0.04 -> 1.00)
+  float effectiveRh = max(0.04, uBhRadius);
   float coreShadow = (uBhBirth > 0.002 && tc > 0.0)
-    ? (1.0 - smoothstep(effectiveRh - pixelAA, effectiveRh + pixelAA, b)) * smoothstep(0.0, 0.25, uBhBirth)
+    ? (1.0 - smoothstep(effectiveRh - pixelAA, effectiveRh + pixelAA, b)) * uBhBirth
     : 0.0;
   float tSphere = (uBhBirth > 0.002 && b < effectiveRh && tc > 0.0)
     ? (tc - sqrt(max(0.0, effectiveRh * effectiveRh - b * b)))
@@ -498,10 +625,10 @@ void main() {
   float horizonBound = mix(1.0, 1.0 - smoothstep(boundStart, boundEnd, b), horizonClose);
   float lensedWeight = 1.0 - smoothstep(0.28, 0.78, uPolarFactor);
 
-  // Rear gravitationally lensed disk (Einstein arches)
+  // Rear gravitationally lensed disk (Einstein arches) with proportional Schwarzschild deflection
   if (uDiskBirth > 0.002 && b > effectiveRh - pixelAA && tc > 0.0 && lensedWeight > 0.002 && horizonBound > 0.002) {
-    float u_b = max(b - 0.58 * effectiveRh, 0.032);
-    float deflect = min(2.36, 1.14 / pow(u_b, 1.18));
+    float u_b = max(b - 0.58 * effectiveRh, 0.032 * effectiveRh);
+    float deflect = min(2.36, 1.14 * pow(effectiveRh, 1.18) / pow(u_b, 1.18));
     vec3 e_r = closestPt / max(b, 1e-4);
     vec3 rdBent = normalize(cos(deflect) * rd - sin(deflect) * e_r);
 
@@ -509,8 +636,8 @@ void main() {
       float tRear = -closestPt.y / rdBent.y;
       if (tRear > 0.0) {
         vec3 hitRear = closestPt + tRear * rdBent;
-        vec4 rearDisk = evalDisk(hitRear.xz, uDiskOuterR, uPolarFactor, uTime, 1.0);
-        float archBoost = 1.0 + 0.36 * exp(-max(b - effectiveRh, 0.0) * 3.8);
+        vec4 rearDisk = evalDisk(hitRear.xz, uDiskOuterR, uPolarFactor, uTime, 1.0, effectiveRh);
+        float archBoost = 1.0 + 0.36 * exp(-max(b - effectiveRh, 0.0) * (3.8 / max(0.25, effectiveRh)));
         float vis = (1.0 - coreShadow) * lensedWeight * horizonBound;
         accumCol += rearDisk.rgb * archBoost * vis;
         accumAlpha = max(accumAlpha, rearDisk.a * vis);
@@ -518,7 +645,7 @@ void main() {
     }
   }
 
-  // Relativistic photon ring + calm horizon corona + Polar-Only 1s Escapement Rim Ripple
+  // Relativistic photon ring + calm horizon corona + Polar 1s Escapement + Waitlist Coupling Waves
   if (uBhBirth > 0.002 && tc > 0.0) {
     float distOut = b - effectiveRh;
     float ringAng = atan(closestPt.y, closestPt.x);
@@ -526,8 +653,8 @@ void main() {
     float ringShimmer = (1.0 - shimmerAmp) + shimmerAmp * sin(ringAng * 3.0 - uTime * 0.95) * cos(ringAng * 2.0 + uTime * 0.55);
     float ringStream = 0.5 + 0.5 * cos(ringAng * 5.0 - distOut * 28.0 - uTime * 0.85);
 
-    float photonWidth = mix(mix(29.0, 36.0, uPin), 25.0, uPolarFactor);
-    float photonRing = exp(-pow((distOut - 0.014) * photonWidth, 2.0)) * (1.0 - coreShadow);
+    float photonWidth = mix(mix(29.0, 36.0, uPin), 25.0, uPolarFactor) / mix(0.68, 1.0, effectiveRh);
+    float photonRing = exp(-pow((distOut - 0.014 * mix(0.55, 1.0, effectiveRh)) * photonWidth, 2.0)) * (1.0 - coreShadow);
 
     float horizonArc = exp(-max(distOut, 0.0) * mix(10.8, 15.5, uPin))
       * smoothstep(-0.005, 0.016, distOut) * (1.0 - coreShadow) * horizonClose;
@@ -539,15 +666,23 @@ void main() {
     float lockR = mix(0.015, 0.24, uLockWaveProg);
     float lockWave = exp(-pow((distOut - lockR) * 26.0, 2.0)) * (1.0 - coreShadow) * uLockPulse * horizonClose;
 
+    // UI-2: Subtle WaitlistBar typing/toggle ripple & full celebratory submit gravitational shockwave
+    float uiSubtleWave = exp(-max(distOut, 0.0) * 14.0) * smoothstep(-0.004, 0.014, distOut)
+      * (0.55 + 0.45 * cos(ringAng * 6.0 - uTime * 5.0)) * (1.0 - coreShadow) * uUiRipple * uSettle;
+    float shockR = mix(0.012, 0.56, uUiShockProg);
+    float shockBand = exp(-pow((distOut - shockR) * mix(22.0, 12.0, uUiShockProg), 2.0)) * (1.0 - coreShadow) * uUiShock * uSettle;
+    float shockTrail = exp(-pow((distOut - shockR * 0.52) * 18.0, 2.0)) * (1.0 - coreShadow) * uUiShock * 0.46 * uSettle;
+
     float polarGate = smoothstep(0.55, 0.90, uPolarFactor);
     float tickRimR = mix(0.014, 0.28, uTickProg);
     float tickRimWave = exp(-pow((distOut - tickRimR) * 26.0, 2.0))
       * (1.0 - coreShadow) * uTickPulse * polarGate * 0.36 * uSettle;
 
-    float ptrLift = 1.0 + ptrRipple * 0.40;
-    float birthGlow = uBhBirth * (1.0 + (1.0 - uBhBirth) * 0.72);
+    float ptrLift = 1.0 + ptrRipple * 0.40 + uUiRipple * 0.36 + uUiShock * 0.55;
+    float growEnergize = 1.0 + (1.0 - effectiveRh) * 0.55;
+    float birthGlow = uBhBirth * (1.0 + (1.0 - uBhBirth) * 0.72) * growEnergize;
     vec3 photonCol = mix(C_PERIWINKLE, C_WHITE_CORE, 0.72 + 0.20 * ringShimmer);
-    photonCol = mix(photonCol, C_ICE_BLUE, clamp(ptrRipple * 0.50 + (1.0 - uBhBirth) * 0.62 + uLockPulse * 0.55 + tickRimWave * 2.6 + 0.14 * ringShimmer, 0.0, 0.90));
+    photonCol = mix(photonCol, C_ICE_BLUE, clamp(ptrRipple * 0.50 + (1.0 - effectiveRh) * 0.55 + uLockPulse * 0.55 + uUiRipple * 0.55 + uUiShock * 0.85 + tickRimWave * 2.6 + 0.14 * ringShimmer, 0.0, 0.92));
     vec3 arcCol = mix(C_ACCENT, C_PERIWINKLE, smoothstep(0.25, 0.85, arcStripes * ringShimmer));
     arcCol = mix(arcCol, C_WHITE_CORE, smoothstep(0.055, 0.008, distOut) * 0.72);
     vec3 haloCol = mix(C_DEEP_PURPLE, C_ACCENT, 0.55 + 0.24 * ringShimmer);
@@ -556,8 +691,8 @@ void main() {
     accumCol += photonCol * photonRing * (0.98 + 0.22 * ringShimmer) * photonBoost * ptrLift * birthGlow;
     accumCol += arcCol * horizonArc * arcStripes * mix(0.86, 0.68, uPin) * ptrLift * uBhBirth;
     accumCol += haloCol * innerHalo * (0.28 + 0.12 * ringShimmer) * ptrLift * uBhBirth;
-    accumCol += mix(C_ICE_BLUE, C_WHITE_CORE, 0.48) * (lockWave * 0.72 + tickRimWave * 1.95);
-    accumAlpha = max(accumAlpha, clamp((photonRing * 0.98 + horizonArc * 0.84 + innerHalo * 0.46) * uBhBirth + lockWave * 0.65 + tickRimWave, 0.0, 1.0));
+    accumCol += mix(C_ICE_BLUE, C_WHITE_CORE, 0.48) * (lockWave * 0.72 + tickRimWave * 1.95 + uiSubtleWave * 0.58 + shockBand * 1.25 + shockTrail * 0.62);
+    accumAlpha = max(accumAlpha, clamp((photonRing * 0.98 + horizonArc * 0.84 + innerHalo * 0.46) * uBhBirth + lockWave * 0.65 + tickRimWave + uiSubtleWave * 0.55 + shockBand * 0.92, 0.0, 1.0));
   }
 
   // Direct equatorial disk
@@ -568,7 +703,7 @@ void main() {
     if (tFront > 0.0 && tFront < tSphere && tFront <= maxT) {
       vec3 hitFront = ro + tFront * rd;
       vec2 diskXZ = hitFront.xz * mix(1.0, 0.955, uPolarFactor);
-      vec4 frontDisk = evalDisk(diskXZ, uDiskOuterR, uPolarFactor, uTime, 1.0);
+      vec4 frontDisk = evalDisk(diskXZ, uDiskOuterR, uPolarFactor, uTime, 1.0, effectiveRh);
       float diskGate = horizonBound;
       if (frontDisk.a * diskGate > 0.002) {
         float frontCov = clamp(frontDisk.a * 1.18 * diskGate, 0.0, 1.0);
@@ -579,15 +714,22 @@ void main() {
     }
   }
 
+  if (uFallback > 0.002) {
+    vec4 fb = evalFallbackRibbons(closestPt, b, tc, effectiveRh);
+    float fbVis = 1.0 - coreShadow;
+    accumCol += fb.rgb * fbVis;
+    accumAlpha = max(accumAlpha, fb.a * fbVis);
+  }
+
   if (uJetPower > 0.004) {
-    vec4 jets = evalPolarJets(ro, rd, tSphere, coreShadow, uJetPower, uTime);
+    vec4 jets = evalPolarJets(ro, rd, tSphere, coreShadow, uJetPower, uTime, effectiveRh);
     accumCol += jets.rgb;
     accumAlpha = max(accumAlpha, jets.a);
   }
 
   if (uEjecta > 0.002) {
     vec4 ej = evalSupernovaEjecta(closestPt, b, tc);
-    float ejVis = 1.0 - coreShadow * smoothstep(0.25, 0.85, uBhBirth);
+    float ejVis = 1.0 - coreShadow * smoothstep(0.15, 0.72, uBhBirth);
     accumCol += ej.rgb * ejVis;
     accumAlpha = max(accumAlpha, ej.a * ejVis);
   }
@@ -602,17 +744,17 @@ void main() {
     float blastAng = atan(blastPos.y, blastPos.x);
 
     if (uCharge > 0.001) {
-      float coreSpark = exp(-pow(blastR * 5.2, 2.0)) * uCharge;
-      float flareH = exp(-abs(blastPos.y) * 32.0) * exp(-abs(blastPos.x) * 4.4) * uCharge * 0.68;
+      float coreSpark = exp(-pow(blastR * 5.6, 2.0)) * uCharge;
+      float flareH = exp(-abs(blastPos.y) * 34.0) * exp(-abs(blastPos.x) * 4.4) * uCharge * 0.72;
       vec3 chargeLight = mix(C_ICE_BLUE, vec3(1.0), 0.68);
-      accumCol += chargeLight * (coreSpark * 1.35 + flareH);
+      accumCol += chargeLight * (coreSpark * 1.40 + flareH);
       accumAlpha = max(accumAlpha, clamp(coreSpark + flareH, 0.0, 1.0));
     }
 
     if (uBlastPeak > 0.001) {
       float coreWhite = exp(-pow(blastR * 1.85, 2.0));
       float midHalo = exp(-pow(blastR * 1.05, 2.0));
-      float rShock = mix(0.18, 0.96, uBlastProgress);
+      float rShock = mix(0.12, 0.96, uBlastProgress);
       float shockRing = exp(-pow((blastR - rShock) * 8.5, 2.0));
 
       float raysA = pow(0.5 + 0.5 * cos(blastAng * 8.0 - uTime * 1.8), 3.2);
@@ -628,10 +770,11 @@ void main() {
       blastCol = mix(blastCol, vec3(1.0, 1.0, 1.0), smoothstep(0.18, 0.68, coreWhite * 1.20 + midHalo * 0.25));
 
       float blastMix = clamp(uBlastPeak * (0.34 + 0.76 * midHalo + 0.44 * shockRing + 0.24 * radialRays), 0.0, 0.99);
-      float centerPunch = 1.0 - coreShadow * smoothstep(0.18, 0.72, uBhBirth) * (1.0 - smoothstep(0.55, 0.88, uBlastPeak));
+      // Let nucleating pinpoint singularity (5.20s+) punch cleanly through the fading blast center
+      float centerPunch = 1.0 - coreShadow * smoothstep(0.10, 0.55, uBhBirth);
       accumCol = mix(accumCol, blastCol, blastMix * centerPunch);
       accumAlpha = max(accumAlpha, clamp(uBlastPeak * 0.99, 0.0, 1.0));
-      pureCoreLock *= (1.0 - smoothstep(0.12, 0.55, uBlastPeak) * centerPunch);
+      pureCoreLock *= (1.0 - smoothstep(0.18, 0.62, uBlastPeak) * centerPunch);
     }
   }
 
@@ -858,10 +1001,10 @@ void main() {
   // Clean event horizon core lock
   float bgPureCore = smoothstep(0.90, 0.99, alpha)
     * (1.0 - smoothstep(0.002, 0.014, bgLum))
-    * (1.0 - smoothstep(0.10, 0.45, uBlastPeak));
+    * (1.0 - smoothstep(0.18, 0.62, uBlastPeak));
   float cellPureCore = smoothstep(0.92, 0.99, cell.a)
     * (1.0 - smoothstep(0.003, 0.018, cellLum))
-    * (1.0 - smoothstep(0.10, 0.45, uBlastPeak));
+    * (1.0 - smoothstep(0.18, 0.62, uBlastPeak));
   float isPureCore = max(bgPureCore, cellPureCore * 0.85);
 
   // ---- Hybrid Volumetric Substrate + Radiant Supernova Core ----
@@ -962,11 +1105,6 @@ interface Vec3 {
   z: number;
 }
 
-/**
- * Parallel-friendly batch shader compilation:
- * Submits all compileShader + linkProgram calls before querying LINK_STATUS
- * so Chromium/ANGLE can compile all 4 shaders concurrently without pipeline stalls.
- */
 function linkProgramsBatch(
   gl: WebGL2RenderingContext,
   fsSources: string[]
@@ -1060,11 +1198,6 @@ function freeRT(gl: WebGL2RenderingContext, rt: RenderTarget | null) {
   gl.deleteTexture(rt.tex);
 }
 
-/**
- * 1:1 Native-Pixel `IBM Plex Mono` WebGL2 Glyph Atlas (` .:-^tT`):
- * - Uses loaded weights `500` (row 0) and `600` (row 1) — zero faux-bold smearing.
- * - Clean `0.84 * cellPxH` sizing keeps every glyph crisp with breathing margins at all DPRs.
- */
 function buildNativeGlyphAtlas(
   gl: WebGL2RenderingContext,
   existing: WebGLTexture | null,
@@ -1181,6 +1314,47 @@ function mixNum(a: number, b: number, t: number): number {
 
 function degToRad(d: number): number {
   return (d * Math.PI) / 180;
+}
+
+/**
+ * Computes physical star radius R(t) across Act 1 (Red-Supergiant Swell 0.96 -> 1.72)
+ * and Act 2 (0.15s peak stall -> runaway gravitational core collapse 1.72 -> 0.11).
+ */
+function computeStarRadiusAt(t: number): number {
+  // Act 1 (0.00s -> 2.65s): unmistakable ~1.8x red-supergiant swell with acoustic breathing
+  const swellEase = Math.pow(smoothstep(0.0, 2.62, t), 0.92);
+  const baseGrowR = mixNum(0.96, 1.72, swellEase);
+  const postPeakT = Math.max(0, t - 1.7);
+  const breathPhase = 6.5 * t + 7.5 * postPeakT * postPeakT;
+  const breathEnv =
+    smoothstep(0.32, 1.82, t) * (1.0 - smoothstep(2.68, 3.05, t));
+  const acousticBreath = Math.sin(breathPhase) * 0.045 * breathEnv;
+
+  if (t <= 2.8) {
+    // 2.65s -> 2.80s brief peak stall for gravitational weight before plunge
+    const stallQuiver =
+      t > 2.65 ? Math.sin((t - 2.65) * 42.0) * 0.012 : 0.0;
+    return baseGrowR + acousticBreath + stallQuiver;
+  }
+
+  // Act 2 (2.80s -> 4.15s): accelerating runaway core collapse (1.72 -> 0.11, ~15.6x implosion)
+  const collapseT = clamp01((t - 2.8) / (4.15 - 2.8));
+  const collapseEase = smoothstep(0.0, 1.0, collapseT);
+  return mixNum(1.72, 0.11, collapseEase) + acousticBreath * (1.0 - collapseEase);
+}
+
+/** Deterministic spin integral for `?introAt=` QA snapshots (`omega ~ 1 / R^1.35`). */
+function computeDeterministicSpinPhase(t: number): number {
+  const clamped = Math.max(0, Math.min(4.4, t));
+  const steps = 64;
+  const dt = clamped / steps;
+  let phase = 0;
+  for (let i = 0; i < steps; i++) {
+    const r = Math.max(0.11, computeStarRadiusAt((i + 0.5) * dt));
+    const omega = 0.44 * Math.pow(0.96 / r, 1.35);
+    phase += omega * dt;
+  }
+  return phase;
 }
 
 function rayImpactParam(
@@ -1310,6 +1484,7 @@ export function AsciiBlackholeCanvas({
   onHeroReveal,
   onHorizonSync,
   runwayRef,
+  controlRef,
   skipIntro = false,
 }: AsciiBlackholeCanvasProps) {
   const starCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1319,12 +1494,14 @@ export function AsciiBlackholeCanvas({
   const onRevealRef = useRef(onHeroReveal);
   const onSyncRef = useRef(onHorizonSync);
   const runwayRefLatest = useRef(runwayRef);
+  const controlRefLatest = useRef(controlRef);
 
   useEffect(() => {
     onRevealRef.current = onHeroReveal;
     onSyncRef.current = onHorizonSync;
     runwayRefLatest.current = runwayRef;
-  }, [onHeroReveal, onHorizonSync, runwayRef]);
+    controlRefLatest.current = controlRef;
+  }, [onHeroReveal, onHorizonSync, runwayRef, controlRef]);
 
   useIsomorphicLayoutEffect(() => {
     const glCanvas = glCanvasRef.current;
@@ -1350,7 +1527,11 @@ export function AsciiBlackholeCanvas({
     const reducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const startSettled = skipIntro || querySkipIntro || reducedMotion;
+    const pointerFine =
+      typeof window !== "undefined" &&
+      window.matchMedia("(pointer: fine)").matches;
+
+    let startSettled = skipIntro || querySkipIntro || reducedMotion;
 
     let heroRevealed =
       startSettled || (pinnedIntroAt !== null && pinnedIntroAt >= HERO_REVEAL_SEC);
@@ -1380,7 +1561,12 @@ export function AsciiBlackholeCanvas({
       return;
     }
 
-    const [pScene, pCell, pBlur, pGlyphComp] = linkProgramsBatch(gl, [FS_SCENE, FS_CELL, FS_BLUR, FS_GLYPH_COMP]);
+    const [pScene, pCell, pBlur, pGlyphComp] = linkProgramsBatch(gl, [
+      FS_SCENE,
+      FS_CELL,
+      FS_BLUR,
+      FS_GLYPH_COMP,
+    ]);
 
     const vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
@@ -1447,7 +1633,7 @@ export function AsciiBlackholeCanvas({
     };
 
     const ensureWordmarkTexture = (force = false) => {
-      if (startSettled) return;
+      if (startSettled && !force) return;
       if (
         !force &&
         wordmarkBuilt &&
@@ -1468,7 +1654,6 @@ export function AsciiBlackholeCanvas({
     };
 
     const syncBuffers = (forceAtlas = false, isInitialMount = false) => {
-      // On initial mount, avoid forced layout reflow: canvas is `fixed inset-0`
       let cssW = Math.max(1, Math.round(window.innerWidth || 1440));
       let cssH = Math.max(1, Math.round(window.innerHeight || 900));
       if (!isInitialMount) {
@@ -1489,7 +1674,6 @@ export function AsciiBlackholeCanvas({
       cssHGlobal = cssH;
       dprGlobal = dpr;
 
-      // Avoid getComputedStyle forced reflow before Frame 1
       if (!isInitialMount && monoProbeRef.current) {
         monoFamily = window.getComputedStyle(monoProbeRef.current).fontFamily;
       }
@@ -1524,9 +1708,9 @@ export function AsciiBlackholeCanvas({
         );
       }
 
-      // Defer heavy wordmark mask rasterization off initial mount unless QA pinned right at supernova
+      // Defer heavy wordmark mask rasterization off initial mount unless QA pinned near supernova
       if (!wordmarkTex) {
-        if (pinnedIntroAt !== null && pinnedIntroAt >= 3.75 && !startSettled) {
+        if (pinnedIntroAt !== null && pinnedIntroAt >= 4.0 && !startSettled) {
           ensureWordmarkTexture(true);
         } else {
           wordmarkTex = createDummyWordmarkTexture(gl);
@@ -1574,7 +1758,7 @@ export function AsciiBlackholeCanvas({
       const bgW = Math.max(64, Math.round(cw * sceneScale));
       const bgH = Math.max(64, Math.round(ch * sceneScale));
       const bW = Math.max(32, Math.round(cw * 0.18));
-      const bH = Math.max(32, Math.round(ch * 0.18));
+      const bH = Math.max(32, Math.round(cw * 0.18));
 
       rtScene = createRT(gl, bgW, bgH, gl.LINEAR);
       rtCell = createRT(gl, cols, rows, gl.NEAREST);
@@ -1585,7 +1769,6 @@ export function AsciiBlackholeCanvas({
       }
     };
 
-    // Fast zero-reflow initial buffer setup so Frame 1 can paint immediately
     syncBuffers(true, true);
 
     let disposed = false;
@@ -1626,6 +1809,9 @@ export function AsciiBlackholeCanvas({
     let pointerY = 0.5;
     let pointerActiveTarget = 0;
     let pointerActive = 0;
+    // UI-5: Damped 3D camera pointer parallax (desktop pointer: fine only)
+    let parallaxX = 0;
+    let parallaxY = 0;
 
     const handlePointerMove = (e: PointerEvent) => {
       if (e.pointerType === "touch" || reducedMotion) return;
@@ -1653,6 +1839,17 @@ export function AsciiBlackholeCanvas({
         : startSettled
           ? 2.0
           : 0.0;
+    let starSpinPhase =
+      pinnedIntroAt !== null ? computeDeterministicSpinPhase(pinnedIntroAt) : 0.0;
+    let replayScrollGuard = false;
+    let replayGuardElapsed = 0;
+
+    // UI-2 Waitlist gravitational coupling state
+    let uiRippleAmp = 0;
+    let uiShockActive = false;
+    let uiShockElapsed = 0;
+    const UI_SHOCK_DURATION = 1.25;
+
     let smoothedPin = 0.0;
     let lastTs = performance.now();
     let lastBgDraw = 0;
@@ -1665,11 +1862,70 @@ export function AsciiBlackholeCanvas({
     let lastPulseEdgeSec = -1;
     let lastPulseTriggerPerfMs = 0;
 
+    // Expose imperative controls for SKIP ->, Footer REPLAY, and WaitlistBar coupling
+    const controlApi: AsciiBlackholeControl = {
+      skipIntro: () => {
+        pinnedIntroAt = null;
+        startSettled = false;
+        replayScrollGuard = false;
+        introElapsed = INTRO_TOTAL_SEC;
+        resolveElapsed = 0.0;
+        if (!heroRevealed) {
+          heroRevealed = true;
+          onRevealRef.current(true);
+        }
+        if (ssrSeedRef.current) {
+          ssrSeedRef.current.style.display = "none";
+        }
+        lastBgDraw = 0;
+      },
+      replayIntro: () => {
+        if (reducedMotion) return;
+        pinnedIntroAt = null;
+        startSettled = false;
+        introElapsed = 0.0;
+        resolveElapsed = 0.0;
+        starSpinPhase = 0.0;
+        uiRippleAmp = 0;
+        uiShockActive = false;
+        uiShockElapsed = 0;
+        replayScrollGuard = window.scrollY > 24;
+        replayGuardElapsed = 0;
+        smoothedPin = 0.0;
+        heroRevealed = false;
+        onRevealRef.current(false);
+        if (starCtx) {
+          starCtx.clearRect(0, 0, cssWGlobal, cssHGlobal);
+        }
+        lastScissorMode = "full";
+        clearOffscreenRTs();
+        if (!wordmarkBuilt) {
+          ensureWordmarkTexture(true);
+        }
+      },
+      pulseHorizon: (kind) => {
+        if (reducedMotion) return;
+        if (kind === "subtle") {
+          uiRippleAmp = Math.min(1.0, Math.max(uiRippleAmp, 0.72));
+        } else {
+          uiShockActive = true;
+          uiShockElapsed = 0.0;
+          uiRippleAmp = 1.0;
+          lastBgDraw = 0;
+        }
+      },
+    };
+    if (controlRefLatest.current) {
+      controlRefLatest.current.current = controlApi;
+    }
+
     const drawBackgroundField = (
       tSec: number,
       pin: number,
       settle: number,
-      starWave: number
+      starWave: number,
+      shockAmp: number,
+      shockProg: number
     ) => {
       if (!starCtx || cssWGlobal <= 1 || cssHGlobal <= 1) return;
       if (starWave <= 0.005 && settle <= 0.05) return;
@@ -1706,6 +1962,7 @@ export function AsciiBlackholeCanvas({
 
       if (starWave > 0.005) {
         const calmBelowFold = mixNum(1.0, 0.58, pin);
+        const waveOriginY = mixNum(0.82, 0.08, pin);
         for (let i = 0; i < stars.length; i++) {
           const st = stars[i];
           const localAppear = smoothstep(
@@ -1718,13 +1975,28 @@ export function AsciiBlackholeCanvas({
           const sx = Math.round(st.nx * cssWGlobal);
           const sy = Math.round(st.ny * cssHGlobal);
           const twinkle = 0.5 + 0.5 * Math.sin(tSec * st.speed + st.phase);
+
+          // UI-2 celebratory shockwave ripples across the ASCII starfield
+          let shockBoost = 0;
+          if (shockAmp > 0.01) {
+            const distFromCrest = Math.hypot(
+              (st.nx - 0.5) * 1.15,
+              st.ny - waveOriginY
+            );
+            const waveRadius = shockProg * 1.35;
+            const ringDelta = distFromCrest - waveRadius;
+            shockBoost =
+              Math.exp(-(ringDelta * ringDelta) / 0.016) * shockAmp * 0.72;
+          }
+
           const alpha = clamp01(
-            (0.14 + 0.28 * twinkle) * calmBelowFold * localAppear
+            (0.14 + 0.28 * twinkle + shockBoost) * calmBelowFold * localAppear
           );
 
-          starCtx.font = st.sizeCss === 12 ? font12 : font10;
+          starCtx.font =
+            st.sizeCss === 12 || shockBoost > 0.22 ? font12 : font10;
           starCtx.fillStyle =
-            st.tint === "ice"
+            shockBoost > 0.18 || st.tint === "ice"
               ? "#97DFFC"
               : st.tint === "periwinkle"
                 ? "#858AE3"
@@ -1816,6 +2088,39 @@ export function AsciiBlackholeCanvas({
       pointerActive +=
         (pointerActiveTarget - pointerActive) * Math.min(1, dt * 5.2);
 
+      // UI-5: Damped 3D camera pointer parallax (desktop fine pointer only)
+      const targetParallaxX =
+        pointerFine && !reducedMotion && pointerActiveTarget > 0.5
+          ? (pointerTargetX - 0.5) * 2.0
+          : 0.0;
+      const targetParallaxY =
+        pointerFine && !reducedMotion && pointerActiveTarget > 0.5
+          ? (pointerTargetY - 0.5) * 2.0
+          : 0.0;
+      const paraLerp = Math.min(1, dt * 4.2);
+      parallaxX += (targetParallaxX - parallaxX) * paraLerp;
+      parallaxY += (targetParallaxY - parallaxY) * paraLerp;
+
+      // UI-2: Decay subtle waitlist ripple & advance celebratory shockwave
+      if (uiRippleAmp > 0.001) {
+        uiRippleAmp = Math.max(0, uiRippleAmp * Math.exp(-dt * 4.8));
+        if (uiRippleAmp < 0.002) uiRippleAmp = 0;
+      }
+      let uiShockAmp = 0.0;
+      let uiShockProg = 0.0;
+      if (uiShockActive) {
+        uiShockElapsed += dt;
+        uiShockProg = clamp01(uiShockElapsed / UI_SHOCK_DURATION);
+        uiShockAmp =
+          smoothstep(0.0, 0.08, uiShockProg) *
+          (1.0 - smoothstep(0.28, 1.0, uiShockProg));
+        if (uiShockElapsed >= UI_SHOCK_DURATION) {
+          uiShockActive = false;
+          uiShockElapsed = 0;
+          uiShockAmp = 0;
+        }
+      }
+
       // Zero-reflow scroll progress from cached runway metrics
       const rawPin = clamp01(
         (window.scrollY - runwayTopDocY) / runwayScrollable
@@ -1826,9 +2131,20 @@ export function AsciiBlackholeCanvas({
         smoothedPin = rawPin;
       }
 
+      if (replayScrollGuard) {
+        replayGuardElapsed += wallDt;
+        if (window.scrollY <= 24 || replayGuardElapsed > 0.9) {
+          replayScrollGuard = false;
+          smoothedPin = 0.0;
+        }
+      }
+
       if (pinnedIntroAt !== null) {
         introElapsed = Math.min(INTRO_TOTAL_SEC, pinnedIntroAt);
         resolveElapsed = Math.max(0, pinnedIntroAt - INTRO_TOTAL_SEC);
+      } else if (replayScrollGuard) {
+        introElapsed = 0.0;
+        resolveElapsed = 0.0;
       } else if (!isFirstPaint && introElapsed < INTRO_TOTAL_SEC) {
         const scrollBoost = window.scrollY > 24 ? 6.5 : 1.0;
         introElapsed = Math.min(
@@ -1839,8 +2155,8 @@ export function AsciiBlackholeCanvas({
         resolveElapsed = Math.min(10, resolveElapsed + wallDt);
       }
 
-      // Safety net: guarantee wordmark texture is built well before supernova carve at 4.02s
-      if (!startSettled && !wordmarkBuilt && introElapsed >= 3.2) {
+      // Deferred wordmark safety trigger shifted to 3.5s (well before 4.32s supernova carve)
+      if (!startSettled && !wordmarkBuilt && introElapsed >= 3.5) {
         ensureWordmarkTexture(true);
       }
 
@@ -1861,52 +2177,72 @@ export function AsciiBlackholeCanvas({
       const tanHalfFov = Math.tan(degToRad(23));
 
       // =====================================================================
-      // 1) FULL UNHURRIED ACT I -> V TIMING (9.00s Total, 9.00s Hero Reveal)
+      // 1) PART A: REALISTIC STELLAR EVOLUTION -> GROWING BLACK HOLE (9.90s)
       // =====================================================================
-      const starVis = 1.0 - smoothstep(3.75, 3.92, introElapsed);
-      const tremble = smoothstep(1.25, 2.4, introElapsed);
-      const collapseT = clamp01((introElapsed - 2.4) / (3.85 - 2.4));
-      const collapseEase = Math.pow(collapseT, 2.1);
-      const starRadius =
-        mixNum(1.28, 0.14, collapseEase) +
-        Math.sin(tSec * 12.0) * 0.024 * tremble * (1.0 - collapseEase);
-      const starShift = clamp01(
-        smoothstep(1.4, 2.55, introElapsed) * 0.25 +
-          smoothstep(2.45, 3.82, introElapsed) * 0.75
-      );
+      // Act 1 (0.00s -> 2.65s): Red-Supergiant Swell (0.96 -> 1.72, ~1.8x)
+      // Act 2 (2.65s -> 4.15s): 0.15s stall -> Runaway Core Collapse (1.72 -> 0.11)
+      const starVis = 1.0 - smoothstep(4.08, 4.24, introElapsed);
+      const starRadius = computeStarRadiusAt(introElapsed);
+      const starSwell =
+        smoothstep(0.05, 2.55, introElapsed) *
+        (1.0 - smoothstep(2.68, 3.22, introElapsed));
+
+      if (pinnedIntroAt !== null) {
+        starSpinPhase = computeDeterministicSpinPhase(introElapsed);
+      } else if (!isFirstPaint && starVis > 0.002) {
+        const omega = 0.44 * Math.pow(0.96 / Math.max(0.11, starRadius), 1.35);
+        starSpinPhase += omega * dt;
+      }
+
+      const pinch =
+        smoothstep(2.85, 3.92, introElapsed) *
+        (1.0 - smoothstep(4.08, 4.24, introElapsed));
+      const starShift = smoothstep(2.85, 3.92, introElapsed);
       const starCrack = clamp01(
-        smoothstep(1.15, 2.45, introElapsed) * 0.55 +
-          smoothstep(2.45, 3.78, introElapsed) * 0.45
+        smoothstep(0.95, 2.55, introElapsed) * 0.58 +
+          smoothstep(2.68, 3.92, introElapsed) * 0.42
       );
       const implode =
-        smoothstep(2.25, 2.85, introElapsed) *
-        (1.0 - smoothstep(3.78, 3.95, introElapsed));
+        smoothstep(2.68, 3.18, introElapsed) *
+        (1.0 - smoothstep(4.10, 4.26, introElapsed));
 
       const charge =
-        smoothstep(3.38, 3.82, introElapsed) *
-        (1.0 - smoothstep(3.86, 4.12, introElapsed));
+        smoothstep(3.65, 4.12, introElapsed) *
+        (1.0 - smoothstep(4.16, 4.42, introElapsed));
 
+      // Act 3 (4.15s -> 5.75s): Core-Bounce Supernova + T^minus Carve (4.32s -> 5.50s)
       const blastPeak =
-        smoothstep(3.8, 4.02, introElapsed) *
-        (1.0 - smoothstep(5.1, 5.75, introElapsed));
-      const blastProgress = clamp01((introElapsed - 3.8) / (5.85 - 3.8));
+        smoothstep(4.12, 4.32, introElapsed) *
+        (1.0 - smoothstep(5.22, 5.72, introElapsed));
+      const blastProgress = clamp01((introElapsed - 4.12) / (5.95 - 4.12));
       const ejecta =
-        smoothstep(3.8, 4.02, introElapsed) *
-        (1.0 - smoothstep(5.6, 6.55, introElapsed));
-      const ejectaProg = clamp01((introElapsed - 3.8) / (6.55 - 3.8));
+        smoothstep(4.12, 4.32, introElapsed) *
+        (1.0 - smoothstep(6.2, 7.25, introElapsed));
+      const ejectaProg = clamp01((introElapsed - 4.12) / (7.25 - 4.12));
       const wordmarkCarve =
-        smoothstep(4.02, 4.22, introElapsed) *
-        (1.0 - smoothstep(4.95, 5.2, introElapsed));
+        smoothstep(4.32, 4.52, introElapsed) *
+        (1.0 - smoothstep(5.26, 5.5, introElapsed));
 
-      const bhBirth = smoothstep(4.65, 5.35, introElapsed);
-      const diskBirth = smoothstep(4.8, 5.6, introElapsed);
+      // Act 4 (5.20s -> 7.45s): Pinpoint Singularity Nucleation -> Growing Black Hole (0.04 -> 1.00)
+      const bhBirth = smoothstep(5.2, 5.4, introElapsed);
+      const bhGrowT = clamp01((introElapsed - 5.2) / (6.85 - 5.2));
+      const bhGrowEase = 1.0 - Math.pow(1.0 - smoothstep(0.0, 1.0, bhGrowT), 1.65);
+      const bhRadius = mixNum(0.04, 1.0, bhGrowEase);
 
-      const jetBreakout = smoothstep(3.38, 3.82, introElapsed);
-      const jetFade = 1.0 - smoothstep(6.25, 7.45, introElapsed);
+      const fallback =
+        smoothstep(5.25, 5.72, introElapsed) *
+        (1.0 - smoothstep(6.95, 7.45, introElapsed));
+      const fallbackProg = clamp01((introElapsed - 5.25) / (7.35 - 5.25));
+      const diskBirth = smoothstep(5.32, 6.65, introElapsed);
+
+      // Polar neutrino/relativistic jets break out 3.65s -> 4.15s and taper 6.80s -> 8.05s
+      const jetBreakout = smoothstep(3.65, 4.08, introElapsed);
+      const jetFade = 1.0 - smoothstep(6.8, 8.05, introElapsed);
       const jetPower =
-        jetBreakout * (1.0 + charge * 0.6 + blastPeak * 0.35) * jetFade;
+        jetBreakout * (1.0 + charge * 0.64 + blastPeak * 0.35) * jetFade;
 
-      const settle = easeInOutQuint(clamp01((introElapsed - 6.6) / 2.4));
+      // Act 5 (7.45s -> 9.90s): Orbital Descent & Hero Lock
+      const settle = easeInOutQuint(clamp01((introElapsed - 7.45) / (9.9 - 7.45)));
 
       const lockPulse =
         !startSettled && introElapsed >= INTRO_TOTAL_SEC - 0.001
@@ -1920,10 +2256,10 @@ export function AsciiBlackholeCanvas({
           ? smoothstep(0.0, 0.95, resolveElapsed)
           : 0.0;
 
-      const warmTint = starVis * (1.0 - smoothstep(0.18, 0.72, starShift));
+      const warmTint = starVis * (1.0 - smoothstep(0.16, 0.72, starShift));
 
       // =====================================================================
-      // 2) 3D ORBITAL CAMERA + HERO ARC CLEARANCE + SLIM DOCKED TOP DOME
+      // 2) 3D ORBITAL CAMERA + UI-5 POINTER PARALLAX + SLIM DOCKED TOP DOME
       // =====================================================================
       const bottomApex = isMobile ? 0.195 : 0.212;
       const topApex = isMobile ? 0.084 : 0.068;
@@ -1992,7 +2328,22 @@ export function AsciiBlackholeCanvas({
         }
       }
 
-      const scrollElevDeg = mixNum(26, 88, segLift) + (154 - 88) * segDock;
+      // UI-5: Damped +-2.2 deg azimuth / +-1.2 deg elevation tilt on hero rest & polar plateau
+      const parallaxGate =
+        settle *
+        (1.0 - smoothstep(0.58, 0.84, s)) *
+        (pointerFine && !reducedMotion ? 1.0 : 0.0);
+      const parallaxAzimRad = degToRad(2.2) * parallaxX * parallaxGate;
+      const parallaxElevDeg = 1.2 * parallaxY * parallaxGate;
+
+      const baseScrollElevDeg =
+        mixNum(26, 88, segLift) + (154 - 88) * segDock;
+      // Keep north-pole polar elevation strictly below 89.2 deg to prevent gimbal flip
+      const scrollElevDeg =
+        segDock > 0.05
+          ? baseScrollElevDeg + parallaxElevDeg
+          : Math.min(89.2, baseScrollElevDeg + parallaxElevDeg);
+
       const plateauDist = mixNum(
         distPolarClamped,
         distPolarClamped * 0.94,
@@ -2013,28 +2364,29 @@ export function AsciiBlackholeCanvas({
         segPlateau * degToRad(42) +
         segDock * degToRad(16);
 
-      // Full 0..6.55s unhurried intro camera trajectory
-      const mobileScale = isMobile ? 1.24 : 1.0;
-      const dAct1 = mixNum(7.5, 6.8, smoothstep(0.0, 2.4, introElapsed));
-      const dAct2 = mixNum(dAct1, 7.15, smoothstep(2.4, 3.85, introElapsed));
+      // Intro camera trajectory: gentle pull-back (7.6 -> 8.2) during supergiant swell so limb never clips on 390x844 mobile
+      const mobileScale = isMobile ? 1.28 : 1.0;
+      const dAct1 = mixNum(7.6, 8.2, smoothstep(0.0, 2.65, introElapsed));
+      const dAct2 = mixNum(dAct1, 7.85, smoothstep(2.75, 4.15, introElapsed));
       const introDist =
-        mixNum(dAct2, 5.85, smoothstep(4.05, 6.55, introElapsed)) * mobileScale;
+        mixNum(dAct2, 5.85, smoothstep(4.35, 7.45, introElapsed)) * mobileScale;
       const introElevDeg = mixNum(
         19.0,
         15.0,
-        smoothstep(0.0, 6.55, introElapsed)
+        smoothstep(0.0, 7.45, introElapsed)
       );
       const introRoll = mixNum(
         degToRad(-22),
         degToRad(-18),
-        smoothstep(0.0, 6.55, introElapsed)
+        smoothstep(0.0, 7.45, introElapsed)
       );
 
-      const elevRad = degToRad(mixNum(introElevDeg, scrollElevDeg, settle));
+      const elevDegNow = mixNum(introElevDeg, scrollElevDeg, settle);
+      const elevRad = degToRad(elevDegNow);
       const camDist = mixNum(introDist, scrollDist, settle);
       const pitchOffset = mixNum(0, scrollPitch, settle);
       const bankRoll = mixNum(introRoll, 0, settle);
-      const azimRad = mixNum(0, scrollAzim, settle);
+      const azimRad = mixNum(0, scrollAzim, settle) + parallaxAzimRad;
 
       const sinE = Math.sin(elevRad);
       const cosE = Math.cos(elevRad);
@@ -2163,20 +2515,34 @@ export function AsciiBlackholeCanvas({
         domeRadiusPx,
         domeEdgeY,
         viewportW: cssWGlobal,
+        introElapsed,
+        elevDeg: baseScrollElevDeg,
+        scrollAzimDeg: (scrollAzim * 180) / Math.PI,
+        tickPulse,
+        tickProg,
       });
 
-      // Throttled 1x-DPR starfield (~14fps idle, ~25fps on pointer move; skipped during Act I-III)
-      const bgIntervalMs = pointerActive > 0.02 ? 40 : 72;
-      if ((starWave > 0.005 || settle > 0.05) && ts - lastBgDraw >= bgIntervalMs) {
+      // Throttled 1x-DPR starfield (~14fps idle, ~25fps on pointer/shockwave; skipped during Act I-IV)
+      const bgIntervalMs =
+        uiShockAmp > 0.01 ? 24 : pointerActive > 0.02 ? 40 : 72;
+      if (
+        (starWave > 0.005 || settle > 0.05) &&
+        ts - lastBgDraw >= bgIntervalMs
+      ) {
         lastBgDraw = ts;
-        drawBackgroundField(tSec, s, settle, starWave);
+        drawBackgroundField(tSec, s, settle, starWave, uiShockAmp, uiShockProg);
       }
 
-      // Determine active hardware scissor band (skips 52%–66% of GPU work at idle & below fold)
+      // Hardware scissor band (skips 52%–66% of GPU work at idle & below fold; expands cleanly during shockwave)
       let scissorMode: "full" | "bottom" | "top" = "full";
       let vMin = 0.0;
       let vMax = 1.0;
-      if (settle > 0.99 && polarFactor < 0.01 && lockPulse < 0.002) {
+      if (
+        settle > 0.99 &&
+        polarFactor < 0.01 &&
+        lockPulse < 0.002 &&
+        uiShockAmp < 0.002
+      ) {
         if (segDock < 0.02) {
           scissorMode = "bottom";
           vMin = 0.0;
@@ -2209,15 +2575,24 @@ export function AsciiBlackholeCanvas({
       gl.uniform3f(pScene.u.uCamFwd, camFwd.x, camFwd.y, camFwd.z);
       gl.uniform1f(pScene.u.uStarVis, starVis);
       gl.uniform1f(pScene.u.uStarRadius, starRadius);
+      gl.uniform1f(pScene.u.uStarSwell, starSwell);
+      gl.uniform1f(pScene.u.uStarSpinPhase, starSpinPhase);
+      gl.uniform1f(pScene.u.uPinch, pinch);
       gl.uniform1f(pScene.u.uStarShift, starShift);
       gl.uniform1f(pScene.u.uStarCrack, starCrack);
       gl.uniform1f(pScene.u.uImplode, implode);
       gl.uniform1f(pScene.u.uEjecta, ejecta);
       gl.uniform1f(pScene.u.uEjectaProg, ejectaProg);
       gl.uniform1f(pScene.u.uBhBirth, bhBirth);
+      gl.uniform1f(pScene.u.uBhRadius, bhRadius);
+      gl.uniform1f(pScene.u.uFallback, fallback);
+      gl.uniform1f(pScene.u.uFallbackProg, fallbackProg);
       gl.uniform1f(pScene.u.uDiskBirth, diskBirth);
       gl.uniform1f(pScene.u.uLockPulse, lockPulse);
       gl.uniform1f(pScene.u.uLockWaveProg, lockWaveProg);
+      gl.uniform1f(pScene.u.uUiRipple, uiRippleAmp);
+      gl.uniform1f(pScene.u.uUiShock, uiShockAmp);
+      gl.uniform1f(pScene.u.uUiShockProg, uiShockProg);
       gl.uniform1f(pScene.u.uTickPulse, tickPulse);
       gl.uniform1f(pScene.u.uTickProg, tickProg);
       gl.uniform1f(pScene.u.uSettle, settle);
@@ -2286,8 +2661,11 @@ export function AsciiBlackholeCanvas({
         mixNum(0.46, 0.54, settle) +
         starVis * 0.14 +
         ejecta * 0.16 +
+        fallback * 0.14 +
         blastPeak * 0.34 +
         lockPulse * 0.1 +
+        uiRippleAmp * 0.08 +
+        uiShockAmp * 0.24 +
         tickPulse * 0.18;
       gl.uniform1f(pGlyphComp.u.uGlow, glowAmount);
       gl.uniform2f(pGlyphComp.u.uPointer, pointerX, pointerY);
@@ -2319,6 +2697,10 @@ export function AsciiBlackholeCanvas({
           wordmarkBuilt,
           introElapsed: Number(introElapsed.toFixed(3)),
           resolveElapsed: Number(resolveElapsed.toFixed(3)),
+          starRadius: Number(starRadius.toFixed(3)),
+          starSwell: Number(starSwell.toFixed(3)),
+          bhRadius: Number(bhRadius.toFixed(3)),
+          fallback: Number(fallback.toFixed(3)),
           heroResolved: isResolvedNow,
           pinProgress: Number(s.toFixed(4)),
           polarFactor: Number(polarFactor.toFixed(4)),
@@ -2331,7 +2713,11 @@ export function AsciiBlackholeCanvas({
           polarDiameterPx: Math.round(polarDiameterPx),
           domeApexRimY: Math.round(domeApexRimY),
           domeEdgeY: Math.round(domeEdgeY),
-          elevDeg: Number(((elevRad * 180) / Math.PI).toFixed(1)),
+          elevDeg: Number(elevDegNow.toFixed(1)),
+          parallaxAzimDeg: Number(((parallaxAzimRad * 180) / Math.PI).toFixed(2)),
+          parallaxElevDeg: Number(parallaxElevDeg.toFixed(2)),
+          uiRippleAmp: Number(uiRippleAmp.toFixed(3)),
+          uiShockAmp: Number(uiShockAmp.toFixed(3)),
         };
       }
     };
@@ -2374,8 +2760,6 @@ export function AsciiBlackholeCanvas({
     // Paint Frame 1 immediately on mount so the warm dying star appears with zero rAF delay
     startLoop(true);
 
-    // Defer non-critical layout observers, font refinement, and supernova wordmark texture
-    // until AFTER Frame 1 is already on screen
     let roCanvas: ResizeObserver | null = null;
     let roRunway: ResizeObserver | null = null;
     let postMountTimer = 0;
@@ -2401,13 +2785,16 @@ export function AsciiBlackholeCanvas({
       }
     }, 0);
 
-    // Build wordmark mask well before 4.02s supernova carve without ever blocking Frame 1
+    // Build wordmark mask well before 4.32s supernova carve without blocking Frame 1
     if (!startSettled && !wordmarkBuilt) {
       const scheduleWordmarkBuild = () => {
         if (disposed || wordmarkBuilt) return;
         ensureWordmarkTexture(true);
       };
-      if (typeof (window as unknown as { requestIdleCallback?: unknown }).requestIdleCallback === "function") {
+      if (
+        typeof (window as unknown as { requestIdleCallback?: unknown })
+          .requestIdleCallback === "function"
+      ) {
         wordmarkIdleId = (
           window as Window & {
             requestIdleCallback: (
@@ -2438,11 +2825,15 @@ export function AsciiBlackholeCanvas({
 
     return () => {
       disposed = true;
+      if (controlRefLatest.current) {
+        controlRefLatest.current.current = null;
+      }
       window.clearTimeout(postMountTimer);
       window.clearTimeout(wordmarkTimer);
       if (
         wordmarkIdleId &&
-        typeof (window as unknown as { cancelIdleCallback?: unknown }).cancelIdleCallback === "function"
+        typeof (window as unknown as { cancelIdleCallback?: unknown })
+          .cancelIdleCallback === "function"
       ) {
         (
           window as Window & { cancelIdleCallback: (id: number) => void }
@@ -2489,12 +2880,13 @@ export function AsciiBlackholeCanvas({
           aria-hidden="true"
           className="pointer-events-none fixed inset-0 z-[25] flex items-center justify-center bg-[#040206] motion-reduce:hidden"
         >
+          {/* Sized ~34dvh mobile / ~42dvh desktop to seamlessly match R = 0.96 at d = 7.6 */}
           <div
-            className="h-[46dvh] w-[46dvh] rounded-full sm:h-[58dvh] sm:w-[58dvh]"
+            className="h-[34dvh] w-[34dvh] rounded-full sm:h-[42dvh] sm:w-[42dvh]"
             style={{
               background:
-                "radial-gradient(circle, #FFF8E8 0%, #F4D8AE 22%, #C9915E 39%, rgba(143, 87, 55, 0.58) 54%, rgba(240, 199, 144, 0.16) 72%, rgba(4, 2, 6, 0) 100%)",
-              filter: "blur(1px)",
+                "radial-gradient(circle, #FFF8E8 0%, #F4D8AE 26%, #EBC998 44%, rgba(143, 87, 55, 0.72) 61%, rgba(240, 199, 144, 0.22) 77%, rgba(4, 2, 6, 0) 100%)",
+              filter: "blur(0.8px)",
             }}
           />
         </div>

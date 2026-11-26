@@ -4,9 +4,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDownRight, X } from "lucide-react";
 import {
   AsciiBlackholeCanvas,
+  type AsciiBlackholeControl,
   type HorizonSyncState,
 } from "@/components/landing/ascii-blackhole-canvas";
-import { HorizonCountdown } from "@/components/landing/horizon-countdown";
+import {
+  HorizonCountdown,
+  type PolarBezelControl,
+} from "@/components/landing/horizon-countdown";
 import { WaitlistBar } from "@/components/landing/waitlist-bar";
 import { TMinusWordmark } from "@/components/landing/t-minus-wordmark";
 import {
@@ -55,6 +59,13 @@ const ARCHITECTURE_INDEX: readonly IndexRowSpec[] = [
   },
 ] as const;
 
+const VERNIER_TICKS = [
+  { id: "hero", label: "HERO" },
+  { id: "polar", label: "POLAR" },
+  { id: "index", label: "INDEX" },
+  { id: "tzero", label: "T-ZERO" },
+] as const;
+
 function clamp01(v: number): number {
   return Math.min(1, Math.max(0, v));
 }
@@ -62,6 +73,20 @@ function clamp01(v: number): number {
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = clamp01((x - edge0) / (edge1 - edge0));
   return t * t * (3 - 2 * t);
+}
+
+function getIntroPhaseLabel(introElapsed: number): string {
+  if (introElapsed < 2.65) return "01 · SUPERGIANT";
+  if (introElapsed < 4.15) return "02 · CORE COLLAPSE";
+  if (introElapsed < 5.2) return "03 · SUPERNOVA";
+  return "04 · EVENT HORIZON";
+}
+
+function getOrbitalHudLabel(pinProgress: number, elevDeg: number): string {
+  const deg = Math.round(elevDeg);
+  if (pinProgress < 0.2) return `${deg}° HORIZON`;
+  if (pinProgress < 0.72) return `${deg}° POLAR`;
+  return `${deg}° LEDGER`;
 }
 
 interface SyncDomCache {
@@ -76,6 +101,9 @@ interface SyncDomCache {
   heroPointer: string;
   veilOpacity: string;
   veilBg: string;
+  hudText: string;
+  scrollCueOpacity: string;
+  vernierActiveIdx: number;
 }
 
 export function LandingExperience({
@@ -88,16 +116,38 @@ export function LandingExperience({
     role: WaitlistRole;
     seq: number;
   } | null>(null);
+  const [closingPulseSeq, setClosingPulseSeq] = useState(0);
+  const [band3Spotlight, setBand3Spotlight] = useState<WaitlistRole | null>(
+    null
+  );
 
+  const canvasControlRef = useRef<AsciiBlackholeControl | null>(null);
+  const bezelControlRef = useRef<PolarBezelControl | null>(null);
   const heroPhoneRef = useRef<HTMLInputElement | null>(null);
   const closingPhoneRef = useRef<HTMLInputElement | null>(null);
   const closingSectionRef = useRef<HTMLDivElement | null>(null);
+  const indexSectionRef = useRef<HTMLElement | null>(null);
   const runwayRef = useRef<HTMLDivElement | null>(null);
   const heroCopyRef = useRef<HTMLDivElement | null>(null);
   const countdownTrackRef = useRef<HTMLDivElement | null>(null);
   const countdownStripRef = useRef<HTMLDivElement | null>(null);
   const countdownPolarRef = useRef<HTMLDivElement | null>(null);
   const preRimVeilRef = useRef<HTMLDivElement | null>(null);
+  const hudReadoutRef = useRef<HTMLSpanElement | null>(null);
+  const scrollCueRef = useRef<HTMLDivElement | null>(null);
+  const vernierTickRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const vernierBarRefs = useRef<Array<HTMLSpanElement | null>>([]);
+  const vernierLabelRefs = useRef<Array<HTMLSpanElement | null>>([]);
+
+  // Cached scroll anchor positions (updated asynchronously & on resize for zero per-frame reflow)
+  const anchorsRef = useRef({
+    runwayTop: 0,
+    runwayScrollable: 1600,
+    indexTop: 2800,
+    closingTop: 3600,
+    docMaxScroll: 4000,
+  });
+
   const syncCacheRef = useRef<SyncDomCache>({
     cdOpacity: "",
     cdTransform: "",
@@ -110,6 +160,9 @@ export function LandingExperience({
     heroPointer: "",
     veilOpacity: "",
     veilBg: "",
+    hudText: "",
+    scrollCueOpacity: "",
+    vernierActiveIdx: -1,
   });
 
   // Honor ?skipIntro=1 client-side cleanly (100% static-export compatible)
@@ -124,6 +177,49 @@ export function LandingExperience({
       // ignore
     }
   }, []);
+
+  // Measure section anchors asynchronously & on resize so 60fps sync never triggers layout reflow
+  const measureAnchors = useCallback(() => {
+    const vh = window.innerHeight || 900;
+    const scrollY = window.scrollY;
+    const runwayEl = runwayRef.current;
+    const indexEl = indexSectionRef.current;
+    const closingEl = closingSectionRef.current;
+
+    const runwayTop = runwayEl
+      ? runwayEl.getBoundingClientRect().top + scrollY
+      : 0;
+    const runwayScrollable = runwayEl
+      ? Math.max(1, runwayEl.getBoundingClientRect().height - vh)
+      : Math.max(420, vh * 2.0);
+    const indexTop = indexEl
+      ? indexEl.getBoundingClientRect().top + scrollY
+      : runwayTop + runwayScrollable + 400;
+    const closingTop = closingEl
+      ? closingEl.getBoundingClientRect().top + scrollY
+      : indexTop + 700;
+    const docMaxScroll = Math.max(
+      1,
+      document.documentElement.scrollHeight - vh
+    );
+
+    anchorsRef.current = {
+      runwayTop,
+      runwayScrollable,
+      indexTop,
+      closingTop,
+      docMaxScroll,
+    };
+  }, []);
+
+  useEffect(() => {
+    const id = window.setTimeout(measureAnchors, 60);
+    window.addEventListener("resize", measureAnchors, { passive: true });
+    return () => {
+      window.clearTimeout(id);
+      window.removeEventListener("resize", measureAnchors);
+    };
+  }, [measureAnchors]);
 
   // Keep document root painted in true obsidian #040206 so overscroll matches space cleanly
   useEffect(() => {
@@ -147,152 +243,282 @@ export function LandingExperience({
     return () => window.removeEventListener("keydown", onKey);
   }, [legalDoc]);
 
-  // Dirty-checked 60fps DOM sync: zero style mutations or paint invalidations at idle!
-  const handleHorizonSync = useCallback((state: HorizonSyncState) => {
-    const cache = syncCacheRef.current;
-
-    // 1) Center countdown container physically inside the `#000000` 3D black hole core
-    const countdownEl = countdownTrackRef.current;
-    if (countdownEl) {
-      const cdAlpha = smoothstep(0.66, 0.98, state.settleProgress);
-      const nextCdOpacity = cdAlpha.toFixed(3);
-      const nextCdTransform = `translate3d(-50%, ${state.countdownCenterY.toFixed(1)}px, 0) translateY(-50%)`;
-      if (cache.cdOpacity !== nextCdOpacity) {
-        cache.cdOpacity = nextCdOpacity;
-        countdownEl.style.opacity = nextCdOpacity;
+  const applyVernierActive = useCallback((activeIdx: number) => {
+    for (let i = 0; i < VERNIER_TICKS.length; i++) {
+      const isActive = i === activeIdx;
+      const btn = vernierTickRefs.current[i];
+      const bar = vernierBarRefs.current[i];
+      const label = vernierLabelRefs.current[i];
+      if (btn) {
+        btn.setAttribute("aria-current", isActive ? "true" : "false");
+        btn.dataset.active = isActive ? "true" : "false";
       }
-      if (cache.cdTransform !== nextCdTransform) {
-        cache.cdTransform = nextCdTransform;
-        countdownEl.style.transform = nextCdTransform;
+      if (bar) {
+        bar.style.width = isActive ? "20px" : "10px";
+        bar.style.backgroundColor = isActive
+          ? "#97DFFC"
+          : "rgba(133, 138, 227, 0.45)";
       }
-    }
-
-    // 1a) Horizon Strip mode (bottom pin=0 & slim top dome pin=1)
-    const stripEl = countdownStripRef.current;
-    if (stripEl) {
-      const nextStripOpacity = (
-        1 - smoothstep(0.18, 0.48, state.polarFactor)
-      ).toFixed(3);
-      const nextStripTransform = `scale(${state.countdownScale.toFixed(4)})`;
-      if (cache.stripOpacity !== nextStripOpacity) {
-        cache.stripOpacity = nextStripOpacity;
-        stripEl.style.opacity = nextStripOpacity;
-      }
-      if (cache.stripTransform !== nextStripTransform) {
-        cache.stripTransform = nextStripTransform;
-        stripEl.style.transform = nextStripTransform;
-      }
-    }
-
-    // 1b) Space-Filling Polar Chronograph mode inside `#000000` polar void
-    const polarEl = countdownPolarRef.current;
-    if (polarEl) {
-      const polarOpacity = smoothstep(0.32, 0.68, state.polarFactor);
-      const nextPolarOpacity = polarOpacity.toFixed(3);
-      if (cache.polarOpacity !== nextPolarOpacity) {
-        cache.polarOpacity = nextPolarOpacity;
-        polarEl.style.opacity = nextPolarOpacity;
-      }
-      if (polarOpacity > 0.001) {
-        const isNarrow = state.viewportW < 640;
-        const naturalW = isNarrow ? 264 : 410;
-        const naturalH = isNarrow ? 172 : 260;
-        const fitW =
-          (state.polarDiameterPx * (isNarrow ? 0.75 : 0.82)) / naturalW;
-        const fitH =
-          (state.polarDiameterPx * (isNarrow ? 0.72 : 0.78)) / naturalH;
-        const fitScale = Math.min(1.0, Math.max(0.55, Math.min(fitW, fitH)));
-        const settleZoom =
-          0.86 + 0.14 * smoothstep(0.28, 0.74, state.polarFactor);
-        const polarScale = fitScale * settleZoom;
-        const nextPolarTransform = `translate(-50%, -50%) scale(${polarScale.toFixed(4)})`;
-        if (cache.polarTransform !== nextPolarTransform) {
-          cache.polarTransform = nextPolarTransform;
-          polarEl.style.transform = nextPolarTransform;
-        }
-      }
-    }
-
-    // 2) Smoothly lift & fade sticky hero copy as camera orbits toward top-down polar spiral
-    const heroEl = heroCopyRef.current;
-    if (heroEl) {
-      const fadeOut = smoothstep(0.015, 0.22, state.pinProgress);
-      const nextHeroOpacity = (1 - fadeOut).toFixed(3);
-      const nextHeroTransform = `translate3d(0, ${(-fadeOut * 34).toFixed(1)}px, 0)`;
-      const nextHeroPointer = state.pinProgress > 0.14 ? "none" : "auto";
-      if (cache.heroOpacity !== nextHeroOpacity) {
-        cache.heroOpacity = nextHeroOpacity;
-        heroEl.style.opacity = nextHeroOpacity;
-      }
-      if (cache.heroTransform !== nextHeroTransform) {
-        cache.heroTransform = nextHeroTransform;
-        heroEl.style.transform = nextHeroTransform;
-      }
-      if (cache.heroPointer !== nextHeroPointer) {
-        cache.heroPointer = nextHeroPointer;
-        heroEl.style.pointerEvents = nextHeroPointer;
-      }
-    }
-
-    // 3) Slim Layer 20 curved #040206 pre-rim occlusion veil strictly capped <= 122px
-    const veilEl = preRimVeilRef.current;
-    if (veilEl) {
-      const veilAlpha = smoothstep(0.68, 0.88, state.pinProgress);
-      const nextVeilOpacity = veilAlpha.toFixed(3);
-      if (cache.veilOpacity !== nextVeilOpacity) {
-        cache.veilOpacity = nextVeilOpacity;
-        veilEl.style.opacity = nextVeilOpacity;
-      }
-
-      let nextVeilBg = "none";
-      if (veilAlpha > 0.002 && state.domeRadiusPx > 10) {
-        const isNarrow = state.viewportW < 640;
-        const cx = state.domeCenterX.toFixed(0);
-        const cy = state.domeCenterY.toFixed(0);
-        const maxBottomY = 122;
-        const maxR = Math.max(24, maxBottomY - state.domeCenterY);
-        const solidR = Math.min(
-          maxR - 22,
-          state.domeRadiusPx + (isNarrow ? 16 : 14)
-        ).toFixed(0);
-        const midR = Math.min(
-          maxR - 10,
-          state.domeRadiusPx + (isNarrow ? 28 : 26)
-        ).toFixed(0);
-        const fadeR = Math.min(
-          maxR,
-          state.domeRadiusPx + (isNarrow ? 42 : 40)
-        ).toFixed(0);
-        const edgeSolid = Math.min(
-          74,
-          Math.max(24, state.domeEdgeY + 12)
-        ).toFixed(0);
-        const edgeFade = Math.min(
-          118,
-          Math.max(58, state.domeEdgeY + 38)
-        ).toFixed(0);
-
-        nextVeilBg = [
-          `radial-gradient(circle at ${cx}px ${cy}px, #040206 0px, #040206 ${solidR}px, rgba(4, 2, 6, 0.90) ${midR}px, rgba(4, 2, 6, 0) ${fadeR}px)`,
-          `linear-gradient(180deg, #040206 0px, #040206 ${edgeSolid}px, rgba(4, 2, 6, 0) ${edgeFade}px)`,
-        ].join(", ");
-      }
-      if (cache.veilBg !== nextVeilBg) {
-        cache.veilBg = nextVeilBg;
-        veilEl.style.backgroundImage = nextVeilBg;
+      if (label) {
+        label.style.color = isActive ? "#97DFFC" : "rgba(162, 167, 240, 0.65)";
+        label.style.opacity = isActive ? "1" : "0.78";
       }
     }
   }, []);
 
+  // Dirty-checked 60fps DOM sync: zero style mutations or paint invalidations at idle!
+  const handleHorizonSync = useCallback(
+    (state: HorizonSyncState) => {
+      const cache = syncCacheRef.current;
+
+      // 1) Center countdown container physically inside the `#000000` 3D black hole core
+      const countdownEl = countdownTrackRef.current;
+      if (countdownEl) {
+        const cdAlpha = smoothstep(0.66, 0.98, state.settleProgress);
+        const nextCdOpacity = cdAlpha.toFixed(3);
+        const nextCdTransform = `translate3d(-50%, ${state.countdownCenterY.toFixed(1)}px, 0) translateY(-50%)`;
+        if (cache.cdOpacity !== nextCdOpacity) {
+          cache.cdOpacity = nextCdOpacity;
+          countdownEl.style.opacity = nextCdOpacity;
+        }
+        if (cache.cdTransform !== nextCdTransform) {
+          cache.cdTransform = nextCdTransform;
+          countdownEl.style.transform = nextCdTransform;
+        }
+      }
+
+      // 1a) Horizon Strip mode (bottom pin=0 & slim top dome pin=1)
+      const stripEl = countdownStripRef.current;
+      if (stripEl) {
+        const nextStripOpacity = (
+          1 - smoothstep(0.18, 0.48, state.polarFactor)
+        ).toFixed(3);
+        const nextStripTransform = `scale(${state.countdownScale.toFixed(4)})`;
+        if (cache.stripOpacity !== nextStripOpacity) {
+          cache.stripOpacity = nextStripOpacity;
+          stripEl.style.opacity = nextStripOpacity;
+        }
+        if (cache.stripTransform !== nextStripTransform) {
+          cache.stripTransform = nextStripTransform;
+          stripEl.style.transform = nextStripTransform;
+        }
+      }
+
+      // 1b) Space-Filling Polar Chronograph mode inside `#000000` polar void
+      //     (Sized to sit cleanly inside UI-3 60-tick orbital bezel with zero mobile overlap)
+      const polarEl = countdownPolarRef.current;
+      if (polarEl) {
+        const polarOpacity = smoothstep(0.32, 0.68, state.polarFactor);
+        const nextPolarOpacity = polarOpacity.toFixed(3);
+        if (cache.polarOpacity !== nextPolarOpacity) {
+          cache.polarOpacity = nextPolarOpacity;
+          polarEl.style.opacity = nextPolarOpacity;
+        }
+        if (polarOpacity > 0.001) {
+          const isNarrow = state.viewportW < 640;
+          const naturalW = isNarrow ? 264 : 410;
+          const naturalH = isNarrow ? 172 : 260;
+          const fitW =
+            (state.polarDiameterPx * (isNarrow ? 0.65 : 0.72)) / naturalW;
+          const fitH =
+            (state.polarDiameterPx * (isNarrow ? 0.62 : 0.68)) / naturalH;
+          const fitScale = Math.min(1.0, Math.max(0.5, Math.min(fitW, fitH)));
+          const settleZoom =
+            0.88 + 0.12 * smoothstep(0.28, 0.74, state.polarFactor);
+          const polarScale = fitScale * settleZoom;
+          const nextPolarTransform = `translate(-50%, -50%) scale(${polarScale.toFixed(4)})`;
+          if (cache.polarTransform !== nextPolarTransform) {
+            cache.polarTransform = nextPolarTransform;
+            polarEl.style.transform = nextPolarTransform;
+          }
+        }
+      }
+
+      // 1c) UI-3: Update Horological 60-Tick Orbital Bezel (active strictly when polarFactor > 0.32)
+      bezelControlRef.current?.update({
+        polarFactor: state.polarFactor,
+        polarDiameterPx: state.polarDiameterPx,
+        scrollAzimDeg: state.scrollAzimDeg,
+        tickPulse: state.tickPulse,
+      });
+
+      // 2) Smoothly lift & fade sticky hero copy as camera orbits toward top-down polar spiral
+      const heroEl = heroCopyRef.current;
+      if (heroEl) {
+        const fadeOut = smoothstep(0.015, 0.22, state.pinProgress);
+        const nextHeroOpacity = (1 - fadeOut).toFixed(3);
+        const nextHeroTransform = `translate3d(0, ${(-fadeOut * 34).toFixed(1)}px, 0)`;
+        const nextHeroPointer = state.pinProgress > 0.14 ? "none" : "auto";
+        if (cache.heroOpacity !== nextHeroOpacity) {
+          cache.heroOpacity = nextHeroOpacity;
+          heroEl.style.opacity = nextHeroOpacity;
+        }
+        if (cache.heroTransform !== nextHeroTransform) {
+          cache.heroTransform = nextHeroTransform;
+          heroEl.style.transform = nextHeroTransform;
+        }
+        if (cache.heroPointer !== nextHeroPointer) {
+          cache.heroPointer = nextHeroPointer;
+          heroEl.style.pointerEvents = nextHeroPointer;
+        }
+      }
+
+      // 3) Slim Layer 20 curved #040206 pre-rim occlusion veil strictly capped <= 122px
+      const veilEl = preRimVeilRef.current;
+      if (veilEl) {
+        const veilAlpha = smoothstep(0.68, 0.88, state.pinProgress);
+        const nextVeilOpacity = veilAlpha.toFixed(3);
+        if (cache.veilOpacity !== nextVeilOpacity) {
+          cache.veilOpacity = nextVeilOpacity;
+          veilEl.style.opacity = nextVeilOpacity;
+        }
+
+        let nextVeilBg = "none";
+        if (veilAlpha > 0.002 && state.domeRadiusPx > 10) {
+          const isNarrow = state.viewportW < 640;
+          const cx = state.domeCenterX.toFixed(0);
+          const cy = state.domeCenterY.toFixed(0);
+          const maxBottomY = 122;
+          const maxR = Math.max(24, maxBottomY - state.domeCenterY);
+          const solidR = Math.min(
+            maxR - 22,
+            state.domeRadiusPx + (isNarrow ? 16 : 14)
+          ).toFixed(0);
+          const midR = Math.min(
+            maxR - 10,
+            state.domeRadiusPx + (isNarrow ? 28 : 26)
+          ).toFixed(0);
+          const fadeR = Math.min(
+            maxR,
+            state.domeRadiusPx + (isNarrow ? 42 : 40)
+          ).toFixed(0);
+          const edgeSolid = Math.min(
+            74,
+            Math.max(24, state.domeEdgeY + 12)
+          ).toFixed(0);
+          const edgeFade = Math.min(
+            118,
+            Math.max(58, state.domeEdgeY + 38)
+          ).toFixed(0);
+
+          nextVeilBg = [
+            `radial-gradient(circle at ${cx}px ${cy}px, #040206 0px, #040206 ${solidR}px, rgba(4, 2, 6, 0.90) ${midR}px, rgba(4, 2, 6, 0) ${fadeR}px)`,
+            `linear-gradient(180deg, #040206 0px, #040206 ${edgeSolid}px, rgba(4, 2, 6, 0) ${edgeFade}px)`,
+          ].join(", ");
+        }
+        if (cache.veilBg !== nextVeilBg) {
+          cache.veilBg = nextVeilBg;
+          veilEl.style.backgroundImage = nextVeilBg;
+        }
+      }
+
+      // 4) UI-1: Dirty-checked Perimeter Telemetry HUD text
+      const hudEl = hudReadoutRef.current;
+      if (hudEl) {
+        const nextHud = state.heroResolved
+          ? getOrbitalHudLabel(state.pinProgress, state.elevDeg)
+          : getIntroPhaseLabel(state.introElapsed);
+        if (cache.hudText !== nextHud) {
+          cache.hudText = nextHud;
+          hudEl.textContent = nextHud;
+        }
+      }
+
+      // 5) UI-1: Quiet `↓ SCROLL TO ORBIT` micro-cue fades cleanly once pinProgress > 0.02
+      const cueEl = scrollCueRef.current;
+      if (cueEl) {
+        const settleIn = smoothstep(0.92, 1.0, state.settleProgress);
+        const scrollOut = 1 - smoothstep(0.0, 0.022, state.pinProgress);
+        const nextCueOpacity = (settleIn * scrollOut).toFixed(3);
+        if (cache.scrollCueOpacity !== nextCueOpacity) {
+          cache.scrollCueOpacity = nextCueOpacity;
+          cueEl.style.opacity = nextCueOpacity;
+        }
+      }
+
+      // 6) UI-1: Dirty-checked Desktop Right-Edge Vernier Rail active tick
+      if (state.heroResolved && state.viewportW >= 1024) {
+        const anchors = anchorsRef.current;
+        const scrollY = window.scrollY;
+        const vh = window.innerHeight || 900;
+        let nextIdx = 0;
+        if (state.pinProgress < 0.2) {
+          nextIdx = 0; // HERO
+        } else if (state.pinProgress < 0.78) {
+          nextIdx = 1; // POLAR
+        } else if (
+          scrollY + vh * 0.52 >= anchors.closingTop ||
+          scrollY >= anchors.docMaxScroll - 80
+        ) {
+          nextIdx = 3; // T-ZERO
+        } else {
+          nextIdx = 2; // INDEX
+        }
+
+        if (cache.vernierActiveIdx !== nextIdx) {
+          cache.vernierActiveIdx = nextIdx;
+          applyVernierActive(nextIdx);
+        }
+      }
+    },
+    [applyVernierActive]
+  );
+
+  const handleWaitlistPulse = useCallback((kind: "subtle" | "shockwave") => {
+    canvasControlRef.current?.pulseHorizon(kind);
+  }, []);
+
+  const handleSkipIntro = useCallback(() => {
+    canvasControlRef.current?.skipIntro();
+    setHeroRevealed(true);
+  }, []);
+
+  const handleReplayIntro = useCallback(() => {
+    setInstantMode(false);
+    setHeroRevealed(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    canvasControlRef.current?.replayIntro();
+  }, []);
+
+  const handleVernierJump = useCallback(
+    (id: (typeof VERNIER_TICKS)[number]["id"]) => {
+      measureAnchors();
+      const anchors = anchorsRef.current;
+      if (id === "hero") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      if (id === "polar") {
+        const polarTargetY = Math.round(
+          anchors.runwayTop + anchors.runwayScrollable * 0.47
+        );
+        window.scrollTo({ top: polarTargetY, behavior: "smooth" });
+        return;
+      }
+      if (id === "index") {
+        const targetY = Math.max(0, Math.round(anchors.indexTop - 118));
+        window.scrollTo({ top: targetY, behavior: "smooth" });
+        return;
+      }
+      closingSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    },
+    [measureAnchors]
+  );
+
   const handleSelectClosingRole = useCallback((role: WaitlistRole) => {
     setClosingRequestedRole((prev) => ({ role, seq: (prev?.seq ?? 0) + 1 }));
+    setClosingPulseSeq((prev) => prev + 1);
+    canvasControlRef.current?.pulseHorizon("subtle");
     closingSectionRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "center",
     });
     window.setTimeout(() => {
       closingPhoneRef.current?.focus({ preventScroll: true });
-    }, 320);
+    }, 340);
   }, []);
 
   return (
@@ -302,7 +528,8 @@ export function LandingExperience({
         onHeroReveal={setHeroRevealed}
         onHorizonSync={handleHorizonSync}
         runwayRef={runwayRef}
-        skipIntro={instantMode}
+        controlRef={canvasControlRef}
+        skipIntro={skipIntro}
       />
 
       {/* Layer 20: Slim curved #040206 pre-rim occlusion veil (<= 122px total) */}
@@ -313,34 +540,160 @@ export function LandingExperience({
         className="pointer-events-none fixed inset-0 z-20 will-change-[opacity]"
       />
 
-      {/* Layer 40: Fixed Top-Left Iconic T^minus Wordmark (Italic Newsreader T + upright ^minus) */}
-      <header
-        className={`pointer-events-none fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-start px-5 transition-opacity duration-500 ease-out sm:h-[76px] sm:px-10 ${
-          heroRevealed ? "opacity-100 delay-[260ms]" : "opacity-0"
-        }`}
-        style={instantMode ? { transitionDelay: "0ms" } : undefined}
-      >
+      {/* Layer 40: Fixed Top-Left Iconic T^minus Wordmark + UI-1 Top-Right Perimeter Telemetry HUD */}
+      <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between px-4 sm:h-[76px] sm:px-10">
+        {/* Subtle left obsidian corner backing for T^minus */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute top-0 left-0 h-20 w-52 sm:h-24 sm:w-64"
+          className={`pointer-events-none absolute top-0 left-0 h-20 w-44 transition-opacity duration-500 sm:h-24 sm:w-64 ${
+            heroRevealed ? "opacity-100" : "opacity-0"
+          }`}
           style={{
             background:
               "radial-gradient(ellipse 95% 88% at 0% 0%, rgba(4, 2, 6, 0.92) 0%, rgba(4, 2, 6, 0.62) 48%, rgba(4, 2, 6, 0) 100%)",
           }}
         />
+
+        {/* Subtle right obsidian corner backing for Telemetry HUD */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute top-0 right-0 h-20 w-48 sm:h-24 sm:w-72"
+          style={{
+            background:
+              "radial-gradient(ellipse 95% 88% at 100% 0%, rgba(4, 2, 6, 0.88) 0%, rgba(4, 2, 6, 0.52) 50%, rgba(4, 2, 6, 0) 100%)",
+          }}
+        />
+
+        {/* Top-left iconic T^minus wordmark (Italic Newsreader T + upright ^minus) */}
         <a
           href="#top"
+          data-brand-wordmark="true"
           onClick={(e) => {
             e.preventDefault();
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
-          className="pointer-events-auto relative z-10 text-white transition-opacity hover:opacity-85 focus-visible:ring-1 focus-visible:ring-[#97DFFC] focus-visible:outline-none"
+          className={`relative z-10 text-white transition-opacity duration-500 ease-out hover:opacity-85 focus-visible:ring-1 focus-visible:ring-[#97DFFC] focus-visible:outline-none ${
+            heroRevealed
+              ? "pointer-events-auto opacity-100 delay-[260ms]"
+              : "pointer-events-none opacity-0"
+          }`}
+          style={instantMode ? { transitionDelay: "0ms" } : undefined}
         >
-          <TMinusWordmark className="[--wm-scale:1.05] sm:[--wm-scale:1.38]" />
+          <TMinusWordmark className="[--wm-scale:1.0] sm:[--wm-scale:1.38]" />
         </a>
+
+        {/* UI-1: Restrained IBM Plex Mono Perimeter Telemetry HUD + Intro SKIP -> */}
+        <div
+          data-perimeter-hud="true"
+          className="relative z-10 flex items-center gap-2 font-mono text-[9px] font-medium tracking-[0.12em] text-[#A2A7F0] uppercase whitespace-nowrap sm:gap-3 sm:text-[10px] sm:tracking-[0.16em]"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              aria-hidden="true"
+              className="size-1.5 rounded-full bg-[#97DFFC]/85"
+            />
+            <span
+              ref={hudReadoutRef}
+              data-hud-readout="true"
+              className="tabular-nums text-[#DCD5EE]"
+            >
+              {heroRevealed ? "26° HORIZON" : "01 · SUPERGIANT"}
+            </span>
+          </span>
+
+          {!heroRevealed ? (
+            <>
+              <span
+                aria-hidden="true"
+                className="h-3 w-px bg-[#858AE3]/35"
+              />
+              <button
+                type="button"
+                data-skip-intro="true"
+                onClick={handleSkipIntro}
+                className="pointer-events-auto inline-flex min-h-[28px] cursor-pointer items-center gap-1 rounded-[4px] border border-[#858AE3]/35 bg-[#07050D]/80 px-2 py-1 text-[9.5px] font-medium tracking-[0.14em] text-white transition-colors duration-150 hover:border-[#97DFFC]/80 hover:text-[#97DFFC] focus-visible:ring-1 focus-visible:ring-[#97DFFC] focus-visible:outline-none sm:px-2.5 sm:text-[10px]"
+              >
+                <span>SKIP</span>
+                <span aria-hidden="true" className="text-[#97DFFC]">
+                  →
+                </span>
+              </button>
+            </>
+          ) : null}
+        </div>
       </header>
 
-      {/* Layer 40: Dual-Mode Horizon & Space-Filling Polar Chronograph physically bound inside #000000 core */}
+      {/* UI-1: Quiet Centered `↓ SCROLL TO ORBIT` Micro-Cue above settled horizon crest */}
+      <div
+        ref={scrollCueRef}
+        data-scroll-cue="true"
+        aria-hidden="true"
+        style={{ opacity: instantMode ? 1 : 0 }}
+        className="pointer-events-none fixed bottom-[calc(20.5dvh+10px)] left-1/2 z-[35] -translate-x-1/2 font-mono text-[9.5px] font-medium tracking-[0.2em] text-[#A2A7F0]/85 uppercase whitespace-nowrap transition-opacity duration-200 will-change-[opacity] sm:bottom-[calc(22dvh+14px)] sm:text-[10px]"
+      >
+        <span className="text-[#97DFFC]">↓</span> SCROLL TO ORBIT
+      </div>
+
+      {/* UI-1: Desktop (lg+) Fixed 1px Right-Edge Vernier Rail (HERO · POLAR · INDEX · T-ZERO) */}
+      <nav
+        aria-label="Page orbital sections"
+        data-vernier-rail="true"
+        className={`fixed top-1/2 right-6 z-40 hidden -translate-y-1/2 flex-col items-end transition-opacity duration-500 lg:flex ${
+          heroRevealed
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0"
+        }`}
+      >
+        <div className="relative flex flex-col items-end gap-5 py-2 pr-3">
+          {/* Continuous 1px vertical vernier hairline */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute top-0 right-0 bottom-0 w-px bg-[#858AE3]/24"
+          />
+
+          {VERNIER_TICKS.map((tick, idx) => (
+            <button
+              key={tick.id}
+              ref={(el) => {
+                vernierTickRefs.current[idx] = el;
+              }}
+              type="button"
+              data-vernier-tick={tick.id}
+              data-active={idx === 0 ? "true" : "false"}
+              aria-current={idx === 0 ? "true" : "false"}
+              onClick={() => handleVernierJump(tick.id)}
+              className="group relative flex cursor-pointer items-center gap-2.5 py-0.5 text-right focus-visible:ring-1 focus-visible:ring-[#97DFFC] focus-visible:outline-none"
+            >
+              <span
+                ref={(el) => {
+                  vernierLabelRefs.current[idx] = el;
+                }}
+                style={{
+                  color: idx === 0 ? "#97DFFC" : "rgba(162, 167, 240, 0.65)",
+                  opacity: idx === 0 ? 1 : 0.78,
+                }}
+                className="font-mono text-[9.5px] font-medium tracking-[0.16em] uppercase transition-colors duration-200 group-hover:text-white"
+              >
+                {tick.label}
+              </span>
+              <span
+                ref={(el) => {
+                  vernierBarRefs.current[idx] = el;
+                }}
+                aria-hidden="true"
+                style={{
+                  width: idx === 0 ? "20px" : "10px",
+                  backgroundColor:
+                    idx === 0 ? "#97DFFC" : "rgba(133, 138, 227, 0.45)",
+                }}
+                className="block h-px transition-all duration-200 group-hover:bg-[#97DFFC]"
+              />
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {/* Layer 40: Dual-Mode Horizon & Space-Filling Polar Chronograph + UI-3 60-Tick Orbital Bezel */}
       <div
         ref={countdownTrackRef}
         style={{
@@ -353,6 +706,7 @@ export function LandingExperience({
         <HorizonCountdown
           stripRef={countdownStripRef}
           polarRef={countdownPolarRef}
+          bezelControlRef={bezelControlRef}
         />
       </div>
 
@@ -439,6 +793,7 @@ export function LandingExperience({
                   idPrefix="hero-waitlist"
                   inputRef={heroPhoneRef}
                   onOpenLegal={setLegalDoc}
+                  onInteractPulse={handleWaitlistPulse}
                 />
               </div>
             </div>
@@ -509,8 +864,12 @@ export function LandingExperience({
             </div>
           </section>
 
-          {/* BAND 2 (4B): Pure 01–04 Editorial Architectural Index */}
-          <section data-band="architecture" className="pb-16 sm:pb-24">
+          {/* BAND 2 (4B): Pure 01–04 Editorial Architectural Index (Untouched Swiss Ledger) */}
+          <section
+            ref={indexSectionRef}
+            data-band="architecture"
+            className="pb-16 sm:pb-24"
+          >
             <div className="mb-8 flex items-center justify-between font-mono text-[11px] font-medium tracking-[0.18em] text-[#A2A7F0] uppercase sm:mb-10">
               <span>
                 <span className="text-[#97DFFC]">+</span>{" "}
@@ -580,89 +939,129 @@ export function LandingExperience({
             </ol>
           </section>
 
-          {/* BAND 3 (6A): Shopper / Brand Distinction + "Be there at T-zero." + Inline WaitlistBar */}
+          {/* BAND 3 (6A + UI-5 Spotlight): Shopper / Brand Distinction + "Be there at T-zero." */}
           <section data-band="closing" className="pb-12 sm:pb-16">
-            <div className="grid grid-cols-1 gap-10 pb-14 md:grid-cols-2 md:gap-0 md:divide-x md:divide-[#858AE3]/22 sm:pb-16">
-              {/* For Shoppers */}
-              <div className="flex flex-col justify-between md:pr-12 lg:pr-16">
-                <div>
-                  <p className="font-mono text-[11px] font-medium tracking-[0.18em] text-[#A2A7F0] uppercase">
-                    <span className="text-[#97DFFC]">+</span>{" "}
-                    <ScrollAsciiReveal
-                      text="FOR SHOPPERS"
-                      tier="telemetry"
-                      instant={instantMode}
-                    />
-                  </p>
-                  <h3 className="mt-3.5 font-heading text-[24px] leading-[1.15] font-semibold tracking-[-0.03em] text-white sm:text-[28px]">
-                    <ScrollAsciiReveal
-                      text="Find drops worth waiting for."
-                      tier="headline"
-                      instant={instantMode}
-                    />
-                  </h3>
-                  <ScrollAsciiReveal
-                    tier="prose"
-                    instant={instantMode}
-                    delayMs={80}
-                  >
-                    <p className="mt-3.5 max-w-[42ch] font-sans text-[15px] leading-[1.66] text-[#D8D1EC]">
-                      Discover independent releases on a live clock, check true
-                      garment measurements before launch, and get first access
-                      without scrolling past ads.
+            <div
+              data-band3-spotlight={band3Spotlight ?? "none"}
+              onMouseLeave={() => setBand3Spotlight(null)}
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                  setBand3Spotlight(null);
+                }
+              }}
+              className="relative border-t border-[#858AE3]/18 pt-8 sm:pt-10"
+            >
+              {/* UI-5: Sliding 1px #97DFFC top spotlight hairline (md+) */}
+              <span
+                aria-hidden="true"
+                data-spotlight-rail="true"
+                className={`pointer-events-none absolute top-[-1px] left-0 hidden h-px w-1/2 bg-[#97DFFC] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] md:block ${
+                  band3Spotlight === "BRAND"
+                    ? "translate-x-full opacity-100"
+                    : band3Spotlight === "SHOPPER"
+                      ? "translate-x-0 opacity-100"
+                      : "translate-x-0 opacity-0"
+                }`}
+              />
+
+              <div className="grid grid-cols-1 gap-10 pb-14 md:grid-cols-2 md:gap-0 md:divide-x md:divide-[#858AE3]/22 sm:pb-16">
+                {/* For Shoppers */}
+                <div
+                  data-spotlight-col="SHOPPER"
+                  onMouseEnter={() => setBand3Spotlight("SHOPPER")}
+                  onFocus={() => setBand3Spotlight("SHOPPER")}
+                  className={`flex flex-col justify-between transition-opacity duration-200 md:pr-12 lg:pr-16 ${
+                    band3Spotlight === "BRAND" ? "md:opacity-[0.82]" : "opacity-100"
+                  }`}
+                >
+                  <div>
+                    <p className="font-mono text-[11px] font-medium tracking-[0.18em] text-[#A2A7F0] uppercase">
+                      <span className="text-[#97DFFC]">+</span>{" "}
+                      <ScrollAsciiReveal
+                        text="FOR SHOPPERS"
+                        tier="telemetry"
+                        instant={instantMode}
+                      />
                     </p>
-                  </ScrollAsciiReveal>
+                    <h3 className="mt-3.5 font-heading text-[24px] leading-[1.15] font-semibold tracking-[-0.03em] text-white sm:text-[28px]">
+                      <ScrollAsciiReveal
+                        text="Find drops worth waiting for."
+                        tier="headline"
+                        instant={instantMode}
+                      />
+                    </h3>
+                    <ScrollAsciiReveal
+                      tier="prose"
+                      instant={instantMode}
+                      delayMs={80}
+                    >
+                      <p className="mt-3.5 max-w-[42ch] font-sans text-[15px] leading-[1.66] text-[#D8D1EC]">
+                        Discover independent releases on a live clock, check true
+                        garment measurements before launch, and get first access
+                        without scrolling past ads.
+                      </p>
+                    </ScrollAsciiReveal>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectClosingRole("SHOPPER")}
+                    className="mt-6 inline-flex w-fit cursor-pointer items-center gap-1.5 font-mono text-[11.5px] font-medium tracking-[0.14em] text-[#97DFFC] uppercase transition-colors hover:text-white focus-visible:ring-1 focus-visible:ring-[#97DFFC] focus-visible:outline-none"
+                  >
+                    <span>Join as a shopper</span>
+                    <ArrowDownRight className="size-3.5" />
+                  </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleSelectClosingRole("SHOPPER")}
-                  className="mt-6 inline-flex w-fit cursor-pointer items-center gap-1.5 font-mono text-[11.5px] font-medium tracking-[0.14em] text-[#97DFFC] uppercase transition-colors hover:text-white focus-visible:ring-1 focus-visible:ring-[#97DFFC] focus-visible:outline-none"
+                {/* For Independent Labels */}
+                <div
+                  data-spotlight-col="BRAND"
+                  onMouseEnter={() => setBand3Spotlight("BRAND")}
+                  onFocus={() => setBand3Spotlight("BRAND")}
+                  className={`flex flex-col justify-between border-t border-[#858AE3]/20 pt-9 transition-opacity duration-200 md:border-t-0 md:pt-0 md:pl-12 lg:pl-16 ${
+                    band3Spotlight === "SHOPPER"
+                      ? "md:opacity-[0.82]"
+                      : "opacity-100"
+                  }`}
                 >
-                  <span>Join as a shopper</span>
-                  <ArrowDownRight className="size-3.5" />
-                </button>
-              </div>
-
-              {/* For Independent Labels */}
-              <div className="flex flex-col justify-between border-t border-[#858AE3]/20 pt-9 md:border-t-0 md:pt-0 md:pl-12 lg:pl-16">
-                <div>
-                  <p className="font-mono text-[11px] font-medium tracking-[0.18em] text-[#A2A7F0] uppercase">
-                    <span className="text-[#97DFFC]">+</span>{" "}
-                    <ScrollAsciiReveal
-                      text="FOR INDEPENDENT LABELS"
-                      tier="telemetry"
-                      instant={instantMode}
-                    />
-                  </p>
-                  <h3 className="mt-3.5 font-heading text-[24px] leading-[1.15] font-semibold tracking-[-0.03em] text-white sm:text-[28px]">
-                    <ScrollAsciiReveal
-                      text="Launch on your own clock."
-                      tier="headline"
-                      instant={instantMode}
-                    />
-                  </h3>
-                  <ScrollAsciiReveal
-                    tier="prose"
-                    instant={instantMode}
-                    delayMs={80}
-                  >
-                    <p className="mt-3.5 max-w-[42ch] font-sans text-[15px] leading-[1.66] text-[#D8D1EC]">
-                      Keep your own identity, story, and pricing. Turn every
-                      collection into a scheduled release event and build direct
-                      repeat buyers without paying ad platforms.
+                  <div>
+                    <p className="font-mono text-[11px] font-medium tracking-[0.18em] text-[#A2A7F0] uppercase">
+                      <span className="text-[#97DFFC]">+</span>{" "}
+                      <ScrollAsciiReveal
+                        text="FOR INDEPENDENT LABELS"
+                        tier="telemetry"
+                        instant={instantMode}
+                      />
                     </p>
-                  </ScrollAsciiReveal>
-                </div>
+                    <h3 className="mt-3.5 font-heading text-[24px] leading-[1.15] font-semibold tracking-[-0.03em] text-white sm:text-[28px]">
+                      <ScrollAsciiReveal
+                        text="Launch on your own clock."
+                        tier="headline"
+                        instant={instantMode}
+                      />
+                    </h3>
+                    <ScrollAsciiReveal
+                      tier="prose"
+                      instant={instantMode}
+                      delayMs={80}
+                    >
+                      <p className="mt-3.5 max-w-[42ch] font-sans text-[15px] leading-[1.66] text-[#D8D1EC]">
+                        Keep your own identity, story, and pricing. Turn every
+                        collection into a scheduled release event and build
+                        direct repeat buyers without paying ad platforms.
+                      </p>
+                    </ScrollAsciiReveal>
+                  </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleSelectClosingRole("BRAND")}
-                  className="mt-6 inline-flex w-fit cursor-pointer items-center gap-1.5 font-mono text-[11.5px] font-medium tracking-[0.14em] text-[#97DFFC] uppercase transition-colors hover:text-white focus-visible:ring-1 focus-visible:ring-[#97DFFC] focus-visible:outline-none"
-                >
-                  <span>Apply as a brand</span>
-                  <ArrowDownRight className="size-3.5" />
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectClosingRole("BRAND")}
+                    className="mt-6 inline-flex w-fit cursor-pointer items-center gap-1.5 font-mono text-[11.5px] font-medium tracking-[0.14em] text-[#97DFFC] uppercase transition-colors hover:text-white focus-visible:ring-1 focus-visible:ring-[#97DFFC] focus-visible:outline-none"
+                  >
+                    <span>Apply as a brand</span>
+                    <ArrowDownRight className="size-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -715,12 +1114,14 @@ export function LandingExperience({
                   onOpenLegal={setLegalDoc}
                   requestedRole={closingRequestedRole}
                   align="left"
+                  onInteractPulse={handleWaitlistPulse}
+                  registrationPulseSeq={closingPulseSeq}
                 />
               </div>
             </div>
           </section>
 
-          {/* Quiet Archival IBM Plex Mono Footer */}
+          {/* Quiet Archival IBM Plex Mono Footer + UI-5 ↺ REPLAY */}
           <footer className="flex items-center justify-between py-7 font-mono text-[11px] font-medium tracking-[0.1em] text-[#A2A7F0]">
             <div className="flex items-center gap-2.5">
               <button
@@ -737,6 +1138,16 @@ export function LandingExperience({
                 className="cursor-pointer transition hover:text-white"
               >
                 Terms
+              </button>
+              <span className="text-[#858AE3]/55">·</span>
+              <button
+                type="button"
+                data-replay-intro="true"
+                onClick={handleReplayIntro}
+                className="inline-flex cursor-pointer items-center gap-1 tracking-[0.12em] uppercase transition hover:text-[#97DFFC] focus-visible:ring-1 focus-visible:ring-[#97DFFC] focus-visible:outline-none"
+              >
+                <span aria-hidden="true">↺</span>
+                <span>REPLAY</span>
               </button>
             </div>
 

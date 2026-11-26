@@ -87,7 +87,7 @@ export function buildLaunchCalendarIcs(siteUrl: string): string {
     "DTSTART:20270101T050000Z",
     "DTEND:20270101T053000Z",
     "SUMMARY:T^minus launches on the App Store",
-    `DESCRIPTION:T^minus App Store v1.0 goes live at midnight ET. Your waitlist number unlocks 2 weeks of T^minus Pro free for early access to independent clothing drops. ${cleanUrl}`,
+    `DESCRIPTION:T^minus App Store v1.0 goes live at midnight ET. Independent clothing drops on a live clock. ${cleanUrl}`,
     `URL:${cleanUrl}`,
     "BEGIN:VALARM",
     "ACTION:DISPLAY",

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Calendar, Check, Share2 } from "lucide-react";
 import {
   buildLaunchCalendarIcs,
@@ -19,6 +19,10 @@ interface WaitlistBarProps {
   requestedRole?: { role: WaitlistRole; seq: number } | null;
   /** Optional alignment ("center" for hero, "left" for closing split) */
   align?: "center" | "left";
+  /** UI-2 gravitational horizon coupling callback */
+  onInteractPulse?: (kind: "subtle" | "shockwave") => void;
+  /** UI-5 registration pulse flash triggered when Band 3 CTA jumps to this WaitlistBar */
+  registrationPulseSeq?: number;
 }
 
 export function WaitlistBar({
@@ -27,6 +31,8 @@ export function WaitlistBar({
   onOpenLegal,
   requestedRole,
   align = "center",
+  onInteractPulse,
+  registrationPulseSeq = 0,
 }: WaitlistBarProps) {
   const [role, setRole] = useState<WaitlistRole>("SHOPPER");
   const [phoneInput, setPhoneInput] = useState("");
@@ -34,16 +40,34 @@ export function WaitlistBar({
   const [smsConsent, setSmsConsent] = useState(false);
   const [sourceTag, setSourceTag] = useState<string | null>(null);
 
+  const [barFocused, setBarFocused] = useState(false);
+  const [pulseFlash, setPulseFlash] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [confirmedRole, setConfirmedRole] = useState<WaitlistRole | null>(null);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+
+  const lastTypePulseMsRef = useRef(0);
+
+  const triggerSubtlePulse = () => {
+    const now = performance.now();
+    if (now - lastTypePulseMsRef.current < 180) return;
+    lastTypePulseMsRef.current = now;
+    onInteractPulse?.("subtle");
+  };
 
   useEffect(() => {
     if (!requestedRole) return;
     setRole(requestedRole.role);
     setErrorMsg(null);
   }, [requestedRole]);
+
+  useEffect(() => {
+    if (!registrationPulseSeq) return;
+    setPulseFlash(true);
+    const id = window.setTimeout(() => setPulseFlash(false), 900);
+    return () => window.clearTimeout(id);
+  }, [registrationPulseSeq]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -97,6 +121,7 @@ export function WaitlistBar({
       }
 
       setConfirmedRole(role);
+      onInteractPulse?.("shockwave");
     } catch {
       setErrorMsg("Network error. Check your connection and try again.");
     } finally {
@@ -150,6 +175,9 @@ export function WaitlistBar({
 
   const phoneId = `${idPrefix}-phone`;
   const brandId = `${idPrefix}-brand`;
+  const hasPhoneDigits = phoneInput.trim().length > 0;
+  const isPhoneValid = Boolean(normalizePhoneToE164(phoneInput));
+  const cornersLit = barFocused || pulseFlash;
 
   if (confirmedRole) {
     return (
@@ -238,6 +266,7 @@ export function WaitlistBar({
               onClick={() => {
                 setRole(opt.id);
                 setErrorMsg(null);
+                onInteractPulse?.("subtle");
               }}
               className={`relative z-10 cursor-pointer rounded-[4px] px-3.5 py-1 text-[12px] font-medium tracking-[-0.005em] transition-colors duration-150 ${
                 active ? "text-white" : "text-[#CFC7E6] hover:text-white"
@@ -249,40 +278,101 @@ export function WaitlistBar({
         })}
       </div>
 
-      {/* Matte architectural single-row obsidian input bar + crisp flat white CTA */}
-      <div className="flex w-full items-center gap-1.5 rounded-[6px] border border-[#858AE3]/30 bg-[#07050D] p-1.5 transition-colors duration-150 focus-within:border-[#97DFFC]/80">
-        <label htmlFor={phoneId} className="sr-only">
-          Mobile phone number
-        </label>
-        <input
-          ref={inputRef}
-          id={phoneId}
-          name="tel"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          required
-          placeholder="+1 (555) 000-0000"
-          value={phoneInput}
-          onChange={(e) => {
-            setPhoneInput(formatPhoneDisplay(e.target.value));
-            if (errorMsg) setErrorMsg(null);
-          }}
-          className="h-9 w-0 min-w-0 flex-1 bg-transparent px-2.5 text-[14px] text-white placeholder:text-[#B8B0D4]/75 focus:outline-none sm:h-10 sm:px-3 sm:text-[14.5px]"
-        />
+      {/* Matte architectural single-row obsidian input bar + UI-2 corner `+` registration marks */}
+      <div
+        data-waitlist-frame={idPrefix}
+        data-corners-lit={cornersLit ? "true" : "false"}
+        className="relative w-full"
+        onFocus={() => setBarFocused(true)}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+            setBarFocused(false);
+          }
+        }}
+      >
+        {/* 4 Crisp IBM Plex Mono `+` Corner Registration Marks */}
+        {(
+          [
+            "-top-[8px] -left-[4px]",
+            "-top-[8px] -right-[4px]",
+            "-bottom-[8px] -left-[4px]",
+            "-bottom-[8px] -right-[4px]",
+          ] as const
+        ).map((pos) => (
+          <span
+            key={pos}
+            aria-hidden="true"
+            data-waitlist-corner="true"
+            className={`pointer-events-none absolute ${pos} z-20 font-mono text-[10px] leading-none font-medium transition-all duration-150 select-none ${
+              cornersLit
+                ? "text-[#97DFFC] opacity-100"
+                : "text-[#858AE3]/40 opacity-50"
+            }`}
+          >
+            +
+          </span>
+        ))}
 
-        <AsciiCornerButton
-          type="submit"
-          variant="primary"
-          disabled={submitting}
-          className="h-9 shrink-0 whitespace-nowrap px-3 text-[12px] sm:h-10 sm:px-5 sm:text-[13px]"
+        <div
+          className={`flex w-full items-center gap-1.5 rounded-[6px] border bg-[#07050D] p-1.5 transition-all duration-200 ${
+            pulseFlash
+              ? "border-[#97DFFC] ring-1 ring-[#97DFFC]/45"
+              : "border-[#858AE3]/30 focus-within:border-[#97DFFC]/80"
+          }`}
         >
-          {submitting
-            ? "Saving..."
-            : role === "BRAND"
-              ? "Join as a brand"
-              : "Get early access"}
-        </AsciiCornerButton>
+          <label htmlFor={phoneId} className="sr-only">
+            Mobile phone number
+          </label>
+          <input
+            ref={inputRef}
+            id={phoneId}
+            name="tel"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            required
+            placeholder="+1 (555) 000-0000"
+            value={phoneInput}
+            onChange={(e) => {
+              setPhoneInput(formatPhoneDisplay(e.target.value));
+              if (errorMsg) setErrorMsg(null);
+              triggerSubtlePulse();
+            }}
+            className="h-9 w-0 min-w-0 flex-1 bg-transparent px-2.5 text-[14px] text-white placeholder:text-[#B8B0D4]/75 focus:outline-none sm:h-10 sm:px-3 sm:text-[14.5px]"
+          />
+
+          {/* Restrained #858AE3 -> #97DFFC (READY) E.164 validation indicator */}
+          {hasPhoneDigits ? (
+            <span
+              data-phone-status={isPhoneValid ? "ready" : "typing"}
+              aria-live="polite"
+              className={`inline-flex shrink-0 items-center gap-1 pr-1 font-mono text-[9.5px] font-medium tracking-[0.12em] uppercase transition-colors duration-150 select-none ${
+                isPhoneValid ? "text-[#97DFFC]" : "text-[#858AE3]"
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`size-1.5 rounded-full transition-colors duration-150 ${
+                  isPhoneValid ? "bg-[#97DFFC]" : "bg-[#858AE3]"
+                }`}
+              />
+              {isPhoneValid ? <span>READY</span> : null}
+            </span>
+          ) : null}
+
+          <AsciiCornerButton
+            type="submit"
+            variant="primary"
+            disabled={submitting}
+            className="h-9 shrink-0 whitespace-nowrap px-3 text-[12px] sm:h-10 sm:px-5 sm:text-[13px]"
+          >
+            {submitting
+              ? "Saving..."
+              : role === "BRAND"
+                ? "Join as a brand"
+                : "Get early access"}
+          </AsciiCornerButton>
+        </div>
       </div>
 
       {/* Smoothly revealed compact matte brand handle input when "I run a brand" is active */}
@@ -304,7 +394,10 @@ export function WaitlistBar({
             tabIndex={role === "BRAND" ? 0 : -1}
             placeholder="Label or shop handle (optional)"
             value={brandHandle}
-            onChange={(e) => setBrandHandle(e.target.value)}
+            onChange={(e) => {
+              setBrandHandle(e.target.value);
+              triggerSubtlePulse();
+            }}
             maxLength={120}
             className="h-9 w-full rounded-[6px] border border-[#858AE3]/30 bg-[#07050D] px-3 text-[13.5px] text-white placeholder:text-[#B8B0D4]/75 transition-colors focus:border-[#97DFFC]/80 focus:outline-none sm:h-10 sm:px-3.5"
           />
