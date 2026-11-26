@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 /**
  * Strict locked ASCII glyph vocabulary (`^ - t + = T *`).
- * Zero `.`, zero `:`, zero `·`.
  */
 const REVEAL_GLYPHS = ["^", "-", "t", "+", "=", "T", "*"] as const;
 
@@ -31,13 +30,9 @@ function deterministicGlyph(index: number, tick: number): string {
 }
 
 /**
- * Zero-jitter organic ASCII materialization:
- * - Each character slot reserves its exact final typographic width so mixed
- *   sans + serif-italic kerning never shifts during decode.
- * - Supports `origin="center"` (blossoms outward from the black hole axis)
- *   and `origin="left"` (editorial wave).
- * - Calm ~19Hz cadence (2-3 deliberate glyph steps per character, never frantic).
- * - Swaps to plain native text once resolved for exact kerning & selection.
+ * Zero-jitter ASCII materialization for post-resolve hero copy:
+ * - Reserves each character's exact final width so typography never shifts.
+ * - Swaps to plain native text once resolved for crisp kerning & selection.
  */
 export function AsciiRevealText({
   text,
@@ -89,7 +84,6 @@ export function AsciiRevealText({
         const elapsed = ts - startTs;
         const p = Math.min(1, elapsed / Math.max(120, durationMs));
 
-        // Calm ~19Hz glyph tick cadence so it feels deliberate and refined
         if (ts - lastTickTs >= 52 || p >= 1) {
           lastTickTs = ts;
           tickCount += 1;
@@ -176,81 +170,13 @@ export function AsciiRevealText({
             <span className="opacity-0">{ch}</span>
             <span
               style={{ opacity: glyphAlpha }}
-              className={`pointer-events-none absolute inset-0 flex items-center justify-center font-mono text-[0.74em] font-medium not-italic ${glyphClassName}`}
+              className={`pointer-events-none absolute inset-0 flex items-center justify-center font-mono text-[0.74em] font-normal ${glyphClassName}`}
             >
               {g}
             </span>
           </span>
         );
       })}
-    </span>
-  );
-}
-
-interface ScrollAsciiRevealProps {
-  text: string;
-  origin?: "left" | "center";
-  delayMs?: number;
-  durationMs?: number;
-  glyphClassName?: string;
-  className?: string;
-}
-
-/**
- * One-time viewport-triggered ASCII decode for below-the-fold editorial eyebrows
- * and section headlines so the ASCII craft flows seamlessly down the entire page.
- */
-export function ScrollAsciiReveal({
-  text,
-  origin = "left",
-  delayMs = 0,
-  durationMs = 560,
-  glyphClassName = "text-[#858AE3]",
-  className = "",
-}: ScrollAsciiRevealProps) {
-  const triggerRef = useRef<HTMLSpanElement | null>(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    const el = triggerRef.current;
-    if (!el) return;
-
-    const reducedMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reducedMotion || typeof IntersectionObserver === "undefined") {
-      setInView(true);
-      return;
-    }
-
-    const obs = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setInView(true);
-            obs.disconnect();
-            break;
-          }
-        }
-      },
-      { threshold: 0.25, rootMargin: "0px 0px -8% 0px" }
-    );
-
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  return (
-    <span ref={triggerRef} className="inline">
-      <AsciiRevealText
-        text={text}
-        active={inView}
-        origin={origin}
-        delayMs={delayMs}
-        durationMs={durationMs}
-        glyphClassName={glyphClassName}
-        className={className}
-      />
     </span>
   );
 }

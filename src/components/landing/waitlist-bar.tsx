@@ -56,9 +56,7 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
 
     setSubmitting(true);
     try {
-      const endpoint =
-        process.env.NEXT_PUBLIC_WAITLIST_ENDPOINT?.trim() || "/api/waitlist";
-      const res = await fetch(endpoint, {
+      const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -72,12 +70,6 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (res.status === 404 || res.status === 405) {
-          setErrorMsg(
-            "Waitlist submissions aren't connected on this static preview yet."
-          );
-          return;
-        }
         setErrorMsg(
           typeof data?.error === "string"
             ? data.error
@@ -95,9 +87,7 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
   }
 
   function handleSaveReminder() {
-    const ics = buildLaunchCalendarIcs(
-      `${window.location.origin}${window.location.pathname}`
-    );
+    const ics = buildLaunchCalendarIcs(`${window.location.origin}/landing`);
     const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -110,9 +100,9 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
   }
 
   async function handleShare() {
-    const shareUrl = `${window.location.origin}${window.location.pathname}`;
+    const shareUrl = `${window.location.origin}/landing`;
     const shareText =
-      "T^minus launches Jan 1, 2027 - independent clothing drops on a live clock.";
+      "T^minus launches Jan 1, 2027 · independent clothing drops on a live clock.";
 
     try {
       if (navigator.share) {
@@ -140,9 +130,9 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
       <div
         role="status"
         aria-live="polite"
-        className="mx-auto flex w-full max-w-[448px] flex-col items-center rounded-2xl border border-[#858AE3]/30 bg-[#0B0612]/80 px-6 py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_20px_50px_-20px_rgba(0,0,0,0.95)] backdrop-blur-xl"
+        className="mx-auto flex w-full max-w-[448px] flex-col items-center rounded-[6px] border border-[#858AE3]/24 bg-[#07050D] px-6 py-6 text-center"
       >
-        <div className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium tracking-[0.16em] text-[#97DFFC] uppercase">
+        <div className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-normal tracking-[0.16em] text-[#97DFFC] uppercase">
           <Check className="size-3.5 stroke-[2.2]" />
           <span>
             {confirmedRole === "BRAND"
@@ -151,13 +141,13 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
           </span>
         </div>
 
-        <h3 className="mt-2.5 font-sans text-[21px] font-medium tracking-[-0.02em] text-white">
+        <h3 className="font-display mt-2.5 text-[21px] font-medium tracking-[-0.025em] text-white">
           {confirmedRole === "BRAND"
-            ? "We got your brand."
+            ? "Brand request saved."
             : "You're in for Jan 1."}
         </h3>
 
-        <p className="mt-2 max-w-[380px] text-[13.5px] leading-[1.52] text-[#D8D0EA]/80">
+        <p className="mt-2 max-w-[360px] text-[13.5px] leading-[1.52] text-[#D8D0EA]/80">
           {confirmedRole === "BRAND"
             ? "We'll text you before launch to set up your storefront and schedule an early drop."
             : "Watch your texts on January 1 when App Store v1.0 goes live."}
@@ -167,8 +157,6 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
           <AsciiCornerButton
             type="button"
             variant="primary"
-            shape="pill"
-            showCornerGlyphs={false}
             onClick={handleSaveReminder}
             className="h-10 flex-1 px-4 text-[13px]"
           >
@@ -179,7 +167,6 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
           <AsciiCornerButton
             type="button"
             variant="dark"
-            shape="pill"
             onClick={handleShare}
             className="h-10 flex-1 px-4 text-[13px]"
           >
@@ -197,15 +184,15 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
       noValidate
       className="mx-auto flex w-full max-w-[448px] flex-col items-center"
     >
-      {/* Minimal Apple-grade sliding pill audience switcher on obsidian glass */}
+      {/* Flat matte architectural audience switcher (Host Grotesk uniwidth — zero shift) */}
       <div
         role="radiogroup"
         aria-label="Waitlist role"
-        className="relative mb-3 inline-grid grid-cols-2 rounded-full border border-[#858AE3]/26 bg-[#0B0612]/76 p-[3px] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md"
+        className="relative mb-2.5 inline-grid grid-cols-2 rounded-[6px] border border-[#858AE3]/24 bg-[#040206] p-[3px] sm:mb-3"
       >
         <span
           aria-hidden="true"
-          className={`pointer-events-none absolute top-[3px] bottom-[3px] left-[3px] w-[calc(50%-3px)] rounded-full border border-[#858AE3]/45 bg-[#613DC1]/72 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.85)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          className={`pointer-events-none absolute top-[3px] bottom-[3px] left-[3px] w-[calc(50%-3px)] rounded-[4px] bg-[#613DC1] transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
             role === "BRAND" ? "translate-x-full" : "translate-x-0"
           }`}
         />
@@ -226,8 +213,8 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
                 setRole(opt.id);
                 setErrorMsg(null);
               }}
-              className={`relative z-10 cursor-pointer rounded-full px-3.5 py-1 text-[11.5px] font-medium tracking-[-0.005em] transition-colors duration-200 ${
-                active ? "text-white" : "text-[#C4BBE0]/78 hover:text-white"
+              className={`relative z-10 cursor-pointer rounded-[4px] px-3.5 py-1 text-[12px] font-medium tracking-[-0.005em] transition-colors duration-150 ${
+                active ? "text-white" : "text-[#C4BBE0]/76 hover:text-white"
               }`}
             >
               {opt.label}
@@ -236,8 +223,8 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
         })}
       </div>
 
-      {/* Unified single-row obsidian frosted glass input bar + crisp pure-white primary CTA */}
-      <div className="flex w-full items-center gap-1.5 rounded-[14px] border border-[#858AE3]/30 bg-[#0B0612]/74 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_14px_42px_-12px_rgba(0,0,0,0.92)] backdrop-blur-xl transition-colors duration-200 focus-within:border-[#97DFFC]/65">
+      {/* Matte architectural single-row obsidian input bar + crisp flat white CTA */}
+      <div className="flex w-full items-center gap-1.5 rounded-[6px] border border-[#858AE3]/24 bg-[#07050D] p-1.5 transition-colors duration-150 focus-within:border-[#97DFFC]/70">
         <label htmlFor="waitlist-phone" className="sr-only">
           Mobile phone number
         </label>
@@ -255,16 +242,14 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
             setPhoneInput(formatPhoneDisplay(e.target.value));
             if (errorMsg) setErrorMsg(null);
           }}
-          className="h-10 min-w-0 flex-1 bg-transparent px-3 text-[15px] text-white placeholder:text-[#C4BBE0]/50 focus:outline-none sm:text-[14.5px]"
+          className="h-9 min-w-0 flex-1 bg-transparent px-2.5 text-[14.5px] text-white placeholder:text-[#C4BBE0]/48 focus:outline-none sm:h-10 sm:px-3"
         />
 
         <AsciiCornerButton
           type="submit"
           variant="primary"
-          shape="rect"
-          showCornerGlyphs={false}
           disabled={submitting}
-          className="h-10 shrink-0 px-4 text-[13px] sm:px-5"
+          className="h-9 shrink-0 px-3.5 text-[12.5px] sm:h-10 sm:px-5 sm:text-[13px]"
         >
           {submitting
             ? "Saving..."
@@ -274,9 +259,9 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
         </AsciiCornerButton>
       </div>
 
-      {/* Smoothly revealed compact brand handle input when "I run a brand" is active */}
+      {/* Smoothly revealed compact matte brand handle input when "I run a brand" is active */}
       <div
-        className={`grid w-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        className={`grid w-full transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
           role === "BRAND"
             ? "mt-2 grid-rows-[1fr] opacity-100"
             : "pointer-events-none mt-0 grid-rows-[0fr] opacity-0"
@@ -295,13 +280,13 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
             value={brandHandle}
             onChange={(e) => setBrandHandle(e.target.value)}
             maxLength={120}
-            className="h-10 w-full rounded-[12px] border border-[#858AE3]/26 bg-[#0B0612]/72 px-3.5 text-[13.5px] text-white placeholder:text-[#C4BBE0]/50 backdrop-blur-xl transition-colors focus:border-[#97DFFC]/65 focus:outline-none"
+            className="h-9 w-full rounded-[6px] border border-[#858AE3]/24 bg-[#07050D] px-3 text-[13.5px] text-white placeholder:text-[#C4BBE0]/48 transition-colors focus:border-[#97DFFC]/70 focus:outline-none sm:h-10 sm:px-3.5"
           />
         </div>
       </div>
 
-      {/* Ultra-compact 1-line custom Retina SMS consent (zero default browser checkbox, zero ·) */}
-      <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 text-center text-[11px] leading-[1.35] text-[#C4BBE0]/80 select-none">
+      {/* Compact 1-line custom SMS consent with crisp middot */}
+      <label className="mt-2.5 flex cursor-pointer items-center justify-center gap-2 text-center text-[11px] leading-[1.35] text-[#C4BBE0]/78 select-none sm:mt-3">
         <span className="relative inline-flex size-3.5 shrink-0 items-center justify-center">
           <input
             type="checkbox"
@@ -314,7 +299,7 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
           />
           <span
             aria-hidden="true"
-            className="flex size-3.5 items-center justify-center rounded-[4px] border border-[#858AE3]/50 bg-[#0B0612]/90 transition-all duration-150 peer-checked:border-[#97DFFC]/80 peer-checked:bg-[#613DC1] peer-focus-visible:ring-2 peer-focus-visible:ring-[#97DFFC]"
+            className="flex size-3.5 items-center justify-center rounded-[3px] border border-[#858AE3]/45 bg-[#07050D] transition-colors duration-150 peer-checked:border-[#97DFFC] peer-checked:bg-[#613DC1] peer-focus-visible:ring-1 peer-focus-visible:ring-[#97DFFC]"
           >
             {smsConsent ? (
               <Check className="size-2.5 stroke-[2.8] text-white" />
@@ -322,7 +307,7 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
           </span>
         </span>
         <span>
-          Text me launch &amp; drop alerts (STOP to opt out -{" "}
+          Text me launch &amp; drop alerts (STOP to opt out ·{" "}
           <button
             type="button"
             onClick={(e) => {
@@ -351,7 +336,7 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
       {errorMsg ? (
         <p
           role="alert"
-          className="mt-2.5 text-center text-[12px] font-medium text-[#97DFFC]"
+          className="mt-2 text-center text-[12px] font-medium text-[#97DFFC]"
         >
           {errorMsg}
         </p>

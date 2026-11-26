@@ -10,35 +10,37 @@ import { HorizonCountdown } from "@/components/landing/horizon-countdown";
 import { WaitlistBar } from "@/components/landing/waitlist-bar";
 import { TMinusWordmark } from "@/components/landing/t-minus-wordmark";
 import { AsciiCornerButton } from "@/components/landing/ascii-corner-button";
-import {
-  AsciiRevealText,
-  ScrollAsciiReveal,
-} from "@/components/landing/ascii-reveal";
+import { AsciiRevealText } from "@/components/landing/ascii-reveal";
+import { AsciiMinusWordmark } from "@/components/landing/ascii-minus-wordmark";
 
 interface LandingExperienceProps {
   skipIntro?: boolean;
 }
 
-const EXPERIENCE_PILLARS = [
+const SYSTEM_CELLS = [
   {
-    index: "01",
-    title: "Live timed drops without site crashes.",
-    body: "Every release runs on a real clock built to absorb launch-second traffic cleanly, without checkout stalls or cart ghosts.",
+    code: "DROP / 01",
+    spec: "LIVE CLOCK",
+    title: "Timed drops on a real clock.",
+    body: "Every release opens on a shared countdown built for launch-second demand, so checkout stays steady when a piece goes live.",
   },
   {
-    index: "02",
-    title: "AI sizing calibrated to real garment measurements.",
-    body: "Matched against each piece's actual flat measurements and cut so you pick your fit with confidence before a drop sells through.",
+    code: "FIT / 02",
+    spec: "GARMENT SPEC",
+    title: "Sizing matched to real measurements.",
+    body: "Fit guidance calibrated to each piece's actual flat measurements and cut, so you choose the right size before a run sells through.",
   },
   {
-    index: "03",
-    title: "Brand-specific loyalty status with free shipping.",
-    body: "Collect pieces from the labels you actually wear to unlock tier perks, early access windows, and free shipping directly with each brand.",
+    code: "LOYALTY / 03",
+    spec: "BRAND TIERS",
+    title: "Direct loyalty with the labels you wear.",
+    body: "Collect pieces from independent brands to unlock tier status, early drop windows, and free shipping tied directly to that label.",
   },
   {
-    index: "04",
-    title: "Native drop-to-door shipment tracking.",
-    body: "Follow every order from confirmation to doorstep right inside T^minus, without digging through inbox threads or third-party links.",
+    code: "TRACK / 04",
+    spec: "NATIVE FEED",
+    title: "Drop-to-door order tracking.",
+    body: "Follow every order from confirmation to doorstep inside T^minus, without digging through inbox threads or carrier links.",
   },
 ] as const;
 
@@ -49,6 +51,25 @@ function clamp01(v: number): number {
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = clamp01((x - edge0) / (edge1 - edge0));
   return t * t * (3 - 2 * t);
+}
+
+function HairlineTick({
+  className = "",
+  accent = false,
+}: {
+  className?: string;
+  accent?: boolean;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`pointer-events-none absolute z-10 flex size-3 -translate-x-1/2 -translate-y-1/2 items-center justify-center bg-[#040206] font-mono text-[11px] leading-none select-none ${
+        accent ? "text-[#97DFFC]/85" : "text-[#858AE3]/65"
+      } ${className}`}
+    >
+      +
+    </span>
+  );
 }
 
 export function LandingExperience({
@@ -101,14 +122,13 @@ export function LandingExperience({
   // Frame-locked DOM sync for HorizonCountdown, hero lift-off fade, and Layer 20 curved pre-rim occlusion veil
   const handleHorizonSync = useCallback((state: HorizonSyncState) => {
     // 1) Sync HorizonCountdown physically inside the pure #000000 3D black hole core
-    //    Strictly hidden (opacity 0) until the black hole has fully resolved at the bottom!
     const countdownEl = countdownTrackRef.current;
     if (countdownEl) {
       countdownEl.style.opacity = state.heroResolved ? "1" : "0";
       countdownEl.style.transform = `translate3d(-50%, ${state.countdownCenterY.toFixed(1)}px, 0) translateY(-50%) scale(${state.countdownScale.toFixed(4)})`;
     }
 
-    // 2) Smoothly lift & fade the sticky hero copy out as the camera orbits toward top-down polar (pinProgress 0 -> 0.22)
+    // 2) Smoothly lift & fade the sticky hero copy out as the camera orbits toward top-down polar
     const heroEl = heroCopyRef.current;
     if (heroEl) {
       const fadeOut = smoothstep(0.015, 0.22, state.pinProgress);
@@ -120,20 +140,28 @@ export function LandingExperience({
     }
 
     // 3) Layer 20 curved #040206 pre-rim occlusion veil synced to exact 3D-projected top dome rim
+    //    Extended solid zone below domeEdgeY eliminates any faint text bleed under the top dome on narrow mobile viewports.
     const veilEl = preRimVeilRef.current;
     if (veilEl) {
-      const veilAlpha = smoothstep(0.68, 0.9, state.pinProgress);
+      const veilAlpha = smoothstep(0.62, 0.84, state.pinProgress);
       veilEl.style.opacity = veilAlpha.toFixed(4);
       if (veilAlpha > 0.002 && state.domeRadiusPx > 10) {
+        const isNarrow = state.viewportW < 640;
         const cx = state.domeCenterX.toFixed(1);
         const cy = state.domeCenterY.toFixed(1);
-        const solidR = (state.domeRadiusPx + 42).toFixed(1);
-        const midR = (state.domeRadiusPx + 74).toFixed(1);
-        const fadeR = (state.domeRadiusPx + 120).toFixed(1);
-        const edgeSolid = Math.max(0, state.domeEdgeY + 26).toFixed(1);
-        const edgeFade = Math.max(40, state.domeEdgeY + 104).toFixed(1);
+        const solidR = (state.domeRadiusPx + (isNarrow ? 58 : 48)).toFixed(1);
+        const midR = (state.domeRadiusPx + (isNarrow ? 94 : 84)).toFixed(1);
+        const fadeR = (state.domeRadiusPx + (isNarrow ? 148 : 134)).toFixed(1);
+        const edgeSolid = Math.max(
+          0,
+          state.domeEdgeY + (isNarrow ? 68 : 46)
+        ).toFixed(1);
+        const edgeFade = Math.max(
+          68,
+          state.domeEdgeY + (isNarrow ? 138 : 122)
+        ).toFixed(1);
         veilEl.style.backgroundImage = [
-          `radial-gradient(circle at ${cx}px ${cy}px, #040206 0px, #040206 ${solidR}px, rgba(4, 2, 6, 0.9) ${midR}px, rgba(4, 2, 6, 0) ${fadeR}px)`,
+          `radial-gradient(circle at ${cx}px ${cy}px, #040206 0px, #040206 ${solidR}px, rgba(4, 2, 6, 0.94) ${midR}px, rgba(4, 2, 6, 0) ${fadeR}px)`,
           `linear-gradient(180deg, #040206 0px, #040206 ${edgeSolid}px, rgba(4, 2, 6, 0) ${edgeFade}px)`,
         ].join(", ");
       } else {
@@ -150,7 +178,7 @@ export function LandingExperience({
   }, []);
 
   return (
-    <div className="relative min-h-[100dvh] w-full overflow-x-clip bg-[#040206] text-white selection:bg-[#613DC1]/55 selection:text-white">
+    <div className="landing-typography relative min-h-[100dvh] w-full overflow-x-clip bg-[#040206] text-white selection:bg-[#613DC1]/55 selection:text-white">
       {/* Layer 0 (obsidian starfield + global cursor T-field) + Layer 30 (single persistent 3D WebGL2 Star -> Supernova -> Black Hole) */}
       <AsciiBlackholeCanvas
         onHeroReveal={setHeroRevealed}
@@ -167,22 +195,30 @@ export function LandingExperience({
         className="pointer-events-none fixed inset-0 z-20 will-change-[opacity]"
       />
 
-      {/* Layer 40: Enlarged Responsive Top-Left T^minus Wordmark (appears in tandem with WaitlistBar post-resolve) */}
+      {/* Layer 40: Fixed Top-Left T^minus Wordmark with corner-feathered obsidian scrim for contrast over bright spiral arms */}
       <header
-        className={`pointer-events-none fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-start px-6 transition-opacity duration-800 ease-out sm:h-20 sm:px-10 ${
+        className={`pointer-events-none fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-start px-5 transition-opacity duration-800 ease-out sm:h-20 sm:px-10 ${
           heroRevealed ? "opacity-100 delay-[720ms]" : "opacity-0"
         }`}
         style={instantMode ? { transitionDelay: "0ms" } : undefined}
       >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute top-0 left-0 h-24 w-56 sm:h-28 sm:w-72"
+          style={{
+            background:
+              "radial-gradient(ellipse 95% 88% at 0% 0%, rgba(4, 2, 6, 0.92) 0%, rgba(4, 2, 6, 0.64) 48%, rgba(4, 2, 6, 0) 100%)",
+          }}
+        />
         <a
           href="#top"
           onClick={(e) => {
             e.preventDefault();
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
-          className="pointer-events-auto text-white transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-[#97DFFC] focus-visible:outline-none"
+          className="pointer-events-auto relative z-10 text-white transition-opacity hover:opacity-85 focus-visible:ring-1 focus-visible:ring-[#97DFFC] focus-visible:outline-none"
         >
-          <TMinusWordmark className="[--wm-scale:1.18] sm:[--wm-scale:1.48]" />
+          <TMinusWordmark className="[--wm-scale:1.05] sm:[--wm-scale:1.42]" />
         </a>
       </header>
 
@@ -196,10 +232,10 @@ export function LandingExperience({
         }}
         className="pointer-events-none fixed top-0 left-1/2 z-40 transition-opacity duration-300 ease-out will-change-transform"
       >
-        <HorizonCountdown revealed={heroRevealed} instant={instantMode} />
+        <HorizonCountdown />
       </div>
 
-      {/* Layer 10: Main Content Flow (scrolls cleanly upward behind the Layer 20 veil & Layer 30 3D horizon) */}
+      {/* Layer 10: Main Content Flow (scrolls cleanly upward behind Layer 20 veil & Layer 30 3D horizon) */}
       <main id="top" className="relative z-10 w-full">
         {/* NATIVE CSS STICKY SCROLL RUNWAY (zero scroll-hijacking): Bottom Horizon -> Polar Spiral Dwell -> Top Dome */}
         <div
@@ -207,62 +243,63 @@ export function LandingExperience({
           className="relative h-[250dvh] w-full sm:h-[300dvh]"
         >
           <section
-            className={`sticky top-0 flex h-[100dvh] w-full flex-col items-center justify-center px-5 pt-16 pb-[27vh] transition-opacity duration-500 ease-out sm:px-8 sm:pt-20 sm:pb-[29vh] ${
+            className={`sticky top-0 flex h-[100dvh] w-full flex-col items-center justify-center px-5 pt-14 pb-[28dvh] transition-opacity duration-500 ease-out sm:px-8 sm:pt-16 sm:pb-[28vh] ${
               heroRevealed ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
           >
             <div
               ref={heroCopyRef}
-              className="flex w-full max-w-[660px] flex-col items-center text-center will-change-transform"
+              className="flex w-full max-w-[640px] flex-col items-center text-center will-change-transform"
             >
-              {/* Two-Line Centered Headline with Center-Outward ASCII Materialization Strictly After Horizon Resolve */}
-              <h1
-                style={{ fontSize: "clamp(2.55rem, 5.6vw, 4.25rem)" }}
-                className="font-sans leading-[1.06] font-medium tracking-[-0.036em] text-white"
-              >
-                <span className="block">
+              {/* Upright 3-Tier Architectural Lockup: Fashion. / ASCII MINUS / the Noise. */}
+              <h1 className="flex w-full flex-col items-center">
+                <span
+                  style={{ fontSize: "clamp(1.7rem, 3.1vw, 2.8rem)" }}
+                  className="font-display block leading-[0.98] font-medium tracking-[-0.035em] text-white"
+                >
                   <AsciiRevealText
                     text="Fashion."
                     active={heroRevealed}
                     instant={instantMode}
                     origin="center"
-                    delayMs={180}
-                    durationMs={640}
+                    delayMs={160}
+                    durationMs={560}
                     glyphClassName="text-[#858AE3]"
                   />
                 </span>
-                <span className="block">
-                  <span className="font-serif text-[1.08em] font-medium italic tracking-[-0.02em] text-[#97DFFC]">
-                    <AsciiRevealText
-                      text="Minus"
-                      active={heroRevealed}
-                      instant={instantMode}
-                      origin="center"
-                      delayMs={260}
-                      durationMs={620}
-                      glyphClassName="text-[#97DFFC]"
-                    />
-                  </span>{" "}
+
+                <AsciiMinusWordmark
+                  active={heroRevealed}
+                  instant={instantMode}
+                  delayMs={240}
+                  durationMs={640}
+                  className="my-1.5 sm:my-2"
+                />
+
+                <span
+                  style={{ fontSize: "clamp(1.7rem, 3.1vw, 2.8rem)" }}
+                  className="font-display block leading-[1.02] font-medium tracking-[-0.035em] text-[#E2DCF0]"
+                >
                   <AsciiRevealText
                     text="the Noise."
                     active={heroRevealed}
                     instant={instantMode}
                     origin="left"
                     delayMs={340}
-                    durationMs={660}
+                    durationMs={580}
                     glyphClassName="text-[#858AE3]"
                   />
                 </span>
               </h1>
 
-              {/* Locked Subhead with single-word #97DFFC emphasis & upward cascade ASCII resolve */}
-              <p className="mt-4 max-w-[460px] text-[15px] leading-[1.55] font-normal text-[#D4CCE8]/86 sm:text-[16.5px]">
+              {/* Plain human subhead with single-word #97DFFC emphasis */}
+              <p className="mt-3 max-w-[330px] text-[14px] leading-[1.48] font-normal text-[#D4CCE8]/84 sm:mt-4 sm:max-w-[460px] sm:text-[16px] sm:leading-[1.55]">
                 <AsciiRevealText
                   text="The best clothes in the world rarely have the loudest "
                   active={heroRevealed}
                   instant={instantMode}
-                  delayMs={520}
-                  durationMs={760}
+                  delayMs={500}
+                  durationMs={700}
                   glyphClassName="text-[#613DC1]"
                 />
                 <span className="font-medium text-[#97DFFC]">
@@ -270,8 +307,8 @@ export function LandingExperience({
                     text="voice"
                     active={heroRevealed}
                     instant={instantMode}
-                    delayMs={900}
-                    durationMs={420}
+                    delayMs={860}
+                    durationMs={380}
                     glyphClassName="text-[#97DFFC]"
                   />
                 </span>
@@ -279,17 +316,17 @@ export function LandingExperience({
                   text="."
                   active={heroRevealed}
                   instant={instantMode}
-                  delayMs={1020}
-                  durationMs={180}
+                  delayMs={960}
+                  durationMs={160}
                   glyphClassName="text-[#858AE3]"
                 />
               </p>
 
-              {/* Minimal Audience Switcher + Single-Row Frosted Obsidian Input Bar + 1-Line Consent */}
+              {/* Matte architectural switcher + input bar + 1-line consent */}
               <div
-                className={`mt-7 w-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] sm:mt-8 ${
+                className={`mt-5 w-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] sm:mt-6 ${
                   heroRevealed
-                    ? "translate-y-0 opacity-100 delay-[760ms]"
+                    ? "translate-y-0 opacity-100 delay-[700ms]"
                     : "translate-y-2 opacity-0"
                 }`}
                 style={instantMode ? { transitionDelay: "0ms" } : undefined}
@@ -303,148 +340,141 @@ export function LandingExperience({
           </section>
         </div>
 
-        {/* BELOW THE FOLD — Calm Editorial Story Masking Cleanly Behind the Layer 20 Veil & Layer 30 Pinned Top Horizon */}
-        <div className="relative w-full">
-          {/* + THE MISSION */}
-          <section className="relative mx-auto flex min-h-[76dvh] max-w-[660px] flex-col items-center justify-center px-6 py-28 text-center sm:py-36">
-            <p className="font-mono text-[10.5px] font-medium tracking-[0.18em] text-[#858AE3] uppercase">
-              <span className="text-[#613DC1]">+</span>{" "}
-              <ScrollAsciiReveal
-                text="THE MISSION"
-                durationMs={440}
-                glyphClassName="text-[#613DC1]"
-              />
-            </p>
+        {/* BELOW THE FOLD — Left-Anchored Architectural Grid Masking Cleanly Behind the Layer 20 Veil & Layer 30 Top Dome */}
+        <div className="relative mx-auto w-full max-w-[960px] px-5 pt-28 sm:px-10 sm:pt-36">
+          {/* BAND 1: Asymmetric Split Thesis Band (+ MANIFESTO) */}
+          <section className="relative border-t border-[#858AE3]/20 pt-10 pb-20 sm:pt-14 sm:pb-28">
+            <HairlineTick className="top-0 left-0" accent />
+            <HairlineTick className="top-0 left-full" />
 
-            <h2
-              style={{ fontSize: "clamp(2.05rem, 4.8vw, 3.4rem)" }}
-              className="mt-5 font-sans leading-[1.09] font-medium tracking-[-0.035em] text-white"
-            >
-              <ScrollAsciiReveal
-                text="Craft over"
-                origin="center"
-                delayMs={80}
-                durationMs={520}
-                glyphClassName="text-[#858AE3]"
-              />{" "}
-              <span className="font-serif text-[1.07em] font-medium italic tracking-[-0.015em] text-[#97DFFC]">
-                <ScrollAsciiReveal
-                  text="ad spend."
-                  delayMs={180}
-                  durationMs={520}
-                  glyphClassName="text-[#97DFFC]"
-                />
-              </span>
-            </h2>
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-12 md:gap-10">
+              <div className="md:col-span-7">
+                <p className="font-mono text-[11px] font-normal tracking-[0.16em] text-[#858AE3] uppercase">
+                  <span className="text-[#97DFFC]">+</span> MANIFESTO
+                </p>
 
-            <p className="mt-6 max-w-[520px] text-[15.5px] leading-[1.72] text-[#DCD4EE]/84 sm:text-[17px]">
-              Independent labels shouldn&apos;t have to outspend algorithms just
-              to be found. T^minus shifts fashion back to garment craft, giving
-              underrated clothing brands luxury-grade drop infrastructure
-              without needing a marketing budget.
-            </p>
-          </section>
+                <h2
+                  style={{ fontSize: "clamp(1.85rem, 3.8vw, 3.05rem)" }}
+                  className="font-display mt-5 leading-[1.06] font-medium tracking-[-0.035em] text-white"
+                >
+                  Independent labels shouldn&apos;t outspend algorithms to be
+                  found.
+                </h2>
+              </div>
 
-          {/* + THE EXPERIENCE */}
-          <section className="relative mx-auto max-w-[620px] px-6 py-24 text-center sm:py-32">
-            <p className="font-mono text-[10.5px] font-medium tracking-[0.18em] text-[#858AE3] uppercase">
-              <span className="text-[#613DC1]">+</span>{" "}
-              <ScrollAsciiReveal
-                text="THE EXPERIENCE"
-                durationMs={460}
-                glyphClassName="text-[#613DC1]"
-              />
-            </p>
+              <div className="flex flex-col justify-between md:col-span-5 md:pt-10">
+                <p className="text-[15px] leading-[1.68] font-normal text-[#DCD4EE]/82 sm:text-[15.5px]">
+                  Small clothing brands put months into fabric, cut, and finish,
+                  only to disappear under paid feeds. T^minus gives independent
+                  labels a dedicated home built around scheduled releases, so
+                  buyers discover pieces for the garment itself.
+                </p>
 
-            <h2
-              style={{ fontSize: "clamp(2.05rem, 4.6vw, 3.25rem)" }}
-              className="mt-5 font-sans leading-[1.09] font-medium tracking-[-0.035em] text-white"
-            >
-              <ScrollAsciiReveal
-                text="Built for every"
-                origin="center"
-                delayMs={80}
-                durationMs={520}
-                glyphClassName="text-[#858AE3]"
-              />{" "}
-              <span className="font-serif text-[1.07em] font-medium italic tracking-[-0.015em] text-[#97DFFC]">
-                <ScrollAsciiReveal
-                  text="drop."
-                  delayMs={200}
-                  durationMs={460}
-                  glyphClassName="text-[#97DFFC]"
-                />
-              </span>
-            </h2>
-
-            <div className="mt-16 divide-y divide-[#858AE3]/16">
-              {EXPERIENCE_PILLARS.map((item) => (
-                <div key={item.index} className="py-10 first:pt-0 last:pb-0">
-                  <span className="font-mono text-[10.5px] tracking-[0.18em] text-[#858AE3]">
-                    {item.index}
-                  </span>
-                  <h3 className="mt-2.5 font-sans text-[20px] leading-[1.28] font-medium tracking-[-0.02em] text-white sm:text-[23px]">
-                    {item.title}
-                  </h3>
-                  <p className="mx-auto mt-3 max-w-[480px] text-[14.5px] leading-[1.68] text-[#D0C7E6]/80 sm:text-[15.5px]">
-                    {item.body}
-                  </p>
+                <div className="mt-7 border-t border-[#858AE3]/16 pt-3.5 font-mono text-[10.5px] tracking-[0.14em] text-[#858AE3]/75 uppercase">
+                  DEDICATED DROP PLATFORM · ZERO PAID FEED RANKING
                 </div>
-              ))}
+              </div>
             </div>
           </section>
 
-          {/* CLOSING ACTION — Dark Secondary Polarity (#613DC1 fill + crisp #97DFFC diagonal-X corner ASCII) */}
-          <section className="relative mx-auto flex max-w-[540px] flex-col items-center px-6 pt-20 pb-28 text-center sm:pt-24 sm:pb-36">
-            <p className="font-mono text-[10.5px] tracking-[0.18em] text-[#858AE3] uppercase">
-              <ScrollAsciiReveal
-                text="APP STORE V1.0 - JANUARY 1, 2027"
-                durationMs={540}
-                glyphClassName="text-[#613DC1]"
-              />
-            </p>
+          {/* BAND 2: Exposed 2x2 Hairline Specification Grid with + Intersection Ticks */}
+          <section data-band="specification" className="relative">
+            <div className="mb-4 flex items-center justify-between font-mono text-[11px] tracking-[0.16em] text-[#858AE3] uppercase">
+              <span>
+                <span className="text-[#97DFFC]">+</span> SPECIFICATION
+              </span>
+              <span className="text-[#858AE3]/70">01 · 04</span>
+            </div>
 
-            <h2
-              style={{ fontSize: "clamp(1.9rem, 4vw, 2.8rem)" }}
-              className="mt-4 font-sans leading-[1.12] font-medium tracking-[-0.032em] text-white"
-            >
-              <ScrollAsciiReveal
-                text="Be there when the"
-                origin="center"
-                delayMs={80}
-                durationMs={520}
-                glyphClassName="text-[#858AE3]"
-              />{" "}
-              <span className="font-serif text-[1.06em] font-medium italic text-[#97DFFC]">
-                <ScrollAsciiReveal
-                  text="clock"
-                  delayMs={200}
-                  durationMs={440}
-                  glyphClassName="text-[#97DFFC]"
-                />
-              </span>{" "}
-              <ScrollAsciiReveal
-                text="hits zero."
-                delayMs={280}
-                durationMs={480}
-                glyphClassName="text-[#858AE3]"
-              />
-            </h2>
+            <div className="relative border-y border-[#858AE3]/20">
+              {/* Perimeter + ticks */}
+              <HairlineTick className="top-0 left-0" />
+              <HairlineTick className="top-0 left-full" />
+              <HairlineTick className="top-full left-0" />
+              <HairlineTick className="top-full left-full" />
 
-            <AsciiCornerButton
-              type="button"
-              variant="dark"
-              shape="pill"
-              onClick={handleReturnToWaitlist}
-              className="mt-8 h-12 px-7 text-[14px]"
-            >
-              <span>Join the waitlist</span>
-              <ArrowUp className="size-3.5" />
-            </AsciiCornerButton>
+              {/* Desktop 2x2 structural rail + ticks + ice-blue center crosshair */}
+              <HairlineTick className="top-0 left-1/2 hidden md:flex" />
+              <HairlineTick className="top-full left-1/2 hidden md:flex" />
+              <HairlineTick className="top-1/2 left-0 hidden md:flex" />
+              <HairlineTick className="top-1/2 left-full hidden md:flex" />
+              <HairlineTick className="top-1/2 left-1/2 hidden md:flex" accent />
+
+              <div className="grid grid-cols-1 divide-y divide-[#858AE3]/18 md:grid-cols-2 md:divide-y-0">
+                {SYSTEM_CELLS.map((cell, idx) => {
+                  const isRightCol = idx % 2 === 1;
+                  const isBottomRow = idx >= 2;
+                  return (
+                    <article
+                      key={cell.code}
+                      className={`relative flex flex-col justify-between py-8 sm:py-10 ${
+                        isRightCol
+                          ? "md:border-l md:border-[#858AE3]/20 md:pl-10"
+                          : "md:pr-10"
+                      } ${
+                        isBottomRow ? "md:border-t md:border-[#858AE3]/20" : ""
+                      }`}
+                    >
+                      {/* Mobile left-rail + tick on internal row dividers */}
+                      {idx > 0 ? (
+                        <HairlineTick className="top-0 left-0 md:hidden" />
+                      ) : null}
+
+                      <div className="flex items-center justify-between font-mono text-[10.5px] tracking-[0.16em] uppercase">
+                        <span className="text-[#97DFFC]">{cell.code}</span>
+                        <span className="text-[#858AE3]/65">{cell.spec}</span>
+                      </div>
+
+                      <div className="mt-6 sm:mt-7">
+                        <h3 className="font-display text-[21px] leading-[1.18] font-medium tracking-[-0.025em] text-white sm:text-[24px]">
+                          {cell.title}
+                        </h3>
+                        <p className="mt-3 max-w-[38ch] text-[14.5px] leading-[1.64] text-[#D0C8E4]/80 sm:text-[15px]">
+                          {cell.body}
+                        </p>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
           </section>
 
-          {/* Quiet Minimal Footer (zero ·, zero :) */}
-          <footer className="relative mx-auto flex max-w-[960px] items-center justify-between border-t border-[#858AE3]/14 px-6 py-7 font-mono text-[10.5px] tracking-[0.08em] text-[#858AE3]/80 sm:px-10">
+          {/* BAND 3: Full-Width Rule-Framed Closing Launch Bar (border-b only; shares Band 2's bottom hairline) */}
+          <section
+            data-band="closing"
+            className="relative border-b border-[#858AE3]/20 pt-14 pb-11 sm:pt-20 sm:pb-14"
+          >
+            <HairlineTick className="top-full left-0" />
+            <HairlineTick className="top-full left-full" />
+
+            <div className="flex flex-col items-start justify-between gap-7 sm:flex-row sm:items-end">
+              <div>
+                <p className="font-mono text-[10.5px] tracking-[0.18em] text-[#858AE3] uppercase sm:text-[11px]">
+                  APP STORE V1.0 · JANUARY 1, 2027
+                </p>
+                <h2
+                  style={{ fontSize: "clamp(1.85rem, 3.8vw, 2.85rem)" }}
+                  className="font-display mt-3 leading-[1.06] font-medium tracking-[-0.035em] text-white"
+                >
+                  Be there at <span className="text-[#97DFFC]">T-zero.</span>
+                </h2>
+              </div>
+
+              <AsciiCornerButton
+                type="button"
+                variant="primary"
+                onClick={handleReturnToWaitlist}
+                className="h-11 w-full shrink-0 px-6 text-[13.5px] sm:w-auto"
+              >
+                <span>Join the waitlist</span>
+                <ArrowUp className="size-3.5" />
+              </AsciiCornerButton>
+            </div>
+          </section>
+
+          {/* Quiet Archival Monospace Footer */}
+          <footer className="flex items-center justify-between py-8 font-mono text-[11px] tracking-[0.1em] text-[#858AE3]/80">
             <div className="flex items-center gap-2.5">
               <button
                 type="button"
@@ -453,7 +483,7 @@ export function LandingExperience({
               >
                 Privacy
               </button>
-              <span className="text-[#858AE3]/40">/</span>
+              <span className="text-[#858AE3]/45">·</span>
               <button
                 type="button"
                 onClick={() => setLegalDoc("terms")}
@@ -463,44 +493,50 @@ export function LandingExperience({
               </button>
             </div>
 
-            <span>© T^minus</span>
+            <span>&copy; 2026 T^minus</span>
           </footer>
         </div>
       </main>
 
-      {/* Privacy & Terms Modal (obsidian glass surface with Galaxy hairline border, zero · or :) */}
+      {/* Matte Architectural Privacy & Terms Modal */}
       {legalDoc ? (
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="legal-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#040206]/84 px-5 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#040206]/90 px-5"
           onClick={() => setLegalDoc(null)}
         >
           <div
-            className="relative w-full max-w-[480px] rounded-2xl border border-[#858AE3]/28 bg-[#0B0612] p-6 text-left shadow-[0_30px_90px_-20px_rgba(0,0,0,0.95)] sm:p-7"
+            className="relative w-full max-w-[480px] rounded-[6px] border border-[#858AE3]/24 bg-[#07050D] p-6 text-left sm:p-7"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-4">
-              <h2
-                id="legal-modal-title"
-                className="font-sans text-[17px] font-medium tracking-[-0.015em] text-white"
-              >
-                {legalDoc === "privacy"
-                  ? "Privacy Policy"
-                  : "SMS & Waitlist Terms"}
-              </h2>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-mono text-[10px] tracking-[0.16em] text-[#858AE3] uppercase">
+                  <span className="text-[#97DFFC]">+</span> LEGAL ·{" "}
+                  {legalDoc === "privacy" ? "PRIVACY" : "TERMS"}
+                </p>
+                <h2
+                  id="legal-modal-title"
+                  className="font-display mt-2 text-[20px] font-medium tracking-[-0.025em] text-white"
+                >
+                  {legalDoc === "privacy"
+                    ? "Privacy Policy"
+                    : "SMS & Waitlist Terms"}
+                </h2>
+              </div>
               <button
                 type="button"
                 onClick={() => setLegalDoc(null)}
                 aria-label="Close"
-                className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full border border-[#858AE3]/30 text-[#D0C7E6] transition hover:border-[#97DFFC]/50 hover:text-white"
+                className="inline-flex size-8 cursor-pointer items-center justify-center rounded-[4px] border border-[#858AE3]/24 bg-[#040206] text-[#D0C7E6] transition hover:border-[#97DFFC]/70 hover:text-white"
               >
                 <X className="size-4" />
               </button>
             </div>
 
-            <div className="mt-4 space-y-3 text-[13.5px] leading-[1.62] text-[#D4CCE8]/86">
+            <div className="mt-4 space-y-3 border-t border-[#858AE3]/16 pt-4 text-[13.5px] leading-[1.64] text-[#D4CCE8]/84">
               {legalDoc === "privacy" ? (
                 <>
                   <p>
