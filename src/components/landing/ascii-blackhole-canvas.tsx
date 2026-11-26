@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useLayoutEffect, useRef } from "react";
+import { AsciiStarSsrSeed } from "@/components/landing/ascii-star-ssr-seed";
 import { drawWordmarkMaskCanvas } from "@/components/landing/t-minus-wordmark";
 import { LAUNCH_TARGET_MS } from "@/lib/waitlist";
 
@@ -233,8 +234,9 @@ vec4 evalDyingStar(vec3 ro, vec3 rd, vec3 closestPt, float b, float tc, float pi
     vec3 Nr = vec3(N.x * cs + N.z * sn, N.y, -N.x * sn + N.z * cs);
 
     float gran = starTurbulence(Nr, uTime * (0.95 + uStarCrack * 0.85), uStarSwell);
+    float earlyCrisp = (1.0 - smoothstep(0.0, 0.52, uStarSwell)) * (1.0 - uStarShift);
     float hotCells = smoothstep(0.42, 0.86, gran);
-    float darkLanes = smoothstep(0.54, 0.14, gran);
+    float darkLanes = smoothstep(mix(0.56, 0.65, earlyCrisp), mix(0.15, 0.24, earlyCrisp), gran);
 
     // Giant asymmetric convective supergiant plumes + surface crust fissures
     float swellAsym = mix(1.0, 0.82 + 0.28 * sin(Nr.x * 2.8 + Nr.y * 2.1 + 0.5), uStarSwell * (1.0 - uStarShift));
@@ -244,13 +246,13 @@ vec4 evalDyingStar(vec3 ro, vec3 rd, vec3 closestPt, float b, float tc, float pi
     crackMask *= (0.68 + 0.32 * pulseWave);
 
     float ndotv = clamp(dot(N, -rd), 0.0, 1.0);
-    float limbExp = mix(0.76, 1.26, uStarSwell) * (1.0 - uStarShift * 0.36);
+    float limbExp = mix(0.92, 1.26, uStarSwell) * (1.0 - uStarShift * 0.36);
     float limbDark = pow(ndotv, limbExp) * swellAsym;
     float rimFlare = pow(1.0 - ndotv, 3.0) * (0.40 + 0.30 * uStarSwell + 0.48 * uStarCrack);
 
-    vec3 surfCol = mix(limbPal, midPal, clamp(limbDark * 0.82 + hotCells * 0.38, 0.0, 1.0));
-    surfCol = mix(surfCol, corePal, smoothstep(0.50, 0.92, limbDark * 0.62 + hotCells * 0.50));
-    surfCol *= (1.0 - darkLanes * mix(0.50, 0.62, uStarSwell) * (1.0 - uStarShift * 0.42));
+    vec3 surfCol = mix(limbPal, midPal, clamp(limbDark * 0.78 + hotCells * 0.42, 0.0, 1.0));
+    surfCol = mix(surfCol, corePal, smoothstep(0.56, 0.94, limbDark * 0.54 + hotCells * 0.56));
+    surfCol *= (1.0 - darkLanes * mix(mix(0.54, 0.70, earlyCrisp), 0.64, uStarSwell) * (1.0 - uStarShift * 0.42));
 
     vec3 warmCrackCol = mix(C_STAR_CORE, vec3(1.0, 0.86, 0.62), 0.35);
     vec3 shockCrackCol = mix(C_ICE_BLUE, C_WHITE_CORE, 0.55);
@@ -1008,9 +1010,11 @@ void main() {
   float isPureCore = max(bgPureCore, cellPureCore * 0.85);
 
   // ---- Hybrid Volumetric Substrate + Radiant Supernova Core ----
+  float starSubDuck = 1.0 - uWarmTint * 0.56;
   float diskSubstrate = mix(0.24, 0.34, smoothstep(0.16, 0.78, bgLum))
     * smoothstep(0.022, 0.14, bgLum)
-    * (1.0 - bgPureCore);
+    * (1.0 - bgPureCore)
+    * starSubDuck;
   vec2 blastCenterDist = (vUv - vec2(0.5)) * vec2(uViewAsp * 0.72, 1.0);
   float blastCoreBack = (exp(-pow(length(blastCenterDist) * 1.42, 2.0)) * 0.90 + 0.14) * uBlastPeak;
   float backWeight = clamp(diskSubstrate + blastCoreBack, 0.0, 1.0);
@@ -2657,9 +2661,15 @@ export function AsciiBlackholeCanvas({
       gl.uniform1f(pGlyphComp.u.uBlastPeak, blastPeak);
       gl.uniform1f(pGlyphComp.u.uWarmTint, warmTint);
       gl.uniform1f(pGlyphComp.u.uSettle, settle);
+      const earlyStarGlowScale = smoothstep(0.15, 1.35, introElapsed);
+      const baseGlow = mixNum(
+        mixNum(0.22, 0.46, earlyStarGlowScale),
+        0.54,
+        settle
+      );
       const glowAmount =
-        mixNum(0.46, 0.54, settle) +
-        starVis * 0.14 +
+        baseGlow +
+        starVis * mixNum(0.03, 0.14, earlyStarGlowScale) +
         ejecta * 0.16 +
         fallback * 0.14 +
         blastPeak * 0.34 +
@@ -2880,15 +2890,8 @@ export function AsciiBlackholeCanvas({
           aria-hidden="true"
           className="pointer-events-none fixed inset-0 z-[25] flex items-center justify-center bg-[#040206] motion-reduce:hidden"
         >
-          {/* Sized ~34dvh mobile / ~42dvh desktop to seamlessly match R = 0.96 at d = 7.6 */}
-          <div
-            className="h-[34dvh] w-[34dvh] rounded-full sm:h-[42dvh] sm:w-[42dvh]"
-            style={{
-              background:
-                "radial-gradient(circle, #FFF8E8 0%, #F4D8AE 26%, #EBC998 44%, rgba(143, 87, 55, 0.72) 61%, rgba(240, 199, 144, 0.22) 77%, rgba(4, 2, 6, 0) 100%)",
-              filter: "blur(0.8px)",
-            }}
-          />
+          {/* Deterministic crisp ASCII glyph star (~34dvh mobile / ~42dvh desktop) matching R = 0.96 at d = 7.6 */}
+          <AsciiStarSsrSeed />
         </div>
       ) : null}
       <canvas

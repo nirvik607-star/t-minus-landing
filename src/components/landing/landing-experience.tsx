@@ -75,11 +75,60 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
   return t * t * (3 - 2 * t);
 }
 
-function getIntroPhaseLabel(introElapsed: number): string {
-  if (introElapsed < 2.65) return "01 · SUPERGIANT";
-  if (introElapsed < 4.15) return "02 · CORE COLLAPSE";
-  if (introElapsed < 5.2) return "03 · SUPERNOVA";
-  return "04 · EVENT HORIZON";
+interface IntroPhaseSpec {
+  num: string;
+  shortLabel: string;
+  fullLabel: string;
+  start: number;
+  end: number;
+}
+
+const INTRO_PHASES: readonly IntroPhaseSpec[] = [
+  {
+    num: "01",
+    shortLabel: "SUPERGIANT",
+    fullLabel: "01 · SUPERGIANT",
+    start: 0.0,
+    end: 2.65,
+  },
+  {
+    num: "02",
+    shortLabel: "COLLAPSE",
+    fullLabel: "02 · CORE COLLAPSE",
+    start: 2.65,
+    end: 4.15,
+  },
+  {
+    num: "03",
+    shortLabel: "SUPERNOVA",
+    fullLabel: "03 · SUPERNOVA",
+    start: 4.15,
+    end: 5.2,
+  },
+  {
+    num: "04",
+    shortLabel: "HORIZON",
+    fullLabel: "04 · EVENT HORIZON",
+    start: 5.2,
+    end: 9.9,
+  },
+] as const;
+
+function getIntroPhaseState(introElapsed: number): {
+  activeIdx: number;
+  localProg: number;
+} {
+  for (let i = 0; i < INTRO_PHASES.length; i++) {
+    const p = INTRO_PHASES[i];
+    if (introElapsed < p.end || i === INTRO_PHASES.length - 1) {
+      const span = Math.max(0.001, p.end - p.start);
+      return {
+        activeIdx: i,
+        localProg: clamp01((introElapsed - p.start) / span),
+      };
+    }
+  }
+  return { activeIdx: 3, localProg: 1 };
 }
 
 function getOrbitalHudLabel(pinProgress: number, elevDeg: number): string {
@@ -102,6 +151,8 @@ interface SyncDomCache {
   veilOpacity: string;
   veilBg: string;
   hudText: string;
+  introPhaseIdx: number;
+  introPhaseProgBucket: number;
   scrollCueOpacity: string;
   vernierActiveIdx: number;
 }
@@ -134,6 +185,14 @@ export function LandingExperience({
   const countdownPolarRef = useRef<HTMLDivElement | null>(null);
   const preRimVeilRef = useRef<HTMLDivElement | null>(null);
   const hudReadoutRef = useRef<HTMLSpanElement | null>(null);
+  const introStepperRef = useRef<HTMLDivElement | null>(null);
+  const mobilePhaseLabelRef = useRef<HTMLSpanElement | null>(null);
+  const desktopPhaseItemRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const desktopPhaseNumRefs = useRef<Array<HTMLSpanElement | null>>([]);
+  const desktopPhaseDotRefs = useRef<Array<HTMLSpanElement | null>>([]);
+  const desktopPhaseBarRefs = useRef<Array<HTMLSpanElement | null>>([]);
+  const mobilePipNumRefs = useRef<Array<HTMLSpanElement | null>>([]);
+  const mobilePipBarRefs = useRef<Array<HTMLSpanElement | null>>([]);
   const scrollCueRef = useRef<HTMLDivElement | null>(null);
   const vernierTickRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const vernierBarRefs = useRef<Array<HTMLSpanElement | null>>([]);
@@ -161,6 +220,8 @@ export function LandingExperience({
     veilOpacity: "",
     veilBg: "",
     hudText: "",
+    introPhaseIdx: -1,
+    introPhaseProgBucket: -1,
     scrollCueOpacity: "",
     vernierActiveIdx: -1,
   });
@@ -412,12 +473,81 @@ export function LandingExperience({
         }
       }
 
-      // 4) UI-1: Dirty-checked Perimeter Telemetry HUD text
+      // 4a) Dirty-checked Centered Top 4-Stage Astrophysical Phase Stepper (intro only)
+      const stepperEl = introStepperRef.current;
+      if (!state.heroResolved && stepperEl) {
+        const { activeIdx, localProg } = getIntroPhaseState(state.introElapsed);
+        const phaseChanged = cache.introPhaseIdx !== activeIdx;
+        if (phaseChanged) {
+          cache.introPhaseIdx = activeIdx;
+          stepperEl.dataset.activePhase = String(activeIdx + 1);
+          const mobileLabelEl = mobilePhaseLabelRef.current;
+          if (mobileLabelEl) {
+            mobileLabelEl.textContent = INTRO_PHASES[activeIdx].fullLabel;
+          }
+          for (let i = 0; i < INTRO_PHASES.length; i++) {
+            const isActive = i === activeIdx;
+            const isDone = i < activeIdx;
+            const dItem = desktopPhaseItemRefs.current[i];
+            const dNum = desktopPhaseNumRefs.current[i];
+            const dDot = desktopPhaseDotRefs.current[i];
+            const mNum = mobilePipNumRefs.current[i];
+            if (dItem) {
+              dItem.dataset.state = isActive
+                ? "active"
+                : isDone
+                  ? "done"
+                  : "upcoming";
+              dItem.style.color = isActive
+                ? "#FFFFFF"
+                : isDone
+                  ? "rgba(216, 209, 236, 0.88)"
+                  : "rgba(220, 213, 238, 0.46)";
+            }
+            if (dNum) {
+              dNum.style.color = isActive
+                ? "#97DFFC"
+                : isDone
+                  ? "rgba(151, 223, 252, 0.72)"
+                  : "rgba(162, 167, 240, 0.55)";
+            }
+            if (dDot) {
+              dDot.style.opacity = isActive ? "1" : "0";
+            }
+            if (mNum) {
+              mNum.style.color = isActive
+                ? "#97DFFC"
+                : isDone
+                  ? "rgba(151, 223, 252, 0.78)"
+                  : "rgba(162, 167, 240, 0.5)";
+            }
+          }
+        }
+
+        const progBucket = Math.round(localProg * 200);
+        if (phaseChanged || cache.introPhaseProgBucket !== progBucket) {
+          cache.introPhaseProgBucket = progBucket;
+          for (let i = 0; i < INTRO_PHASES.length; i++) {
+            const fill = i < activeIdx ? 1 : i === activeIdx ? localProg : 0;
+            const scaleStr = `scaleX(${fill.toFixed(4)})`;
+            const dBar = desktopPhaseBarRefs.current[i];
+            const mBar = mobilePipBarRefs.current[i];
+            if (dBar) {
+              dBar.style.transform = scaleStr;
+              dBar.style.opacity = i <= activeIdx ? "1" : "0.3";
+            }
+            if (mBar) {
+              mBar.style.transform = scaleStr;
+              mBar.style.opacity = i <= activeIdx ? "1" : "0.3";
+            }
+          }
+        }
+      }
+
+      // 4b) UI-1: Dirty-checked Top-Right Orbital Telemetry HUD text (settled hero & scroll)
       const hudEl = hudReadoutRef.current;
-      if (hudEl) {
-        const nextHud = state.heroResolved
-          ? getOrbitalHudLabel(state.pinProgress, state.elevDeg)
-          : getIntroPhaseLabel(state.introElapsed);
+      if (hudEl && state.heroResolved) {
+        const nextHud = getOrbitalHudLabel(state.pinProgress, state.elevDeg);
         if (cache.hudText !== nextHud) {
           cache.hudText = nextHud;
           hudEl.textContent = nextHud;
@@ -474,6 +604,8 @@ export function LandingExperience({
   }, []);
 
   const handleReplayIntro = useCallback(() => {
+    syncCacheRef.current.introPhaseIdx = -1;
+    syncCacheRef.current.introPhaseProgBucket = -1;
     setInstantMode(false);
     setHeroRevealed(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -582,46 +714,163 @@ export function LandingExperience({
           <TMinusWordmark className="[--wm-scale:1.0] sm:[--wm-scale:1.38]" />
         </a>
 
-        {/* UI-1: Restrained IBM Plex Mono Perimeter Telemetry HUD + Intro SKIP -> */}
+        {/* UI-1: Top-Right Orbital Telemetry HUD (settled) or High-Contrast Obsidian SKIP -> (intro) */}
         <div
           data-perimeter-hud="true"
           className="relative z-10 flex items-center gap-2 font-mono text-[9px] font-medium tracking-[0.12em] text-[#A2A7F0] uppercase whitespace-nowrap sm:gap-3 sm:text-[10px] sm:tracking-[0.16em]"
         >
-          <span className="inline-flex items-center gap-1.5">
-            <span
-              aria-hidden="true"
-              className="size-1.5 rounded-full bg-[#97DFFC]/85"
-            />
-            <span
-              ref={hudReadoutRef}
-              data-hud-readout="true"
-              className="tabular-nums text-[#DCD5EE]"
-            >
-              {heroRevealed ? "26° HORIZON" : "01 · SUPERGIANT"}
-            </span>
-          </span>
-
-          {!heroRevealed ? (
-            <>
+          {heroRevealed ? (
+            <span className="inline-flex items-center gap-1.5">
               <span
                 aria-hidden="true"
-                className="h-3 w-px bg-[#858AE3]/35"
+                className="size-1.5 rounded-full bg-[#97DFFC]/85"
               />
-              <button
-                type="button"
-                data-skip-intro="true"
-                onClick={handleSkipIntro}
-                className="pointer-events-auto inline-flex min-h-[28px] cursor-pointer items-center gap-1 rounded-[4px] border border-[#858AE3]/35 bg-[#07050D]/80 px-2 py-1 text-[9.5px] font-medium tracking-[0.14em] text-white transition-colors duration-150 hover:border-[#97DFFC]/80 hover:text-[#97DFFC] focus-visible:ring-1 focus-visible:ring-[#97DFFC] focus-visible:outline-none sm:px-2.5 sm:text-[10px]"
+              <span
+                ref={hudReadoutRef}
+                data-hud-readout="true"
+                className="tabular-nums text-[#DCD5EE]"
               >
-                <span>SKIP</span>
-                <span aria-hidden="true" className="text-[#97DFFC]">
-                  →
-                </span>
-              </button>
-            </>
-          ) : null}
+                26° HORIZON
+              </span>
+            </span>
+          ) : (
+            <button
+              type="button"
+              data-skip-intro="true"
+              onClick={handleSkipIntro}
+              className="pointer-events-auto inline-flex min-h-[28px] cursor-pointer items-center gap-1 rounded-[5px] border border-[#858AE3]/30 bg-[#040206]/84 px-2 py-1 text-[9.5px] font-medium tracking-[0.14em] text-white shadow-[0_6px_20px_rgba(0,0,0,0.6)] backdrop-blur-sm transition-colors duration-150 hover:border-[#97DFFC]/80 hover:text-[#97DFFC] focus-visible:ring-1 focus-visible:ring-[#97DFFC] focus-visible:outline-none sm:px-2.5 sm:text-[10px]"
+            >
+              <span>SKIP</span>
+              <span aria-hidden="true" className="text-[#97DFFC]">
+                →
+              </span>
+            </button>
+          )}
         </div>
       </header>
+
+      {/* Centered Top-of-Screen 4-Stage Astrophysical Phase Stepper (fades out cleanly once heroRevealed) */}
+      <div
+        ref={introStepperRef}
+        data-intro-phase-stepper="true"
+        data-active-phase="1"
+        aria-hidden={heroRevealed}
+        className={`pointer-events-none fixed top-3.5 left-1/2 z-40 -translate-x-1/2 transition-opacity duration-400 ease-out sm:top-5 ${
+          heroRevealed ? "opacity-0" : "opacity-100"
+        }`}
+        style={instantMode ? { transitionDuration: "0ms" } : undefined}
+      >
+        <div className="rounded-[6px] border border-[#858AE3]/30 bg-[#040206]/84 shadow-[0_8px_28px_rgba(0,0,0,0.68)] backdrop-blur-sm">
+          {/* Desktop (sm+): All 4 numbered stages in one sleek horizontal track with #97DFFC progress segments */}
+          <div className="hidden items-stretch gap-3.5 px-4 py-2 sm:flex">
+            {INTRO_PHASES.map((phase, idx) => (
+              <div
+                key={phase.num}
+                ref={(el) => {
+                  desktopPhaseItemRefs.current[idx] = el;
+                }}
+                data-phase-step={phase.num}
+                data-state={idx === 0 ? "active" : "upcoming"}
+                style={{
+                  color:
+                    idx === 0 ? "#FFFFFF" : "rgba(220, 213, 238, 0.46)",
+                }}
+                className="flex min-w-[92px] flex-col gap-1.5 font-mono uppercase"
+              >
+                <div className="flex items-center gap-1.5 text-[10px] font-medium tracking-[0.14em] whitespace-nowrap">
+                  <span
+                    ref={(el) => {
+                      desktopPhaseDotRefs.current[idx] = el;
+                    }}
+                    aria-hidden="true"
+                    style={{ opacity: idx === 0 ? 1 : 0 }}
+                    className="size-1.5 shrink-0 rounded-full bg-[#97DFFC] transition-opacity duration-200"
+                  />
+                  <span
+                    ref={(el) => {
+                      desktopPhaseNumRefs.current[idx] = el;
+                    }}
+                    style={{
+                      color:
+                        idx === 0
+                          ? "#97DFFC"
+                          : "rgba(162, 167, 240, 0.55)",
+                    }}
+                    className="tabular-nums font-semibold"
+                  >
+                    {phase.num}
+                  </span>
+                  <span>{phase.shortLabel}</span>
+                </div>
+                <div className="h-[2px] w-full overflow-hidden rounded-full bg-[#858AE3]/22">
+                  <span
+                    ref={(el) => {
+                      desktopPhaseBarRefs.current[idx] = el;
+                    }}
+                    style={{
+                      transform: "scaleX(0)",
+                      opacity: idx === 0 ? 1 : 0.3,
+                    }}
+                    className="block h-full w-full origin-left bg-[#97DFFC] will-change-transform"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Mobile (< 640px): Compact centered 01-04 pip segments + bold active stage name (never overlaps SKIP ->) */}
+          <div className="flex min-w-[162px] max-w-[188px] flex-col items-center gap-1 px-2.5 py-1.5 font-mono uppercase sm:hidden">
+            <div className="grid w-full grid-cols-4 gap-1.5">
+              {INTRO_PHASES.map((phase, idx) => (
+                <div
+                  key={phase.num}
+                  className="flex flex-col items-center gap-0.5"
+                >
+                  <span
+                    ref={(el) => {
+                      mobilePipNumRefs.current[idx] = el;
+                    }}
+                    style={{
+                      color:
+                        idx === 0
+                          ? "#97DFFC"
+                          : "rgba(162, 167, 240, 0.5)",
+                    }}
+                    className="text-[8px] leading-none font-semibold tracking-[0.08em] tabular-nums"
+                  >
+                    {phase.num}
+                  </span>
+                  <span className="block h-[2px] w-full overflow-hidden rounded-full bg-[#858AE3]/24">
+                    <span
+                      ref={(el) => {
+                        mobilePipBarRefs.current[idx] = el;
+                      }}
+                      style={{
+                        transform: "scaleX(0)",
+                        opacity: idx === 0 ? 1 : 0.3,
+                      }}
+                      className="block h-full w-full origin-left bg-[#97DFFC] will-change-transform"
+                    />
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-center gap-1.5 text-[9.5px] leading-tight font-semibold tracking-[0.09em] text-white whitespace-nowrap">
+              <span
+                aria-hidden="true"
+                className="size-1.5 shrink-0 rounded-full bg-[#97DFFC]"
+              />
+              <span
+                ref={mobilePhaseLabelRef}
+                data-mobile-phase-label="true"
+                className="tabular-nums"
+              >
+                01 · SUPERGIANT
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* UI-1: Quiet Centered `↓ SCROLL TO ORBIT` Micro-Cue above settled horizon crest */}
       <div
