@@ -13,9 +13,15 @@ import { AsciiCornerButton } from "@/components/landing/ascii-corner-button";
 interface WaitlistBarProps {
   inputRef?: React.RefObject<HTMLInputElement | null>;
   onOpenLegal: (doc: "privacy" | "terms") => void;
+  /** Optional external role sync triggered by below-the-fold Shopper / Brand CTAs */
+  requestedRole?: { role: WaitlistRole; seq: number } | null;
 }
 
-export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
+export function WaitlistBar({
+  inputRef,
+  onOpenLegal,
+  requestedRole,
+}: WaitlistBarProps) {
   const [role, setRole] = useState<WaitlistRole>("SHOPPER");
   const [phoneInput, setPhoneInput] = useState("");
   const [brandHandle, setBrandHandle] = useState("");
@@ -26,6 +32,12 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [confirmedRole, setConfirmedRole] = useState<WaitlistRole | null>(null);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!requestedRole) return;
+    setRole(requestedRole.role);
+    setErrorMsg(null);
+  }, [requestedRole]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -141,7 +153,7 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
           </span>
         </div>
 
-        <h3 className="font-display mt-2.5 text-[21px] font-medium tracking-[-0.025em] text-white">
+        <h3 className="mt-2.5 font-sans text-[21px] font-medium tracking-[-0.025em] text-white">
           {confirmedRole === "BRAND"
             ? "Brand request saved."
             : "You're in for Jan 1."}
@@ -184,7 +196,7 @@ export function WaitlistBar({ inputRef, onOpenLegal }: WaitlistBarProps) {
       noValidate
       className="mx-auto flex w-full max-w-[448px] flex-col items-center"
     >
-      {/* Flat matte architectural audience switcher (Host Grotesk uniwidth — zero shift) */}
+      {/* Flat matte architectural audience switcher (Geist sans) */}
       <div
         role="radiogroup"
         aria-label="Waitlist role"

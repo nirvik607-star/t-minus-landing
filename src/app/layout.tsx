@@ -1,30 +1,18 @@
 import type { Metadata } from "next";
-import {
-  Fragment_Mono,
-  Funnel_Display,
-  Host_Grotesk,
-  Newsreader,
-} from "next/font/google";
+import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
 
-const funnelDisplay = Funnel_Display({
-  variable: "--font-funnel-display",
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
-const hostGrotesk = Host_Grotesk({
-  variable: "--font-host-grotesk",
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
-  style: ["normal"],
-  display: "swap",
-});
-
-const fragmentMono = Fragment_Mono({
-  variable: "--font-fragment-mono",
-  subsets: ["latin"],
-  weight: "400",
-  style: ["normal"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -48,9 +36,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${funnelDisplay.variable} ${hostGrotesk.variable} ${fragmentMono.variable} ${newsreader.variable} h-full antialiased dark`}
+      className={`${geistSans.variable} ${geistMono.variable} ${newsreader.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full bg-[#040206] text-white">{children}</body>
+      <body className="min-h-full bg-[#040206] font-sans text-white">
+        {children}
+      </body>
     </html>
   );
 }
