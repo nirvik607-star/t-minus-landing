@@ -8,7 +8,9 @@ interface AsciiCornerButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /**
    * - `primary`: High-contrast matte white architectural button with `#040206` ink.
-   * - `dark`: Matte `#07050D` obsidian surface with crisp `1px` `#858AE3/30` border.
+   *   Hover highlight is subtle (`#E8F7FE`) and strictly gated behind `@media (hover: hover)`
+   *   so touch devices never suffer sticky cyan hover tint.
+   * - `dark`: Matte `#07050D` obsidian surface with crisp `1px` `#858AE3/35` border.
    */
   variant?: AsciiCornerButtonVariant;
   /** Architectural rounded geometry (`rect` default, optional `pill`). */
@@ -26,8 +28,8 @@ export function AsciiCornerButton({
   const shapeClass = shape === "pill" ? "rounded-full" : "rounded-[6px]";
   const polarityClass =
     variant === "primary"
-      ? "bg-white text-[#040206] border border-white hover:bg-[#97DFFC] hover:border-[#97DFFC]"
-      : "bg-[#07050D] text-white border border-[#858AE3]/30 hover:border-[#97DFFC]/70 hover:text-[#97DFFC]";
+      ? "bg-white text-[#040206] border border-white [@media(hover:hover)]:hover:bg-[#E8F7FE] [@media(hover:hover)]:hover:border-[#E8F7FE]"
+      : "bg-[#07050D] text-white border border-[#858AE3]/35 [@media(hover:hover)]:hover:border-[#97DFFC]/75 [@media(hover:hover)]:hover:text-[#97DFFC]";
 
   return (
     <button

@@ -16,7 +16,7 @@ interface TMinusWordmarkProps {
 /**
  * Exact web translation of SwiftUI `TMinusWordmark` (`Theme.swift`):
  * - `T`: 26 * scale, medium (500), italic serif (Newsreader / New York / ui-serif)
- * - `^minus`: 15 * scale, medium (500), system sans (SF Pro / Geist), -0.5 * scale tracking, +3 * scale baseline offset
+ * - `^minus`: 15 * scale, medium (500), Inter / SF Pro sans, -0.5 * scale tracking, +3 * scale baseline offset
  * - 1 * scale gap, first-text-baseline aligned.
  */
 export function TMinusWordmark({
@@ -66,14 +66,11 @@ export function TMinusWordmark({
 /**
  * Deterministic high-DPI Canvas2D rasterizer of the exact SwiftUI `TMinusWordmark`
  * geometry (`26:15` serif-italic `T` + sans `^minus` with `-0.5` tracking, `+3`
- * baseline raise, `1` gap) used by the WebGL2 supernova pure-ASCII wordmark pass.
- *
- * Uses crisp `500` medium weight with ZERO stroke inflation so inter-letter gaps
- * stay razor-clean when quantized strictly onto the ASCII cell grid (` ^-t+=T*`).
+ * baseline raise, `1` gap) used by the WebGL2 supernova ASCII wordmark pass.
  *
  * Channels:
  * - R: crisp `500`-weight letterform coverage for cell-quantized ASCII characters
- * - G: subtle outer light-energy halo (used for luminous blast sheen, never dark fill)
+ * - G: subtle outer light-energy halo
  * - B: caret `^` tag
  */
 export function drawWordmarkMaskCanvas(
@@ -86,18 +83,16 @@ export function drawWordmarkMaskCanvas(
   ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, texW, texH);
 
-  // Refined viewport proportion: 56% desktop / 76% mobile for airy, architectural framing
   const isMobile = cssW < 768;
   const desiredWidthFrac = isMobile ? 0.76 : 0.56;
   const scaleToTex = texW / Math.max(1, cssW);
 
   let scale = ((isMobile ? 4.2 : 7.4) * scaleToTex) / 1.0;
 
-  // Exact 500 medium weight matching SwiftUI TMinusWordmark (zero bold inflation)
   const serifFont = (s: number) =>
     `italic 500 ${Math.round(26 * s)}px "Newsreader", "New York", Georgia, ui-serif, serif`;
   const sansFont = (s: number) =>
-    `500 ${Math.round(15 * s)}px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Geist", sans-serif`;
+    `500 ${Math.round(15 * s)}px "Inter Tight", "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif`;
 
   const measureMark = (s: number) => {
     const gap = 1.4 * s;
@@ -128,7 +123,6 @@ export function drawWordmarkMaskCanvas(
   m = measureMark(scale);
 
   const cx = texW * 0.5;
-  // Optical vertical centering using first-text-baseline of the 26*scale serif T
   const baselineY = texH * 0.5 + 26 * scale * 0.34;
   const startX = cx - m.totalWidth * 0.5;
   const baselineLift = 3 * scale;
@@ -168,11 +162,8 @@ export function drawWordmarkMaskCanvas(
   const haloBlur = Math.max(12, Math.round(scale * 3.8));
 
   ctx.globalCompositeOperation = "lighter";
-  // G: subtle ice-blue luminous rim aura around strokes (never used for dark fill)
   renderPass("rgb(0, 200, 0)", haloBlur);
-  // R: clean 500-weight fill ONLY (zero stroke overhang)
   renderPass("rgb(255, 0, 0)", 0);
-  // B: caret region tag
   renderPass("rgb(0, 0, 255)", 0, true);
   ctx.globalCompositeOperation = "source-over";
 }

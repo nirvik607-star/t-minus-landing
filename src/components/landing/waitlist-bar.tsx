@@ -11,16 +11,22 @@ import {
 import { AsciiCornerButton } from "@/components/landing/ascii-corner-button";
 
 interface WaitlistBarProps {
+  /** Prefix for input IDs when multiple waitlist forms exist (e.g. "hero" vs "closing") */
+  idPrefix?: string;
   inputRef?: React.RefObject<HTMLInputElement | null>;
   onOpenLegal: (doc: "privacy" | "terms") => void;
-  /** Optional external role sync triggered by below-the-fold Shopper / Brand CTAs */
+  /** Optional external role sync triggered by audience selectors */
   requestedRole?: { role: WaitlistRole; seq: number } | null;
+  /** Optional alignment ("center" for hero, "left" for closing split) */
+  align?: "center" | "left";
 }
 
 export function WaitlistBar({
+  idPrefix = "waitlist",
   inputRef,
   onOpenLegal,
   requestedRole,
+  align = "center",
 }: WaitlistBarProps) {
   const [role, setRole] = useState<WaitlistRole>("SHOPPER");
   const [phoneInput, setPhoneInput] = useState("");
@@ -137,14 +143,22 @@ export function WaitlistBar({
     }
   }
 
+  const alignWrapper =
+    align === "left"
+      ? "items-start text-left"
+      : "mx-auto items-center text-center";
+
+  const phoneId = `${idPrefix}-phone`;
+  const brandId = `${idPrefix}-brand`;
+
   if (confirmedRole) {
     return (
       <div
         role="status"
         aria-live="polite"
-        className="mx-auto flex w-full max-w-[448px] flex-col items-center rounded-[6px] border border-[#858AE3]/24 bg-[#07050D] px-6 py-6 text-center"
+        className={`flex w-full max-w-[452px] flex-col rounded-[6px] border border-[#858AE3]/30 bg-[#07050D] px-6 py-6 ${alignWrapper}`}
       >
-        <div className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-normal tracking-[0.16em] text-[#97DFFC] uppercase">
+        <div className="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium tracking-[0.16em] text-[#97DFFC] uppercase">
           <Check className="size-3.5 stroke-[2.2]" />
           <span>
             {confirmedRole === "BRAND"
@@ -153,13 +167,13 @@ export function WaitlistBar({
           </span>
         </div>
 
-        <h3 className="mt-2.5 font-sans text-[21px] font-medium tracking-[-0.025em] text-white">
+        <h3 className="mt-2.5 font-heading text-[21px] font-semibold tracking-[-0.025em] text-white">
           {confirmedRole === "BRAND"
             ? "Brand request saved."
             : "You're in for Jan 1."}
         </h3>
 
-        <p className="mt-2 max-w-[360px] text-[13.5px] leading-[1.52] text-[#D8D0EA]/80">
+        <p className="mt-2 max-w-[360px] text-[13.5px] leading-[1.54] text-[#DCD5EE]">
           {confirmedRole === "BRAND"
             ? "We'll text you before launch to set up your storefront and schedule an early drop."
             : "Watch your texts on January 1 when App Store v1.0 goes live."}
@@ -194,13 +208,13 @@ export function WaitlistBar({
     <form
       onSubmit={handleSubmit}
       noValidate
-      className="mx-auto flex w-full max-w-[448px] flex-col items-center"
+      className={`flex w-full max-w-[452px] flex-col ${alignWrapper}`}
     >
-      {/* Flat matte architectural audience switcher (Geist sans) */}
+      {/* Flat matte architectural audience switcher */}
       <div
         role="radiogroup"
         aria-label="Waitlist role"
-        className="relative mb-2.5 inline-grid grid-cols-2 rounded-[6px] border border-[#858AE3]/24 bg-[#040206] p-[3px] sm:mb-3"
+        className="relative mb-2.5 inline-grid grid-cols-2 rounded-[6px] border border-[#858AE3]/30 bg-[#05030A] p-[3px] sm:mb-3"
       >
         <span
           aria-hidden="true"
@@ -226,7 +240,7 @@ export function WaitlistBar({
                 setErrorMsg(null);
               }}
               className={`relative z-10 cursor-pointer rounded-[4px] px-3.5 py-1 text-[12px] font-medium tracking-[-0.005em] transition-colors duration-150 ${
-                active ? "text-white" : "text-[#C4BBE0]/76 hover:text-white"
+                active ? "text-white" : "text-[#CFC7E6] hover:text-white"
               }`}
             >
               {opt.label}
@@ -236,13 +250,13 @@ export function WaitlistBar({
       </div>
 
       {/* Matte architectural single-row obsidian input bar + crisp flat white CTA */}
-      <div className="flex w-full items-center gap-1.5 rounded-[6px] border border-[#858AE3]/24 bg-[#07050D] p-1.5 transition-colors duration-150 focus-within:border-[#97DFFC]/70">
-        <label htmlFor="waitlist-phone" className="sr-only">
+      <div className="flex w-full items-center gap-1.5 rounded-[6px] border border-[#858AE3]/30 bg-[#07050D] p-1.5 transition-colors duration-150 focus-within:border-[#97DFFC]/80">
+        <label htmlFor={phoneId} className="sr-only">
           Mobile phone number
         </label>
         <input
           ref={inputRef}
-          id="waitlist-phone"
+          id={phoneId}
           name="tel"
           type="tel"
           inputMode="tel"
@@ -254,14 +268,14 @@ export function WaitlistBar({
             setPhoneInput(formatPhoneDisplay(e.target.value));
             if (errorMsg) setErrorMsg(null);
           }}
-          className="h-9 min-w-0 flex-1 bg-transparent px-2.5 text-[14.5px] text-white placeholder:text-[#C4BBE0]/48 focus:outline-none sm:h-10 sm:px-3"
+          className="h-9 w-0 min-w-0 flex-1 bg-transparent px-2.5 text-[14px] text-white placeholder:text-[#B8B0D4]/75 focus:outline-none sm:h-10 sm:px-3 sm:text-[14.5px]"
         />
 
         <AsciiCornerButton
           type="submit"
           variant="primary"
           disabled={submitting}
-          className="h-9 shrink-0 px-3.5 text-[12.5px] sm:h-10 sm:px-5 sm:text-[13px]"
+          className="h-9 shrink-0 whitespace-nowrap px-3 text-[12px] sm:h-10 sm:px-5 sm:text-[13px]"
         >
           {submitting
             ? "Saving..."
@@ -280,11 +294,11 @@ export function WaitlistBar({
         }`}
       >
         <div className="overflow-hidden">
-          <label htmlFor="waitlist-brand" className="sr-only">
+          <label htmlFor={brandId} className="sr-only">
             Label or shop handle
           </label>
           <input
-            id="waitlist-brand"
+            id={brandId}
             name="organization"
             type="text"
             tabIndex={role === "BRAND" ? 0 : -1}
@@ -292,13 +306,17 @@ export function WaitlistBar({
             value={brandHandle}
             onChange={(e) => setBrandHandle(e.target.value)}
             maxLength={120}
-            className="h-9 w-full rounded-[6px] border border-[#858AE3]/24 bg-[#07050D] px-3 text-[13.5px] text-white placeholder:text-[#C4BBE0]/48 transition-colors focus:border-[#97DFFC]/70 focus:outline-none sm:h-10 sm:px-3.5"
+            className="h-9 w-full rounded-[6px] border border-[#858AE3]/30 bg-[#07050D] px-3 text-[13.5px] text-white placeholder:text-[#B8B0D4]/75 transition-colors focus:border-[#97DFFC]/80 focus:outline-none sm:h-10 sm:px-3.5"
           />
         </div>
       </div>
 
-      {/* Compact 1-line custom SMS consent with crisp middot */}
-      <label className="mt-2.5 flex cursor-pointer items-center justify-center gap-2 text-center text-[11px] leading-[1.35] text-[#C4BBE0]/78 select-none sm:mt-3">
+      {/* Compact 1-line custom SMS consent (Waitlist offer strictly OFF) */}
+      <label
+        className={`mt-2.5 flex cursor-pointer items-center gap-2 text-[11px] leading-[1.35] text-[#D4CCE8]/90 select-none sm:mt-3 ${
+          align === "left" ? "justify-start text-left" : "justify-center text-center"
+        }`}
+      >
         <span className="relative inline-flex size-3.5 shrink-0 items-center justify-center">
           <input
             type="checkbox"
@@ -311,7 +329,7 @@ export function WaitlistBar({
           />
           <span
             aria-hidden="true"
-            className="flex size-3.5 items-center justify-center rounded-[3px] border border-[#858AE3]/45 bg-[#07050D] transition-colors duration-150 peer-checked:border-[#97DFFC] peer-checked:bg-[#613DC1] peer-focus-visible:ring-1 peer-focus-visible:ring-[#97DFFC]"
+            className="flex size-3.5 items-center justify-center rounded-[3px] border border-[#858AE3]/55 bg-[#07050D] transition-colors duration-150 peer-checked:border-[#97DFFC] peer-checked:bg-[#613DC1] peer-focus-visible:ring-1 peer-focus-visible:ring-[#97DFFC]"
           >
             {smsConsent ? (
               <Check className="size-2.5 stroke-[2.8] text-white" />
@@ -326,7 +344,7 @@ export function WaitlistBar({
               e.preventDefault();
               onOpenLegal("privacy");
             }}
-            className="cursor-pointer text-white/90 underline decoration-[#858AE3]/45 underline-offset-2 transition hover:text-[#97DFFC]"
+            className="cursor-pointer text-white underline decoration-[#858AE3]/55 underline-offset-2 transition hover:text-[#97DFFC]"
           >
             Privacy
           </button>{" "}
@@ -337,7 +355,7 @@ export function WaitlistBar({
               e.preventDefault();
               onOpenLegal("terms");
             }}
-            className="cursor-pointer text-white/90 underline decoration-[#858AE3]/45 underline-offset-2 transition hover:text-[#97DFFC]"
+            className="cursor-pointer text-white underline decoration-[#858AE3]/55 underline-offset-2 transition hover:text-[#97DFFC]"
           >
             Terms
           </button>
@@ -348,7 +366,7 @@ export function WaitlistBar({
       {errorMsg ? (
         <p
           role="alert"
-          className="mt-2 text-center text-[12px] font-medium text-[#97DFFC]"
+          className="mt-2 text-[12px] font-medium text-[#97DFFC]"
         >
           {errorMsg}
         </p>

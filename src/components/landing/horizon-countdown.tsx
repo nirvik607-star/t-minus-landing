@@ -47,11 +47,11 @@ function computeParts(nowMs: number): TimeParts {
 
 /**
  * Integrated Black Hole Horizon Countdown (Zero-Blur Dual-Mode Morph):
- * - Layer A (`stripRef`): Exact horizontal strip preserved for bottom horizon (`pin=0`)
- *   and top-pinned dome (`pin=1`), rendered at native crisp `Geist` (`scale <= 1.0`).
- * - Layer B (`polarRef`): Monumental Space-Filling Circular Chronograph rendered at
- *   large native pixel size and scaled down (`scale <= 1.0`) to fill ~82% of the pure
- *   `#000000` polar black hole void with zero softness on any screen.
+ * - Synchronized 1:1 with the UTC `(LAUNCH_TARGET_MS - Date.now())` second boundary
+ *   via recursive aligned `setTimeout` so the polar escapement shader pulse fires on
+ *   the exact millisecond the visible seconds digit decrements.
+ * - Layer A (`stripRef`): Crisp horizontal strip for bottom horizon (`pin=0`) and slim top dome (`pin=1`).
+ * - Layer B (`polarRef`): Space-Filling Circular Chronograph inside the `#000000` polar black hole void.
  */
 export function HorizonCountdown({
   stripRef,
@@ -65,12 +65,39 @@ export function HorizonCountdown({
   });
 
   useEffect(() => {
-    const update = () => {
-      setParts(computeParts(Date.now()));
+    let timerId = 0;
+    let disposed = false;
+
+    const tick = () => {
+      if (disposed) return;
+      const nowMs = Date.now();
+      const remMs = Math.max(0, LAUNCH_TARGET_MS - nowMs);
+      const edgeWholeSec = Math.floor(remMs / 1000);
+      const next = computeParts(nowMs);
+      setParts(next);
+
+      if (typeof window !== "undefined") {
+        (window as unknown as Record<string, unknown>).__TMINUS_COUNTDOWN_SYNC__ =
+          {
+            lastFlipNowMs: nowMs,
+            lastFlipPerfMs: performance.now(),
+            remMs,
+            edgeWholeSec,
+            elapsedSinceEdgeMs: remMs > 0 ? 999 - (remMs % 1000) : 0,
+            seconds: next.seconds,
+          };
+      }
+
+      // Align next update strictly to the exact UTC second-decrement edge (+4ms guard)
+      const msUntilNextFlip = remMs > 0 ? (remMs % 1000) + 4 : 1000;
+      timerId = window.setTimeout(tick, msUntilNextFlip);
     };
-    update();
-    const id = window.setInterval(update, 1000);
-    return () => window.clearInterval(id);
+
+    tick();
+    return () => {
+      disposed = true;
+      window.clearTimeout(timerId);
+    };
   }, []);
 
   const stripUnits = [
@@ -93,20 +120,20 @@ export function HorizonCountdown({
       aria-label="Countdown to T-minus App Store v1.0 launch on January 1, 2027"
       className="relative flex items-center justify-center select-none whitespace-nowrap"
     >
-      {/* Layer A: Horizon Strip (Bottom Rest & Top Dome — Exact Proportions Preserved) */}
+      {/* Layer A: Horizon Strip (Bottom Rest & Slim Top Dome) */}
       <div
         ref={stripRef}
         data-countdown-mode="strip"
         className="flex flex-col items-center gap-1.5 will-change-transform sm:gap-2"
       >
-        <div className="flex items-baseline gap-3.5 whitespace-nowrap font-sans text-[26px] leading-none font-semibold tracking-[-0.03em] text-white tabular-nums sm:gap-7 sm:text-[36px]">
+        <div className="flex items-baseline gap-3.5 whitespace-nowrap font-heading text-[26px] leading-none font-semibold tracking-[-0.03em] text-white tabular-nums sm:gap-7 sm:text-[36px]">
           {stripUnits.map((unit) => (
             <span
               key={unit.label}
               className="inline-flex items-baseline gap-1 sm:gap-1.5"
             >
               <span>{unit.value}</span>
-              <span className="font-mono text-[11px] font-normal tracking-[0.06em] text-[#858AE3] sm:text-[13px]">
+              <span className="font-mono text-[11px] font-medium tracking-[0.06em] text-[#9EA3EE] sm:text-[13px]">
                 {unit.label}
               </span>
             </span>
@@ -115,7 +142,7 @@ export function HorizonCountdown({
 
         <div
           data-countdown-label="true"
-          className="whitespace-nowrap font-mono text-[9.5px] font-normal tracking-[0.12em] text-[#858AE3]/90 uppercase sm:text-[11.5px] sm:tracking-[0.18em]"
+          className="whitespace-nowrap font-mono text-[9.5px] font-medium tracking-[0.13em] text-[#A2A7F0] uppercase sm:text-[11px] sm:tracking-[0.18em]"
         >
           APP STORE V1.0 · JAN 1, 2027
         </div>
@@ -134,7 +161,7 @@ export function HorizonCountdown({
 
         {/* Monumental DAYS Centerpiece spanning the black hole equator */}
         <div className="mt-1.5 flex items-baseline justify-center gap-2 sm:mt-2.5 sm:gap-3">
-          <span className="font-sans text-[78px] leading-[0.86] font-semibold tracking-[-0.05em] text-white tabular-nums sm:text-[128px]">
+          <span className="font-heading text-[78px] leading-[0.86] font-semibold tracking-[-0.045em] text-white tabular-nums sm:text-[128px]">
             {parts.days}
           </span>
           <span className="font-mono text-[12px] font-medium tracking-[0.16em] text-[#97DFFC] uppercase sm:text-[17px]">
@@ -145,18 +172,18 @@ export function HorizonCountdown({
         {/* Crisp Architectural Hairline Divider */}
         <div
           aria-hidden="true"
-          className="my-2.5 h-px w-[72%] bg-gradient-to-r from-transparent via-[#858AE3]/45 to-transparent sm:my-4"
+          className="my-2.5 h-px w-[72%] bg-gradient-to-r from-transparent via-[#858AE3]/55 to-transparent sm:my-4"
         />
 
         {/* Bold Secondary H · M · S Row */}
-        <div className="flex items-baseline justify-center gap-4 font-sans text-[24px] leading-none font-medium tracking-[-0.025em] text-white tabular-nums sm:gap-7 sm:text-[40px]">
+        <div className="flex items-baseline justify-center gap-4 font-heading text-[24px] leading-none font-semibold tracking-[-0.025em] text-white tabular-nums sm:gap-7 sm:text-[40px]">
           {polarSubUnits.map((unit) => (
             <span
               key={unit.label}
               className="inline-flex items-baseline gap-1 sm:gap-1.5"
             >
               <span>{unit.value}</span>
-              <span className="font-mono text-[10px] font-normal tracking-[0.08em] text-[#858AE3] sm:text-[14px]">
+              <span className="font-mono text-[10px] font-medium tracking-[0.08em] text-[#9EA3EE] sm:text-[14px]">
                 {unit.label}
               </span>
             </span>
@@ -164,7 +191,7 @@ export function HorizonCountdown({
         </div>
 
         {/* Bottom Archival Launch Stamp */}
-        <div className="mt-2.5 font-mono text-[9px] font-normal tracking-[0.16em] text-[#858AE3]/88 uppercase sm:mt-4 sm:text-[11.5px] sm:tracking-[0.2em]">
+        <div className="mt-2.5 font-mono text-[9px] font-medium tracking-[0.16em] text-[#A2A7F0] uppercase sm:mt-4 sm:text-[11px] sm:tracking-[0.2em]">
           APP STORE V1.0 · JAN 1, 2027
         </div>
       </div>
