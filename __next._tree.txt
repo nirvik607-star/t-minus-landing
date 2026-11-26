@@ -1,0 +1,2 @@
+:HL["/t-minus-landing/_next/static/css/675c313e2d04615a.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}},"staleTime":300,"buildId":"ERT1q2-7K5ATVNoFmgPbN"}
