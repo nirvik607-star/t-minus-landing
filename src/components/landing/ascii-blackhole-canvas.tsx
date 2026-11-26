@@ -18,7 +18,7 @@ export interface HorizonSyncState {
   polarFactor: number;
   /** Exact 3D-projected diameter of the `#000000` black hole void in CSS px */
   polarDiameterPx: number;
-  /** True strictly once the black hole has fully resolved at the bottom of the screen */
+  /** True strictly once the hero is ready to emerge */
   heroResolved: boolean;
   /** Screen Y (px from top) where the countdown centers inside the pure #000000 core */
   countdownCenterY: number;
@@ -43,14 +43,14 @@ interface AsciiBlackholeCanvasProps {
 }
 
 /**
- * Full 10-step T^minus hybrid ASCII glyph ramp (` .:-^t+=T*`).
- * Restores `.` and `:` low-end tail for silky obsidian fade-off without stepped banding.
+ * Strict 7-step T^minus ASCII glyph ramp (` .:-^tT`).
+ * Clean optical density progression without cluttered `* + =` static.
  */
-const ASCII_RAMP = " .:-^t+=T*";
+const ASCII_RAMP = " .:-^tT";
 
-// ---- Intro Choreography Timings (Total 9.00s to Full Bottom Resolve) ----
-const INTRO_TOTAL_SEC = 9.0;
-const HERO_REVEAL_SEC = 9.0;
+// ---- Snappy Intro Choreography Timings (3.20s Full Settle, 2.65s Hero Overlap) ----
+const INTRO_TOTAL_SEC = 3.2;
+const HERO_REVEAL_SEC = 2.65;
 
 const VS_QUAD = `#version 300 es
 precision highp float;
@@ -150,7 +150,7 @@ vec4 evalDyingStar(vec3 ro, vec3 rd, vec3 closestPt, float b, float tc, float pi
   float R = max(0.12, uStarRadius);
   vec2 planeXY = vec2(dot(closestPt, uCamRight), dot(closestPt, uCamUp));
   float ang = atan(planeXY.y, planeXY.x);
-  float pulseWave = 0.5 + 0.5 * sin(uTime * 11.0 + ang * 3.0);
+  float pulseWave = 0.5 + 0.5 * sin(uTime * 9.0 + ang * 3.0);
 
   vec3 corePal = mix(C_STAR_CORE, vec3(1.0, 1.0, 1.0), uStarShift);
   vec3 midPal = mix(C_STAR_MID, mix(C_ICE_BLUE, C_WHITE_CORE, 0.36), uStarShift);
@@ -175,8 +175,8 @@ vec4 evalDyingStar(vec3 ro, vec3 rd, vec3 closestPt, float b, float tc, float pi
     float hotCells = smoothstep(0.45, 0.86, gran);
     float darkLanes = smoothstep(0.52, 0.14, gran);
 
-    float f1 = abs(sin(Nr.x * 9.5 + Nr.y * 6.2 + uTime * 2.4) + cos(Nr.z * 8.4 - Nr.y * 7.1));
-    float f2 = abs(cos(Nr.y * 11.2 - Nr.z * 7.8 - uTime * 2.8) + sin(Nr.x * 10.1 + Nr.z * 6.5));
+    float f1 = abs(sin(Nr.x * 9.5 + Nr.y * 6.2 + uTime * 2.2) + cos(Nr.z * 8.4 - Nr.y * 7.1));
+    float f2 = abs(cos(Nr.y * 11.2 - Nr.z * 7.8 - uTime * 2.5) + sin(Nr.x * 10.1 + Nr.z * 6.5));
     float crackMask = (1.0 - smoothstep(0.02, 0.21, min(f1, f2))) * uStarCrack;
     crackMask *= (0.68 + 0.32 * pulseWave);
 
@@ -234,8 +234,8 @@ vec4 evalImplosionStreams(vec3 closestPt, float b, float tc) {
 
   float armA = pow(0.5 + 0.5 * cos(ang * 12.0 + logB * 3.6 + uTime * 2.8), 4.8);
   float armB = pow(0.5 + 0.5 * cos(ang * 19.0 - logB * 4.4 - uTime * 2.1 + 1.1), 5.5);
-  float dashA = smoothstep(0.32, 0.86, 0.5 + 0.5 * cos(logB * 15.0 + uTime * 14.5 + ang * 2.0));
-  float dashB = smoothstep(0.38, 0.90, 0.5 + 0.5 * cos(logB * 21.0 + uTime * 18.5 - ang * 3.0));
+  float dashA = smoothstep(0.32, 0.86, 0.5 + 0.5 * cos(logB * 15.0 + uTime * 12.0 + ang * 2.0));
+  float dashB = smoothstep(0.38, 0.90, 0.5 + 0.5 * cos(logB * 21.0 + uTime * 15.0 - ang * 3.0));
 
   float radialEnv = smoothstep(max(0.08, uStarRadius * 0.65), max(0.24, uStarRadius * 1.15), b)
     * exp(-max(0.0, b - uStarRadius) * 0.94);
@@ -273,12 +273,12 @@ vec4 evalSupernovaEjecta(vec3 closestPt, float b, float tc) {
   float innerW = mix(0.18, 0.56, p);
   float innerShell = exp(-pow(innerDist / innerW, 2.0));
 
-  float webA = smoothstep(0.36, 0.88, 0.5 + 0.5 * cos(ang * 10.0 - b * 2.5 + uTime * 2.2));
-  float webB = smoothstep(0.40, 0.90, 0.5 + 0.5 * cos(ang * 17.0 + b * 3.2 - uTime * 1.7));
+  float webA = smoothstep(0.36, 0.88, 0.5 + 0.5 * cos(ang * 10.0 - b * 2.5 + uTime * 2.0));
+  float webB = smoothstep(0.40, 0.90, 0.5 + 0.5 * cos(ang * 17.0 + b * 3.2 - uTime * 1.5));
   float filaments = max(webA, webB * 0.82);
 
-  float rayPattern = pow(0.5 + 0.5 * cos(ang * 9.0 - uTime * 1.4), 3.6) * 0.58
-    + pow(0.5 + 0.5 * cos(ang * 15.0 + uTime * 1.1 + 0.5), 4.6) * 0.40;
+  float rayPattern = pow(0.5 + 0.5 * cos(ang * 9.0 - uTime * 1.2), 3.6) * 0.58
+    + pow(0.5 + 0.5 * cos(ang * 15.0 + uTime * 1.0 + 0.5), 4.6) * 0.40;
   float trailingInterior = (1.0 - smoothstep(rMain * 0.68, rMain * 1.05, b))
     * smoothstep(0.30, max(0.65, rInner * 0.55), b)
     * (0.18 + 0.82 * rayPattern) * (1.0 - p * 0.75);
@@ -299,8 +299,8 @@ vec4 evalSupernovaEjecta(vec3 closestPt, float b, float tc) {
 }
 
 /**
- * Volumetric 3D Accretion Disk tuned for fine-pitch hybrid luminous ASCII:
- * - Soft plasma body + carved spiral arms + polar-only 1s escapement wave synced to countdown.
+ * Volumetric 3D Accretion Disk tuned for calm laminar ASCII flow:
+ * - Smooth rotational cadence eliminates 60Hz threshold-crossing jitter.
  */
 vec4 evalDisk(vec2 xz, float outerR, float polarF, float time, float dopplerBias) {
   if (uDiskBirth <= 0.002) return vec4(0.0);
@@ -321,43 +321,42 @@ vec4 evalDisk(vec2 xz, float outerR, float polarF, float time, float dopplerBias
   float rNorm = clamp((r - 1.05) / max(0.6, outerR - 1.05), 0.0, 1.0);
 
   float birthTwist = (1.0 - uDiskBirth) * 5.2;
-  float spiralTwist = mix(3.4 + birthTwist, 14.8, polarF);
-  float infall = time * mix(0.18, 0.58, polarF);
+  float spiralTwist = mix(3.4 + birthTwist, 13.6, polarF);
+  float infall = time * mix(0.12, 0.38, polarF);
 
   // ---- Stratum 1: Crisp Hot Inner ISCO Streamlines ----
-  float s1Phase = 3.0 * theta + (spiralTwist * 1.15) * logR + infall * 1.45 - time * 1.05;
-  float s1Ring = smoothstep(0.38, 0.84, 0.5 + 0.5 * cos(s1Phase));
-  float s1Conc = smoothstep(0.40, 0.84, 0.5 + 0.5 * cos(logR * 25.0 + infall * 2.0));
-  float s1Track = mix(mix(s1Conc, s1Ring, 0.58), s1Ring, polarF);
-  float s1Dash = smoothstep(0.20, 0.72, 0.5 + 0.5 * cos(4.0 * theta - 5.2 * logR - time * 1.75));
+  float s1Phase = 3.0 * theta + (spiralTwist * 1.12) * logR + infall * 1.25 - time * 0.65;
+  float s1Ring = smoothstep(0.36, 0.84, 0.5 + 0.5 * cos(s1Phase));
+  float s1Conc = smoothstep(0.38, 0.84, 0.5 + 0.5 * cos(logR * 22.0 + infall * 1.6));
+  float s1Track = mix(mix(s1Conc, s1Ring, 0.56), s1Ring, polarF);
+  float s1Dash = smoothstep(0.24, 0.74, 0.5 + 0.5 * cos(3.0 * theta - 4.2 * logR - time * 0.95));
   float s1Env = smoothstep(1.025, 1.09, r) * (1.0 - smoothstep(1.68, 2.45, r));
-  float s1Val = s1Track * (0.46 + 0.54 * s1Dash) * s1Env;
+  float s1Val = s1Track * (0.54 + 0.46 * s1Dash) * s1Env;
 
   // ---- Stratum 2: Mid-Disk Spiral Arms ----
-  float s2ArmA = smoothstep(0.44, 0.86, 0.5 + 0.5 * cos(4.0 * theta + spiralTwist * logR + infall * 1.15 - time * 0.68));
-  float s2ArmB = smoothstep(0.50, 0.88, 0.5 + 0.5 * cos(2.0 * theta + (spiralTwist * 0.72) * logR + infall * 0.85 - time * 0.45 + 1.4));
-  float s2Conc = smoothstep(0.44, 0.84, 0.5 + 0.5 * cos(logR * 17.5 + infall * 1.3));
+  float s2ArmA = smoothstep(0.42, 0.86, 0.5 + 0.5 * cos(4.0 * theta + spiralTwist * logR + infall * 0.95 - time * 0.44));
+  float s2ArmB = smoothstep(0.48, 0.88, 0.5 + 0.5 * cos(2.0 * theta + (spiralTwist * 0.72) * logR + infall * 0.72 - time * 0.30 + 1.4));
+  float s2Conc = smoothstep(0.42, 0.84, 0.5 + 0.5 * cos(logR * 16.0 + infall * 1.0));
   float s2Lane = mix(max(s2Conc * 0.88, s2ArmA * 0.86), max(s2ArmA, s2ArmB * 0.88), polarF);
-  float s2DashA = smoothstep(0.24, 0.68, 0.5 + 0.5 * cos(3.0 * theta - 4.4 * logR - time * 1.12 + 0.6));
-  float s2DashB = smoothstep(0.30, 0.74, 0.5 + 0.5 * cos(5.0 * theta + 3.1 * logR - time * 0.90));
+  float s2DashA = smoothstep(0.26, 0.70, 0.5 + 0.5 * cos(3.0 * theta - 3.6 * logR - time * 0.68 + 0.6));
+  float s2DashB = smoothstep(0.30, 0.74, 0.5 + 0.5 * cos(4.0 * theta + 2.8 * logR - time * 0.56));
   float s2Env = smoothstep(1.06, 1.24, r) * (1.0 - smoothstep(outerR * 0.52, outerR * 0.94, r));
   float s2Val = s2Lane * max(s2DashA, s2DashB * 0.86) * s2Env;
 
   // ---- Stratum 3: Sweeping Outer Violet Arcs ----
-  float s3Arm = smoothstep(0.50, 0.88, 0.5 + 0.5 * cos(2.0 * theta + (spiralTwist * 0.58) * logR + infall * 0.65 - time * 0.32 + 2.5));
-  float s3Conc = smoothstep(0.50, 0.86, 0.5 + 0.5 * cos(logR * 11.0 + infall * 0.85));
+  float s3Arm = smoothstep(0.48, 0.88, 0.5 + 0.5 * cos(2.0 * theta + (spiralTwist * 0.58) * logR + infall * 0.55 - time * 0.24 + 2.5));
+  float s3Conc = smoothstep(0.48, 0.86, 0.5 + 0.5 * cos(logR * 10.5 + infall * 0.72));
   float s3Lane = mix(max(s3Conc * 0.80, s3Arm * 0.76), s3Arm, polarF);
-  float s3Dash = smoothstep(0.36, 0.78, 0.5 + 0.5 * cos(2.0 * theta - 2.6 * logR - time * 0.48));
+  float s3Dash = smoothstep(0.36, 0.78, 0.5 + 0.5 * cos(2.0 * theta - 2.4 * logR - time * 0.36));
   float s3Env = smoothstep(1.50, 2.20, r) * outerEnv;
-  float s3Val = s3Lane * (0.28 + 0.72 * s3Dash) * s3Env;
+  float s3Val = s3Lane * (0.34 + 0.66 * s3Dash) * s3Env;
 
-  // Calibrated volumetric baseBed for silky violet-to-obsidian radial falloff
-  float baseBed = exp(-(r - 1.04) * mix(2.2, 1.38, polarF)) * innerEnv * outerEnv * 0.28;
+  float baseBed = exp(-(r - 1.04) * mix(2.2, 1.38, polarF)) * innerEnv * outerEnv * 0.30;
 
-  float sparkWave = smoothstep(0.84, 0.97, 0.5 + 0.5 * cos(5.0 * theta + (spiralTwist * 1.1) * logR - time * 1.9));
-  float iceSpark = sparkWave * s1Env * (0.34 + 0.38 * polarF);
+  float sparkWave = smoothstep(0.84, 0.97, 0.5 + 0.5 * cos(4.0 * theta + (spiralTwist * 1.0) * logR - time * 1.1));
+  float iceSpark = sparkWave * s1Env * (0.34 + 0.36 * polarF);
 
-  // Polar-Only UTC 1-Second Escapement Wave across inner polar spiral arms (strictly 0 on hero & top dome)
+  // Polar-Only UTC 1-Second Escapement Wave across inner polar spiral arms
   float polarGate = smoothstep(0.55, 0.90, polarF);
   float tickWave = 0.0;
   if (uTickPulse > 0.002 && uSettle > 0.5 && polarGate > 0.001) {
@@ -368,9 +367,9 @@ vec4 evalDisk(vec2 xz, float outerR, float polarF, float time, float dopplerBias
     tickWave = ringBand * armMod * uTickPulse * polarGate * 0.44 * uSettle * innerEnv * outerEnv;
   }
 
-  float doppler = 1.0 + dopplerBias * (1.0 - polarF) * 0.26 * cos(theta - 0.55);
+  float doppler = 1.0 + dopplerBias * (1.0 - polarF) * 0.24 * cos(theta - 0.55);
 
-  float energy = (baseBed + s1Val * 1.02 + s2Val * 0.84 + s3Val * 0.52) * doppler * uDiskBirth;
+  float energy = (baseBed + s1Val * 1.00 + s2Val * 0.84 + s3Val * 0.52) * doppler * uDiskBirth;
   energy = energy * (1.0 + uCharge * 0.65) + tickWave * 1.45;
 
   vec3 col = mix(C_SPACE, C_DEEP_PURPLE, smoothstep(0.04, 0.24, energy));
@@ -412,8 +411,8 @@ vec4 evalPolarJets(vec3 ro, vec3 rd, float tSphere, float coreShadow, float jetP
   float signedX = dot(pAxis.xz, perpDir);
 
   float coreBeam = exp(-pow(dPerp / (w * 0.56), 2.0));
-  float helixPhaseA = absS * 3.55 - time * 5.4;
-  float helixPhaseB = absS * 3.55 - time * 5.4 + PI;
+  float helixPhaseA = absS * 3.55 - time * 5.0;
+  float helixPhaseB = absS * 3.55 - time * 5.0 + PI;
   float hA = w * 0.86 * sin(helixPhaseA);
   float hB = w * 0.86 * sin(helixPhaseB);
   float ribW = max(0.032, w * 0.24);
@@ -423,7 +422,7 @@ vec4 evalPolarJets(vec3 ro, vec3 rd, float tSphere, float coreShadow, float jetP
 
   float laneId = floor((signedX / max(w, 0.05)) * 2.5 + 3.0);
   float laneSeed = hash11(laneId + (s > 0.0 ? 11.3 : 29.7));
-  float streak = smoothstep(0.45, 0.88, 0.5 + 0.5 * sin(absS * 5.2 - time * (8.5 + laneSeed * 4.0) + laneSeed * TWO_PI));
+  float streak = smoothstep(0.45, 0.88, 0.5 + 0.5 * sin(absS * 5.2 - time * (7.5 + laneSeed * 3.5) + laneSeed * TWO_PI));
   float streakMask = streak * exp(-pow(dPerp / (w * 0.95), 2.0));
   float outerSheath = exp(-pow(dPerp / (w * 1.65), 2.0)) * 0.28;
 
@@ -436,13 +435,25 @@ vec4 evalPolarJets(vec3 ro, vec3 rd, float tSphere, float coreShadow, float jetP
 }
 
 void main() {
+  // Fast GPU early-out for empty sky pixels when settled on bottom hero or docked top dome
+  if (uSettle > 0.99 && uPolarFactor < 0.01 && uLockPulse < 0.002) {
+    if (uPin > 0.98 && vUv.y < 0.68) {
+      o = vec4(0.0);
+      return;
+    }
+    if (uPin < 0.02 && vUv.y > 0.46) {
+      o = vec4(0.0);
+      return;
+    }
+  }
+
   vec2 ptrDelta = vUv - uPointer;
   ptrDelta.x *= uViewAsp;
   float ptrDist = length(ptrDelta);
   float ptrRipple = exp(-pow(ptrDist * 4.4, 2.0)) * uPointerActive * uSettle;
 
   vec2 ndc = vUv * 2.0 - 1.0;
-  vec2 ndcDeflected = ndc - (vUv - uPointer) * (0.018 * ptrRipple);
+  vec2 ndcDeflected = ndc - (vUv - uPointer) * (0.014 * ptrRipple);
   vec3 rd = normalize(
     uCamFwd +
     ndcDeflected.x * uViewAsp * uTanHalfFov * uCamRight +
@@ -508,17 +519,16 @@ void main() {
   if (uBhBirth > 0.002 && tc > 0.0) {
     float distOut = b - effectiveRh;
     float ringAng = atan(closestPt.y, closestPt.x);
-    // Calm rock-steady rim outside polar focus (no unintended pulsing on hero or top dome)
-    float shimmerAmp = mix(0.05, 0.26, uPolarFactor);
-    float ringShimmer = (1.0 - shimmerAmp) + shimmerAmp * sin(ringAng * 3.0 - uTime * 1.45) * cos(ringAng * 2.0 + uTime * 0.85);
-    float ringStream = 0.5 + 0.5 * cos(ringAng * 6.0 - distOut * 34.0 - uTime * 1.4);
+    float shimmerAmp = mix(0.04, 0.22, uPolarFactor);
+    float ringShimmer = (1.0 - shimmerAmp) + shimmerAmp * sin(ringAng * 3.0 - uTime * 0.95) * cos(ringAng * 2.0 + uTime * 0.55);
+    float ringStream = 0.5 + 0.5 * cos(ringAng * 5.0 - distOut * 28.0 - uTime * 0.85);
 
     float photonWidth = mix(mix(29.0, 36.0, uPin), 25.0, uPolarFactor);
     float photonRing = exp(-pow((distOut - 0.014) * photonWidth, 2.0)) * (1.0 - coreShadow);
 
     float horizonArc = exp(-max(distOut, 0.0) * mix(10.8, 15.5, uPin))
       * smoothstep(-0.005, 0.016, distOut) * (1.0 - coreShadow) * horizonClose;
-    float arcStripes = mix(0.76, 0.56 + 0.44 * smoothstep(0.32, 0.82, ringStream), 1.0 - uPin * 0.5);
+    float arcStripes = mix(0.80, 0.62 + 0.38 * smoothstep(0.32, 0.82, ringStream), 1.0 - uPin * 0.5);
 
     float innerHalo = exp(-max(distOut, 0.0) * mix(mix(9.4, 14.5, uPin), 6.8, uPolarFactor))
       * smoothstep(-0.01, 0.018, distOut) * (1.0 - coreShadow);
@@ -526,22 +536,21 @@ void main() {
     float lockR = mix(0.015, 0.24, uLockWaveProg);
     float lockWave = exp(-pow((distOut - lockR) * 26.0, 2.0)) * (1.0 - coreShadow) * uLockPulse * horizonClose;
 
-    // Polar-only UTC 1-second escapement rim flash
     float polarGate = smoothstep(0.55, 0.90, uPolarFactor);
     float tickRimR = mix(0.014, 0.28, uTickProg);
     float tickRimWave = exp(-pow((distOut - tickRimR) * 26.0, 2.0))
       * (1.0 - coreShadow) * uTickPulse * polarGate * 0.36 * uSettle;
 
-    float ptrLift = 1.0 + ptrRipple * 0.44;
+    float ptrLift = 1.0 + ptrRipple * 0.40;
     float birthGlow = uBhBirth * (1.0 + (1.0 - uBhBirth) * 0.72);
     vec3 photonCol = mix(C_PERIWINKLE, C_WHITE_CORE, 0.72 + 0.20 * ringShimmer);
-    photonCol = mix(photonCol, C_ICE_BLUE, clamp(ptrRipple * 0.52 + (1.0 - uBhBirth) * 0.62 + uLockPulse * 0.55 + tickRimWave * 2.6 + 0.14 * ringShimmer, 0.0, 0.90));
+    photonCol = mix(photonCol, C_ICE_BLUE, clamp(ptrRipple * 0.50 + (1.0 - uBhBirth) * 0.62 + uLockPulse * 0.55 + tickRimWave * 2.6 + 0.14 * ringShimmer, 0.0, 0.90));
     vec3 arcCol = mix(C_ACCENT, C_PERIWINKLE, smoothstep(0.25, 0.85, arcStripes * ringShimmer));
     arcCol = mix(arcCol, C_WHITE_CORE, smoothstep(0.055, 0.008, distOut) * 0.72);
     vec3 haloCol = mix(C_DEEP_PURPLE, C_ACCENT, 0.55 + 0.24 * ringShimmer);
 
     float photonBoost = mix(1.06, mix(1.26, 1.14, uPin), horizonClose);
-    accumCol += photonCol * photonRing * (0.98 + 0.24 * ringShimmer) * photonBoost * ptrLift * birthGlow;
+    accumCol += photonCol * photonRing * (0.98 + 0.22 * ringShimmer) * photonBoost * ptrLift * birthGlow;
     accumCol += arcCol * horizonArc * arcStripes * mix(0.86, 0.68, uPin) * ptrLift * uBhBirth;
     accumCol += haloCol * innerHalo * (0.28 + 0.12 * ringShimmer) * ptrLift * uBhBirth;
     accumCol += mix(C_ICE_BLUE, C_WHITE_CORE, 0.48) * (lockWave * 0.72 + tickRimWave * 1.95);
@@ -567,9 +576,11 @@ void main() {
     }
   }
 
-  vec4 jets = evalPolarJets(ro, rd, tSphere, coreShadow, uJetPower, uTime);
-  accumCol += jets.rgb;
-  accumAlpha = max(accumAlpha, jets.a);
+  if (uJetPower > 0.004) {
+    vec4 jets = evalPolarJets(ro, rd, tSphere, coreShadow, uJetPower, uTime);
+    accumCol += jets.rgb;
+    accumAlpha = max(accumAlpha, jets.a);
+  }
 
   if (uEjecta > 0.002) {
     vec4 ej = evalSupernovaEjecta(closestPt, b, tc);
@@ -601,8 +612,8 @@ void main() {
       float rShock = mix(0.18, 0.96, uBlastProgress);
       float shockRing = exp(-pow((blastR - rShock) * 8.5, 2.0));
 
-      float raysA = pow(0.5 + 0.5 * cos(blastAng * 8.0 - uTime * 2.0), 3.2);
-      float raysB = pow(0.5 + 0.5 * cos(blastAng * 14.0 + uTime * 1.5 + 0.7), 4.2);
+      float raysA = pow(0.5 + 0.5 * cos(blastAng * 8.0 - uTime * 1.8), 3.2);
+      float raysB = pow(0.5 + 0.5 * cos(blastAng * 14.0 + uTime * 1.3 + 0.7), 4.2);
       float radialRays = (raysA * 0.62 + raysB * 0.40) * exp(-blastR * 1.15);
 
       vec3 outerViolet = mix(C_SPACE, C_DEEP_PURPLE, smoothstep(0.05, 0.55, midHalo + radialRays * 0.55));
@@ -649,7 +660,7 @@ void main() {
   vec2 cellIdx = floor(vUv * uGrid);
   vec2 pxCenter = uGridOrigin + (cellIdx + 0.5) * uCellPx;
   vec2 uvCenter = clamp(pxCenter / uCanvasPx, vec2(0.0), vec2(1.0));
-  vec2 d = uBgInv * 0.65;
+  vec2 d = uBgInv * 0.75;
   vec4 a = texture(uBg, uvCenter + vec2(-d.x, -d.y));
   vec4 b = texture(uBg, uvCenter + vec2( d.x, -d.y));
   vec4 c = texture(uBg, uvCenter + vec2(-d.x,  d.y));
@@ -658,224 +669,7 @@ void main() {
 }`;
 
 /**
- * Pass 3: 1A Hybrid Luminous Volumetric 1:1 Native-Pixel ASCII Shader
- * - Fine near-square physical cells (`5.8x7.8px` desktop / `4.5x6.5px` mobile)
- * - Full 10-step ramp ` .:-^t+=T*` via zero-blur `texelFetch` into `IBM Plex Mono` atlas
- * - Calibrated luminous volumetric plasma substrate (`0.24–0.32`) under crisp unblurred glyphs
- * - Radiant supernova core (`blastCoreBack ~ 0.92`) with crisp dark carved `T^minus` ASCII letters
- * - Pure `#000000` locked inside the event horizon core (`alpha = 1.0`)
- */
-const FS_GLYPH = `#version 300 es
-precision highp float;
-in vec2 vUv;
-out vec4 o;
-
-uniform sampler2D uCell;
-uniform sampler2D uBg;
-uniform sampler2D uAtlas;
-uniform sampler2D uWordmarkMask;
-uniform ivec2 uGrid;
-uniform ivec2 uCellPx;
-uniform ivec2 uGridOrigin;
-uniform vec2  uCanvasPx;
-uniform float uGlyphCount;
-uniform float uWordmarkCarve;
-uniform float uBlastPeak;
-uniform float uWarmTint;
-uniform float uSettle;
-uniform float uTime;
-uniform vec2  uPointer;
-uniform float uPointerActive;
-uniform float uViewAsp;
-
-const vec3 C_OBSIDIAN    = vec3(0.0157, 0.0078, 0.0235); // #040206
-const vec3 C_DEEP_VOID   = vec3(0.0745, 0.0078, 0.1137); // #13021D
-const vec3 C_SPACE       = vec3(0.1725, 0.0275, 0.2078); // #2C0735
-const vec3 C_DEEP_PURPLE = vec3(0.3059, 0.0784, 0.5490); // #4E148C
-const vec3 C_ACCENT      = vec3(0.3804, 0.2392, 0.7569); // #613DC1
-const vec3 C_PERIWINKLE  = vec3(0.5216, 0.5412, 0.8902); // #858AE3
-const vec3 C_ICE_BLUE    = vec3(0.5922, 0.8745, 0.9882); // #97DFFC
-const vec3 C_WHITE_CORE  = vec3(0.9686, 0.9804, 1.0000); // #F7FAFF
-const vec3 C_WARM_CORONA = vec3(0.8471, 0.6549, 0.4549); // #D8A774
-
-float cellHash(ivec2 c) {
-  vec2 p = fract(vec2(c) * vec2(0.1031, 0.1030));
-  p += dot(p, p.yx + 33.33);
-  return fract((p.x + p.y) * p.x);
-}
-
-void main() {
-  ivec2 fragPx = ivec2(gl_FragCoord.xy);
-  ivec2 relPx = fragPx - uGridOrigin;
-
-  ivec2 rawCell = ivec2(floor(vec2(relPx) / vec2(uCellPx)));
-  bool inGrid = rawCell.x >= 0 && rawCell.y >= 0 && rawCell.x < uGrid.x && rawCell.y < uGrid.y;
-  ivec2 cellCoord = clamp(rawCell, ivec2(0), uGrid - ivec2(1));
-  ivec2 subPx = clamp(relPx - cellCoord * uCellPx, ivec2(0), uCellPx - ivec2(1));
-
-  vec2 gridF = vec2(uGrid);
-  vec2 cellUv = (vec2(uGridOrigin) + (vec2(cellCoord) + 0.5) * vec2(uCellPx)) / uCanvasPx;
-
-  vec4 cell = texelFetch(uCell, cellCoord, 0);
-  vec4 bgTex = texture(uBg, vUv);
-
-  float cellLum = dot(cell.rgb, vec3(0.2126, 0.7152, 0.0722));
-  float bgLum = dot(bgTex.rgb, vec3(0.2126, 0.7152, 0.0722));
-  float energy = clamp(pow(clamp(cellLum * 1.18, 0.0, 1.0), 0.90), 0.0, 0.9999);
-
-  vec2 ptrD = cellUv - uPointer;
-  ptrD.x *= uViewAsp;
-  float ptrBoost = exp(-pow(length(ptrD) * 4.5, 2.0)) * uPointerActive * uSettle * smoothstep(0.04, 0.22, energy);
-  float shapedEnergy = clamp(energy + ptrBoost * 0.18, 0.0, 0.9999);
-
-  int idx = int(floor(shapedEnergy * uGlyphCount));
-  int atlasRow = 0;
-
-  // Act III supernova blast energizes bright cells into '=', 'T', '*' (indices 7, 8, 9)
-  if (uBlastPeak > 0.05 && shapedEnergy > 0.25) {
-    float hBlast = cellHash(cellCoord);
-    int blastIdx = shapedEnergy > 0.68 ? (hBlast > 0.42 ? 9 : 8) : (shapedEnergy > 0.45 ? 8 : 7);
-    idx = max(idx, int(mix(float(idx), float(blastIdx), smoothstep(0.12, 0.65, uBlastPeak))));
-  }
-
-  // ---- Cell-Quantized ASCII T^minus Supernova Wordmark ----
-  float wmCov = 0.0;
-  float wmHalo = 0.0;
-  float wmCaret = 0.0;
-  bool isWordmarkCell = false;
-
-  if (uWordmarkCarve > 0.001) {
-    vec2 subOff = 0.24 / gridF;
-    vec3 s0 = texture(uWordmarkMask, cellUv + vec2(-subOff.x, -subOff.y)).rgb;
-    vec3 s1 = texture(uWordmarkMask, cellUv + vec2( subOff.x, -subOff.y)).rgb;
-    vec3 s2 = texture(uWordmarkMask, cellUv + vec2(-subOff.x,  subOff.y)).rgb;
-    vec3 s3 = texture(uWordmarkMask, cellUv + vec2( subOff.x,  subOff.y)).rgb;
-    vec3 wmAvg = (s0 + s1 + s2 + s3) * 0.25;
-
-    wmCov = wmAvg.r * uWordmarkCarve;
-    wmHalo = wmAvg.g * uWordmarkCarve;
-    wmCaret = wmAvg.b * uWordmarkCarve;
-
-    if (wmCov >= 0.20) {
-      isWordmarkCell = true;
-      atlasRow = 1;
-
-      float h = cellHash(cellCoord);
-      float radDist = length((cellUv - vec2(0.5)) * vec2(uViewAsp, 1.0));
-      float wave = fract(h + radDist * 1.6 - uTime * 2.4);
-
-      if (wmCov >= 0.46) {
-        if (wave < 0.72) {
-          idx = 8; // 'T'
-        } else if (wave < 0.88) {
-          idx = 9; // '*'
-        } else {
-          idx = 7; // '='
-        }
-      } else {
-        float edgeNorm = clamp((wmCov - 0.20) / 0.26, 0.0, 0.999);
-        if (edgeNorm < 0.26) {
-          idx = 4; // '^'
-        } else if (edgeNorm < 0.52) {
-          idx = 3; // '-'
-        } else if (edgeNorm < 0.78) {
-          idx = 6; // '+'
-        } else {
-          idx = 5; // 't'
-        }
-      }
-    }
-  }
-
-  // Exact 1:1 native-pixel texelFetch (NO mipmaps, NO bilinear blur)
-  ivec2 atlasPx = ivec2(
-    idx * uCellPx.x + subPx.x,
-    atlasRow * uCellPx.y + (uCellPx.y - 1 - subPx.y)
-  );
-  float cov = inGrid ? texelFetch(uAtlas, atlasPx, 0).r : 0.0;
-  cov = smoothstep(0.08, 0.76, cov);
-
-  float alpha = bgTex.a;
-  float introOpaque = 1.0 - smoothstep(0.14, 0.56, uSettle);
-
-  float isPureCore = smoothstep(0.90, 0.99, alpha)
-    * (1.0 - smoothstep(0.002, 0.012, bgLum))
-    * (1.0 - smoothstep(0.10, 0.45, uBlastPeak));
-
-  // ---- 1A HYBRID VOLUMETRIC SUBSTRATE + RADIANT SUPERNOVA CORE ----
-  float diskSubstrate = mix(0.24, 0.32, smoothstep(0.18, 0.78, bgLum))
-    * smoothstep(0.018, 0.14, bgLum)
-    * (1.0 - isPureCore);
-  vec2 blastCenterDist = (vUv - vec2(0.5)) * vec2(uViewAsp * 0.72, 1.0);
-  float blastCoreBack = (exp(-pow(length(blastCenterDist) * 1.42, 2.0)) * 0.90 + 0.14) * uBlastPeak;
-  float backWeight = clamp(diskSubstrate + blastCoreBack, 0.0, 1.0);
-  vec3 baseBack = bgTex.rgb * backWeight + C_OBSIDIAN * introOpaque * (1.0 - isPureCore);
-
-  // Per-glyph Galaxy chromatic energy palette (10-step ' .:-^t+=T*')
-  vec3 palGlyph;
-  if (idx <= 2) {
-    palGlyph = mix(C_SPACE, C_DEEP_PURPLE, idx == 2 ? 0.82 : 0.38);
-  } else if (idx <= 4) {
-    palGlyph = mix(C_DEEP_PURPLE, C_ACCENT, idx == 4 ? 0.84 : 0.36);
-  } else if (idx <= 6) {
-    palGlyph = mix(C_ACCENT, C_PERIWINKLE, idx == 6 ? 0.82 : 0.38);
-  } else if (idx <= 8) {
-    palGlyph = mix(C_PERIWINKLE, C_WHITE_CORE, idx == 8 ? 0.74 : 0.34);
-  } else {
-    palGlyph = mix(C_ICE_BLUE, C_WHITE_CORE, smoothstep(0.76, 0.98, shapedEnergy));
-  }
-
-  vec3 sceneTint = cell.rgb / max(cellLum, 0.08);
-  vec3 warmColor = mix(C_WARM_CORONA, cell.rgb * 1.32, smoothstep(0.12, 0.55, shapedEnergy));
-  vec3 coolColor = mix(palGlyph, clamp(palGlyph * 0.52 + cell.rgb * 0.96, 0.0, 1.0), 0.54);
-  float iceCue = clamp((sceneTint.b - sceneTint.r) * 0.68, 0.0, 1.0);
-  coolColor = mix(coolColor, C_ICE_BLUE, clamp(iceCue * 0.55 + ptrBoost * 0.75, 0.0, 0.88));
-  if (idx == 9) {
-    coolColor = mix(C_ICE_BLUE, C_WHITE_CORE, smoothstep(0.84, 0.98, shapedEnergy));
-  }
-  vec3 glyphColor = mix(coolColor, warmColor, uWarmTint);
-
-  // Act III supernova blast glyphs shine in incandescent ice-blue & crisp white
-  vec3 blastGlyphCol = mix(C_ICE_BLUE, vec3(0.99, 0.996, 1.0), smoothstep(0.45, 0.88, cellLum));
-  glyphColor = mix(glyphColor, blastGlyphCol, uBlastPeak * 0.84);
-
-  float glyphGate = smoothstep(0.018, 0.085, shapedEnergy) * (1.0 - isPureCore);
-  float glyphAlpha = cov * glyphGate;
-  vec3 sceneCol = mix(baseBack, glyphColor, glyphAlpha);
-
-  // Enforce true pure #000000 inside uncovered event horizon shadow
-  sceneCol *= (1.0 - isPureCore);
-
-  // ---- High-Contrast Radiant Supernova T^minus Carve ----
-  if (uWordmarkCarve > 0.001) {
-    vec3 blastBack = mix(C_ICE_BLUE, vec3(1.0), 0.76);
-    float wmBackLight = clamp((wmCov * 0.86 + wmHalo * 0.44) * uBlastPeak, 0.0, 0.95);
-    sceneCol = mix(sceneCol, blastBack, wmBackLight * (1.0 - (isWordmarkCell ? cov : 0.0)));
-
-    if (isWordmarkCell) {
-      vec3 edgeInk = mix(C_DEEP_VOID, C_OBSIDIAN, 0.78);
-      vec3 coreInk = vec3(0.0, 0.0, 0.0);
-      vec3 glyphInk = mix(edgeInk, coreInk, smoothstep(0.34, 0.56, wmCov));
-      glyphInk = mix(glyphInk, C_DEEP_VOID * 1.15, wmCaret * 0.18 * (1.0 - smoothstep(0.48, 0.70, wmCov)));
-
-      float strokeStrength = smoothstep(0.20, 0.44, wmCov);
-      float wmInkAlpha = clamp(cov * mix(0.90, 1.0, strokeStrength), 0.0, 1.0);
-      sceneCol = mix(sceneCol, glyphInk, wmInkAlpha);
-      glyphAlpha = max(glyphAlpha, wmInkAlpha);
-    }
-  }
-
-  float settledAlpha = clamp(max(glyphAlpha, diskSubstrate * 2.15), 0.0, 1.0);
-  float outAlpha = clamp(max(max(isPureCore, introOpaque), settledAlpha), 0.0, 1.0);
-  if (uWordmarkCarve > 0.001 && wmCov > 0.14) {
-    outAlpha = max(outAlpha, clamp(wmCov * uBlastPeak, 0.0, 1.0));
-  }
-
-  o = vec4(clamp(sceneCol, 0.0, 1.0) * outAlpha, outAlpha);
-}`;
-
-/**
- * Pass 4: Pre-Glyph Separable Bloom Blur (runs on `rtScene`, NEVER blurring `rtGlyph`)
+ * Pass 3: Pre-Glyph Separable Bloom Blur (single crisp tier on `rtScene`, NEVER blurring glyphs)
  */
 const FS_BLUR = `#version 300 es
 precision highp float;
@@ -898,60 +692,251 @@ vec3 sampleTap(vec2 uv) {
 
 void main() {
   vec3 c = sampleTap(vUv) * 0.227027;
-  c += (sampleTap(vUv + uDir * 1.384615) + sampleTap(vUv - uDir * 1.384615)) * 0.316216;
-  c += (sampleTap(vUv + uDir * 3.230769) + sampleTap(vUv - uDir * 3.230769)) * 0.070270;
+  c += (sampleTap(vUv + uDir * 1.45) + sampleTap(vUv - uDir * 1.45)) * 0.316216;
+  c += (sampleTap(vUv + uDir * 3.35) + sampleTap(vUv - uDir * 3.35)) * 0.070270;
   o = vec4(c, 1.0);
 }`;
 
 /**
- * Pass 5: Crisp-On-Top 2-Tier Volumetric Bloom Composite
- * - Reads 100% unblurred `rtGlyph` via exact `texelFetch`
- * - Combines 1/4-res tight bloom + 1/8-res wide atmospheric bloom
- * - Strictly masks bloom to 0.0 inside pure `#000000` event horizon core & dark carved `T^minus` strokes
+ * Pass 4 (Direct-to-Screen): Crisp 1:1 Native-Pixel Volumetric ASCII + Bloom Composite
+ * - Merges glyph shading & bloom composite into a single fullscreen pass (eliminates rtGlyph!)
+ * - Strict 7-step ` .:-^tT` ramp with narrow boundary crossfade (zero 60Hz threshold popping)
+ * - Clean low-energy noise gate prevents buzzing outer halo cells
+ * - Pure `#000000` locked inside the event horizon core
  */
-const FS_COMP = `#version 300 es
+const FS_GLYPH_COMP = `#version 300 es
 precision highp float;
 in vec2 vUv;
 out vec4 o;
-uniform sampler2D uBase;
-uniform sampler2D uBloom1;
-uniform sampler2D uBloom2;
+
+uniform sampler2D uCell;
+uniform sampler2D uBg;
+uniform sampler2D uAtlas;
+uniform sampler2D uBloom;
 uniform sampler2D uWordmarkMask;
-uniform vec2  uGrid;
+uniform ivec2 uGrid;
+uniform ivec2 uCellPx;
+uniform ivec2 uGridOrigin;
+uniform vec2  uCanvasPx;
+uniform float uGlyphCount;
 uniform float uWordmarkCarve;
+uniform float uBlastPeak;
+uniform float uWarmTint;
+uniform float uSettle;
 uniform float uGlow;
+uniform vec2  uPointer;
+uniform float uPointerActive;
+uniform float uViewAsp;
+
+const vec3 C_OBSIDIAN    = vec3(0.0157, 0.0078, 0.0235); // #040206
+const vec3 C_DEEP_VOID   = vec3(0.0745, 0.0078, 0.1137); // #13021D
+const vec3 C_SPACE       = vec3(0.1725, 0.0275, 0.2078); // #2C0735
+const vec3 C_DEEP_PURPLE = vec3(0.3059, 0.0784, 0.5490); // #4E148C
+const vec3 C_ACCENT      = vec3(0.3804, 0.2392, 0.7569); // #613DC1
+const vec3 C_PERIWINKLE  = vec3(0.5216, 0.5412, 0.8902); // #858AE3
+const vec3 C_ICE_BLUE    = vec3(0.5922, 0.8745, 0.9882); // #97DFFC
+const vec3 C_WHITE_CORE  = vec3(0.9686, 0.9804, 1.0000); // #F7FAFF
+const vec3 C_WARM_CORONA = vec3(0.8471, 0.6549, 0.4549); // #D8A774
+
+float sampleGlyph(int glyphIdx, int row, ivec2 subPx) {
+  ivec2 atlasPx = ivec2(
+    glyphIdx * uCellPx.x + subPx.x,
+    row * uCellPx.y + (uCellPx.y - 1 - subPx.y)
+  );
+  return texelFetch(uAtlas, atlasPx, 0).r;
+}
 
 void main() {
-  ivec2 px = ivec2(gl_FragCoord.xy);
-  vec4 base = texelFetch(uBase, px, 0);
-  vec3 halo = (texture(uBloom1, vUv).rgb * 0.68 + texture(uBloom2, vUv).rgb * 0.46) * uGlow;
+  ivec2 fragPx = ivec2(gl_FragCoord.xy);
+  ivec2 relPx = fragPx - uGridOrigin;
 
-  float maxRgb = max(base.r, max(base.g, base.b));
-  float isPureCore = smoothstep(0.95, 0.995, base.a) * (1.0 - smoothstep(0.002, 0.012, maxRgb));
+  ivec2 rawCell = ivec2(floor(vec2(relPx) / vec2(uCellPx)));
+  bool inGrid = rawCell.x >= 0 && rawCell.y >= 0 && rawCell.x < uGrid.x && rawCell.y < uGrid.y;
+  ivec2 cellCoord = clamp(rawCell, ivec2(0), uGrid - ivec2(1));
+  ivec2 subPx = clamp(relPx - cellCoord * uCellPx, ivec2(0), uCellPx - ivec2(1));
 
-  float bloomAtten = 1.0 - isPureCore;
+  vec4 cell = texelFetch(uCell, cellCoord, 0);
+  vec4 bgTex = texture(uBg, vUv);
+
+  // Fast exit for empty transparent sky pixels while preserving soft outer bloom feathering
+  float introOpaque = 1.0 - smoothstep(0.14, 0.56, uSettle);
+  if (introOpaque < 0.001 && cell.a < 0.004 && bgTex.a < 0.004 && uWordmarkCarve < 0.001) {
+    vec3 haloOnly = texture(uBloom, vUv).rgb * uGlow;
+    float haloLum = dot(haloOnly, vec3(0.2126, 0.7152, 0.0722));
+    if (haloLum < 0.002) {
+      o = vec4(0.0);
+    } else {
+      float haloAlpha = clamp(haloLum * 0.95, 0.0, 0.72);
+      o = vec4(clamp(haloOnly, 0.0, 1.0), haloAlpha);
+    }
+    return;
+  }
+
+  vec2 gridF = vec2(uGrid);
+  vec2 cellUv = (vec2(uGridOrigin) + (vec2(cellCoord) + 0.5) * vec2(uCellPx)) / uCanvasPx;
+
+  float cellLum = dot(cell.rgb, vec3(0.2126, 0.7152, 0.0722));
+  float bgLum = dot(bgTex.rgb, vec3(0.2126, 0.7152, 0.0722));
+
+  float energy = clamp(pow(clamp(cellLum * 1.16, 0.0, 1.0), 0.92), 0.0, 0.9999);
+
+  vec2 ptrD = cellUv - uPointer;
+  ptrD.x *= uViewAsp;
+  float ptrBoost = exp(-pow(length(ptrD) * 4.5, 2.0)) * uPointerActive * uSettle * smoothstep(0.05, 0.22, energy);
+  float shapedEnergy = clamp(energy + ptrBoost * 0.16, 0.0, 0.9999);
+
+  int maxGlyphIdx = int(uGlyphCount) - 1;
+  float scaled = shapedEnergy * float(maxGlyphIdx);
+  int idx = clamp(int(floor(scaled)), 0, maxGlyphIdx);
+  int idxNext = min(idx + 1, maxGlyphIdx);
+  float crossBlend = smoothstep(0.74, 1.0, fract(scaled));
+  int atlasRow = 0;
+
+  // Act III supernova blast smoothly energizes bright cells toward '^', 't', 'T' (4..6)
+  if (uBlastPeak > 0.05 && shapedEnergy > 0.25) {
+    float blastTarget = shapedEnergy > 0.65 ? 6.0 : (shapedEnergy > 0.42 ? 5.0 : 4.0);
+    float boosted = mix(scaled, max(scaled, blastTarget), smoothstep(0.12, 0.65, uBlastPeak));
+    idx = clamp(int(floor(boosted)), 0, maxGlyphIdx);
+    idxNext = min(idx + 1, maxGlyphIdx);
+    crossBlend = smoothstep(0.74, 1.0, fract(boosted));
+  }
+
+  // ---- Cell-Quantized ASCII T^minus Supernova Wordmark (steady, zero static flicker) ----
+  float wmCov = 0.0;
+  float wmHalo = 0.0;
+  float wmCaret = 0.0;
+  bool isWordmarkCell = false;
+
   if (uWordmarkCarve > 0.001) {
-    vec2 cellUv = (floor(vUv * uGrid) + 0.5) / uGrid;
-    vec2 subOff = 0.24 / uGrid;
-    float wmCell = (
-      texture(uWordmarkMask, cellUv + vec2(-subOff.x, -subOff.y)).r +
-      texture(uWordmarkMask, cellUv + vec2( subOff.x, -subOff.y)).r +
-      texture(uWordmarkMask, cellUv + vec2(-subOff.x,  subOff.y)).r +
-      texture(uWordmarkMask, cellUv + vec2( subOff.x,  subOff.y)).r
-    ) * 0.25 * uWordmarkCarve;
-    bloomAtten *= (1.0 - smoothstep(0.18, 0.34, wmCell) * 0.94);
+    vec2 subOff = 0.24 / gridF;
+    vec3 s0 = texture(uWordmarkMask, cellUv + vec2(-subOff.x, -subOff.y)).rgb;
+    vec3 s1 = texture(uWordmarkMask, cellUv + vec2( subOff.x, -subOff.y)).rgb;
+    vec3 s2 = texture(uWordmarkMask, cellUv + vec2(-subOff.x,  subOff.y)).rgb;
+    vec3 s3 = texture(uWordmarkMask, cellUv + vec2( subOff.x,  subOff.y)).rgb;
+    vec3 wmAvg = (s0 + s1 + s2 + s3) * 0.25;
+
+    wmCov = wmAvg.r * uWordmarkCarve;
+    wmHalo = wmAvg.g * uWordmarkCarve;
+    wmCaret = wmAvg.b * uWordmarkCarve;
+
+    if (wmCov >= 0.20) {
+      isWordmarkCell = true;
+      atlasRow = 1;
+      crossBlend = 0.0;
+
+      if (wmCov >= 0.48) {
+        idx = 6; // 'T' solid crisp stroke core
+      } else if (wmCov >= 0.34) {
+        idx = 5; // 't' inner shoulder
+      } else if (wmCov >= 0.26) {
+        idx = 4; // '^' outer contour
+      } else {
+        idx = 3; // '-' soft edge
+      }
+      idxNext = idx;
+    }
+  }
+
+  // Crisp 1:1 native-pixel texelFetch with anti-popping narrow boundary crossfade
+  float cov = 0.0;
+  if (inGrid) {
+    float c0 = sampleGlyph(idx, atlasRow, subPx);
+    if (crossBlend > 0.002 && idxNext != idx) {
+      float c1 = sampleGlyph(idxNext, atlasRow, subPx);
+      cov = mix(c0, c1, crossBlend);
+    } else {
+      cov = c0;
+    }
+    cov = smoothstep(0.14, 0.78, cov);
+  }
+
+  float alpha = bgTex.a;
+
+  // Clean event horizon core lock
+  float bgPureCore = smoothstep(0.90, 0.99, alpha)
+    * (1.0 - smoothstep(0.002, 0.014, bgLum))
+    * (1.0 - smoothstep(0.10, 0.45, uBlastPeak));
+  float cellPureCore = smoothstep(0.92, 0.99, cell.a)
+    * (1.0 - smoothstep(0.003, 0.018, cellLum))
+    * (1.0 - smoothstep(0.10, 0.45, uBlastPeak));
+  float isPureCore = max(bgPureCore, cellPureCore * 0.85);
+
+  // ---- Hybrid Volumetric Substrate + Radiant Supernova Core ----
+  float diskSubstrate = mix(0.24, 0.34, smoothstep(0.16, 0.78, bgLum))
+    * smoothstep(0.022, 0.14, bgLum)
+    * (1.0 - bgPureCore);
+  vec2 blastCenterDist = (vUv - vec2(0.5)) * vec2(uViewAsp * 0.72, 1.0);
+  float blastCoreBack = (exp(-pow(length(blastCenterDist) * 1.42, 2.0)) * 0.90 + 0.14) * uBlastPeak;
+  float backWeight = clamp(diskSubstrate + blastCoreBack, 0.0, 1.0);
+  vec3 baseBack = bgTex.rgb * backWeight + C_OBSIDIAN * introOpaque * (1.0 - bgPureCore);
+
+  // Smooth continuous Galaxy chromatic ramp matching 7-step ' .:-^tT'
+  vec3 palGlyph = mix(C_SPACE, C_DEEP_PURPLE, smoothstep(0.05, 0.24, shapedEnergy));
+  palGlyph = mix(palGlyph, C_ACCENT, smoothstep(0.22, 0.46, shapedEnergy));
+  palGlyph = mix(palGlyph, C_PERIWINKLE, smoothstep(0.44, 0.70, shapedEnergy));
+  palGlyph = mix(palGlyph, C_ICE_BLUE, smoothstep(0.68, 0.88, shapedEnergy));
+  palGlyph = mix(palGlyph, C_WHITE_CORE, smoothstep(0.84, 0.98, shapedEnergy));
+
+  vec3 sceneTint = cell.rgb / max(cellLum, 0.08);
+  vec3 warmColor = mix(C_WARM_CORONA, cell.rgb * 1.32, smoothstep(0.12, 0.55, shapedEnergy));
+  vec3 coolColor = mix(palGlyph, clamp(palGlyph * 0.56 + cell.rgb * 0.88, 0.0, 1.0), 0.48);
+  float iceCue = clamp((sceneTint.b - sceneTint.r) * 0.65, 0.0, 1.0);
+  coolColor = mix(coolColor, C_ICE_BLUE, clamp(iceCue * 0.50 + ptrBoost * 0.70, 0.0, 0.86));
+  vec3 glyphColor = mix(coolColor, warmColor, uWarmTint);
+
+  vec3 blastGlyphCol = mix(C_ICE_BLUE, vec3(0.99, 0.996, 1.0), smoothstep(0.45, 0.88, cellLum));
+  glyphColor = mix(glyphColor, blastGlyphCol, uBlastPeak * 0.84);
+
+  // Clean noise gate eliminates dim edge buzzing
+  float glyphGate = smoothstep(0.042, 0.135, shapedEnergy) * (1.0 - isPureCore);
+  float glyphAlpha = cov * glyphGate;
+  vec3 sceneCol = mix(baseBack, glyphColor, glyphAlpha);
+
+  // Enforce true pure #000000 inside uncovered event horizon shadow
+  sceneCol *= (1.0 - bgPureCore);
+
+  // ---- High-Contrast Radiant Supernova T^minus Carve ----
+  if (uWordmarkCarve > 0.001) {
+    vec3 blastBack = mix(C_ICE_BLUE, vec3(1.0), 0.76);
+    float wmBackLight = clamp((wmCov * 0.86 + wmHalo * 0.44) * uBlastPeak, 0.0, 0.95);
+    sceneCol = mix(sceneCol, blastBack, wmBackLight * (1.0 - (isWordmarkCell ? cov : 0.0)));
+
+    if (isWordmarkCell) {
+      vec3 edgeInk = mix(C_DEEP_VOID, C_OBSIDIAN, 0.78);
+      vec3 coreInk = vec3(0.0, 0.0, 0.0);
+      vec3 glyphInk = mix(edgeInk, coreInk, smoothstep(0.34, 0.56, wmCov));
+      glyphInk = mix(glyphInk, C_DEEP_VOID * 1.15, wmCaret * 0.18 * (1.0 - smoothstep(0.48, 0.70, wmCov)));
+
+      float strokeStrength = smoothstep(0.20, 0.44, wmCov);
+      float wmInkAlpha = clamp(cov * mix(0.90, 1.0, strokeStrength), 0.0, 1.0);
+      sceneCol = mix(sceneCol, glyphInk, wmInkAlpha);
+      glyphAlpha = max(glyphAlpha, wmInkAlpha);
+    }
+  }
+
+  float settledAlpha = clamp(max(glyphAlpha, diskSubstrate * 2.15), 0.0, 1.0);
+  float baseAlpha = clamp(max(max(bgPureCore, introOpaque), settledAlpha), 0.0, 1.0);
+  if (uWordmarkCarve > 0.001 && wmCov > 0.14) {
+    baseAlpha = max(baseAlpha, clamp(wmCov * uBlastPeak, 0.0, 1.0));
+  }
+  vec3 basePremul = clamp(sceneCol, 0.0, 1.0) * baseAlpha;
+
+  // ---- Crisp-On-Top Volumetric Bloom Composite (Zero Glyph Blurring) ----
+  vec3 halo = texture(uBloom, vUv).rgb * uGlow;
+  float bloomAtten = 1.0 - bgPureCore;
+  if (uWordmarkCarve > 0.001) {
+    bloomAtten *= (1.0 - smoothstep(0.18, 0.34, wmCov) * 0.94);
   }
 
   vec3 underHalo = halo * bloomAtten;
   float haloLum = dot(underHalo, vec3(0.2126, 0.7152, 0.0722));
   float haloAlpha = clamp(haloLum * 0.95, 0.0, 0.72);
 
-  // Crisp unblurred ASCII characters preserved cleanly on top of volumetric 2-tier bloom
-  vec3 outRgb = base.rgb + underHalo * (1.0 - base.a * 0.52);
-  float outA = clamp(base.a + haloAlpha * (1.0 - base.a), 0.0, 1.0);
+  vec3 outRgb = basePremul + underHalo * (1.0 - baseAlpha * 0.52);
+  float outA = clamp(baseAlpha + haloAlpha * (1.0 - baseAlpha), 0.0, 1.0);
 
-  outRgb *= (1.0 - isPureCore);
-  outA = max(outA, isPureCore);
+  outRgb *= (1.0 - bgPureCore);
+  outA = max(outA, bgPureCore);
 
   o = vec4(clamp(outRgb, 0.0, 1.0), outA);
 }`;
@@ -1065,10 +1050,9 @@ function freeRT(gl: WebGL2RenderingContext, rt: RenderTarget | null) {
 }
 
 /**
- * 1:1 Native-Pixel `IBM Plex Mono` WebGL2 Glyph Atlas (` .:-^t+=T*`):
- * - `row0Size = 0.92 * cellPxH` eliminates horizontal black Venetian-blind gaps.
- * - Row 0: crisp medium/semibold weight for the live 3D cosmic field.
- * - Row 1: bold `700` weight for the Act III supernova `T^minus` carve.
+ * 1:1 Native-Pixel `IBM Plex Mono` WebGL2 Glyph Atlas (` .:-^tT`):
+ * - Uses loaded weights `500` (row 0) and `600` (row 1) — zero faux-bold smearing.
+ * - Clean `0.84 * cellPxH` sizing keeps every glyph crisp with breathing margins at all DPRs.
  */
 function buildNativeGlyphAtlas(
   gl: WebGL2RenderingContext,
@@ -1088,9 +1072,8 @@ function buildNativeGlyphAtlas(
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  const row0Weight = cellPxH <= 14 ? 600 : 500;
-  const row0Size = Math.max(7, Math.round(cellPxH * 0.92));
-  ctx.font = `${row0Weight} ${row0Size}px ${monoFamily}`;
+  const row0Size = Math.max(8, Math.round(cellPxH * 0.84));
+  ctx.font = `500 ${row0Size}px ${monoFamily}`;
   for (let i = 0; i < ASCII_RAMP.length; i++) {
     ctx.fillText(
       ASCII_RAMP[i],
@@ -1099,8 +1082,8 @@ function buildNativeGlyphAtlas(
     );
   }
 
-  const row1Size = Math.max(8, Math.round(cellPxH * 0.96));
-  ctx.font = `700 ${row1Size}px ${monoFamily}`;
+  const row1Size = Math.max(8, Math.round(cellPxH * 0.88));
+  ctx.font = `600 ${row1Size}px ${monoFamily}`;
   for (let i = 0; i < ASCII_RAMP.length; i++) {
     ctx.fillText(
       ASCII_RAMP[i],
@@ -1126,8 +1109,8 @@ function buildWordmarkMaskTexture(
   cssW: number,
   cssH: number
 ): WebGLTexture {
-  const texW = Math.min(2048, Math.max(768, Math.round(cssW * 1.5)));
-  const texH = Math.min(1280, Math.max(512, Math.round(cssH * 1.5)));
+  const texW = Math.min(1536, Math.max(640, Math.round(cssW * 1.2)));
+  const texH = Math.min(960, Math.max(420, Math.round(cssH * 1.2)));
   const canvas = document.createElement("canvas");
   canvas.width = texW;
   canvas.height = texH;
@@ -1253,7 +1236,7 @@ function solveTopDomeRimY(
 interface StarSpec {
   nx: number;
   ny: number;
-  glyph: "*" | "+" | "^" | "-" | ".";
+  glyph: "." | ":" | "-" | "^" | "t";
   phase: number;
   speed: number;
   sizeCss: 10 | 12;
@@ -1262,7 +1245,7 @@ interface StarSpec {
 }
 
 function createStarfield(count: number): StarSpec[] {
-  const glyphs: Array<"*" | "+" | "^" | "-" | "."> = ["*", "+", "^", "-", "."];
+  const glyphs: Array<"." | ":" | "-" | "^" | "t"> = [".", ":", "-", "^", "t"];
   const stars: StarSpec[] = [];
   let s = 918273;
   const rand = () => {
@@ -1282,9 +1265,9 @@ function createStarfield(count: number): StarSpec[] {
       ny,
       glyph: glyphs[Math.floor(rand() * glyphs.length)],
       phase: rand() * Math.PI * 2,
-      speed: 0.45 + rand() * 0.95,
-      sizeCss: rand() > 0.62 ? 12 : 10,
-      tint: rTint > 0.88 ? "ice" : rTint > 0.42 ? "periwinkle" : "accent",
+      speed: 0.35 + rand() * 0.75,
+      sizeCss: rand() > 0.66 ? 12 : 10,
+      tint: rTint > 0.86 ? "ice" : rTint > 0.42 ? "periwinkle" : "accent",
       crestDist,
     });
   }
@@ -1334,7 +1317,7 @@ export function AsciiBlackholeCanvas({
     }
 
     const starCtx = starCanvas.getContext("2d");
-    const stars = createStarfield(104);
+    const stars = createStarfield(64);
 
     const gl = glCanvas.getContext("webgl2", {
       alpha: true,
@@ -1353,9 +1336,8 @@ export function AsciiBlackholeCanvas({
 
     const pScene = linkProgram(gl, FS_SCENE);
     const pCell = linkProgram(gl, FS_CELL);
-    const pGlyph = linkProgram(gl, FS_GLYPH);
     const pBlur = linkProgram(gl, FS_BLUR);
-    const pComp = linkProgram(gl, FS_COMP);
+    const pGlyphComp = linkProgram(gl, FS_GLYPH_COMP);
 
     const vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
@@ -1376,33 +1358,63 @@ export function AsciiBlackholeCanvas({
 
     let cw = 0;
     let ch = 0;
-    let cssWGlobal = 1440;
-    let cssHGlobal = 900;
-    let dprGlobal = 2.0;
-    let cols = 248;
-    let rows = 115;
-    let cellPxW = 12;
-    let cellPxH = 16;
+    let cssWGlobal = window.innerWidth || 1440;
+    let cssHGlobal = window.innerHeight || 900;
+    let dprGlobal = 1.25;
+    let cols = 192;
+    let rows = 86;
+    let cellPxW = 9;
+    let cellPxH = 13;
     let gridOriginX = 0;
     let gridOriginY = 0;
     let adaptiveDegraded = false;
-    let lastSceneScale = 0.5;
+    let lastSceneScale = 0.38;
+    let lastScissorMode: "full" | "bottom" | "top" = "full";
     let rtScene: RenderTarget | null = null;
     let rtCell: RenderTarget | null = null;
-    let rtGlyph: RenderTarget | null = null;
-    let rtB1A: RenderTarget | null = null;
-    let rtB1B: RenderTarget | null = null;
-    let rtB2A: RenderTarget | null = null;
-    let rtB2B: RenderTarget | null = null;
+    let rtBA: RenderTarget | null = null;
+    let rtBB: RenderTarget | null = null;
+
+    // Cached runway metrics (ZERO per-frame getBoundingClientRect calls!)
+    let runwayTopDocY = 0;
+    let runwayScrollable = Math.max(420, (window.innerHeight || 900) * 1.8);
+
+    const syncRunwayMetrics = () => {
+      const runwayEl = runwayRefLatest.current?.current;
+      if (runwayEl) {
+        const rect = runwayEl.getBoundingClientRect();
+        runwayTopDocY = rect.top + window.scrollY;
+        runwayScrollable = Math.max(1, rect.height - window.innerHeight);
+      } else {
+        runwayTopDocY = 0;
+        runwayScrollable = Math.max(420, window.innerHeight * 2.0);
+      }
+    };
+
+    const clearOffscreenRTs = () => {
+      gl.disable(gl.SCISSOR_TEST);
+      gl.clearColor(0, 0, 0, 0);
+      const targets = [rtScene, rtCell, rtBA, rtBB];
+      for (const rt of targets) {
+        if (!rt) continue;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, rt.fb);
+        gl.viewport(0, 0, rt.w, rt.h);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    };
 
     const syncBuffers = (forceAtlas = false) => {
       const rect = glCanvas.getBoundingClientRect();
-      const cssW = Math.max(1, Math.round(rect.width));
-      const cssH = Math.max(1, Math.round(rect.height));
+      const cssW = Math.max(1, Math.round(rect.width || window.innerWidth));
+      const cssH = Math.max(1, Math.round(rect.height || window.innerHeight));
       const isMobile = cssW < 640;
       const isTablet = cssW >= 640 && cssW < 1024;
-      // Strict DPR <= 2.0 cap across mobile & desktop
-      const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 1), 2.0);
+
+      // Nearest-neighbor ASCII stays razor-sharp at 1.25x desktop (1.0x under adaptive load)
+      // and 1.5x mobile while drastically cutting pixel shader load.
+      const maxDpr = adaptiveDegraded ? 1.0 : cssW >= 1024 ? 1.25 : 1.5;
+      const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 1), maxDpr);
       const nw = Math.max(2, Math.round(cssW * dpr));
       const nh = Math.max(2, Math.round(cssH * dpr));
 
@@ -1410,26 +1422,27 @@ export function AsciiBlackholeCanvas({
       cssHGlobal = cssH;
       dprGlobal = dpr;
 
-      if (starCanvas.width !== nw || starCanvas.height !== nh) {
-        starCanvas.width = nw;
-        starCanvas.height = nh;
+      // Starfield runs at 1x CSS resolution for ultra-light CPU cost
+      if (starCanvas.width !== cssW || starCanvas.height !== cssH) {
+        starCanvas.width = cssW;
+        starCanvas.height = cssH;
       }
 
       if (monoProbeRef.current) {
         monoFamily = window.getComputedStyle(monoProbeRef.current).fontFamily;
       }
 
-      // Fine near-square physical ASCII cells (eliminates Venetian-blind striping completely)
-      const cellCssW = isMobile ? 4.5 : isTablet ? 5.2 : 5.8;
-      const cellCssH = isMobile ? 6.5 : isTablet ? 7.2 : 7.8;
-      const nCellPxW = Math.max(5, Math.round(cellCssW * dpr));
-      const nCellPxH = Math.max(7, Math.round(cellCssH * dpr));
-      const nCols = Math.max(64, Math.floor(nw / nCellPxW));
-      const nRows = Math.max(48, Math.floor(nh / nCellPxH));
+      // Clean, genuinely legible ASCII cell pitch at every DPR
+      const cellCssW = isMobile ? 6.0 : isTablet ? 6.8 : 7.5;
+      const cellCssH = isMobile ? 8.8 : isTablet ? 9.6 : 10.5;
+      const nCellPxW = Math.max(6, Math.round(cellCssW * dpr));
+      const nCellPxH = Math.max(9, Math.round(cellCssH * dpr));
+      const nCols = Math.max(48, Math.floor(nw / nCellPxW));
+      const nRows = Math.max(36, Math.floor(nh / nCellPxH));
       const nOriginX = Math.floor((nw - nCols * nCellPxW) * 0.5);
       const nOriginY = Math.floor((nh - nRows * nCellPxH) * 0.5);
 
-      const sceneScale = adaptiveDegraded ? 0.36 : isMobile ? 0.44 : 0.52;
+      const sceneScale = adaptiveDegraded ? 0.28 : isMobile ? 0.34 : 0.38;
 
       if (
         forceAtlas ||
@@ -1451,13 +1464,30 @@ export function AsciiBlackholeCanvas({
       }
 
       if (
-        Math.abs(cssW - lastMaskCssW) > 16 ||
-        Math.abs(cssH - lastMaskCssH) > 16 ||
-        !wordmarkTex
+        !startSettled &&
+        (Math.abs(cssW - lastMaskCssW) > 16 ||
+          Math.abs(cssH - lastMaskCssH) > 16 ||
+          !wordmarkTex)
       ) {
         lastMaskCssW = cssW;
         lastMaskCssH = cssH;
         wordmarkTex = buildWordmarkMaskTexture(gl, wordmarkTex, cssW, cssH);
+      } else if (!wordmarkTex) {
+        wordmarkTex = gl.createTexture()!;
+        gl.bindTexture(gl.TEXTURE_2D, wordmarkTex);
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          2,
+          2,
+          0,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          new Uint8Array(16)
+        );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       }
 
       if (
@@ -1482,49 +1512,64 @@ export function AsciiBlackholeCanvas({
       gridOriginX = nOriginX;
       gridOriginY = nOriginY;
       lastSceneScale = sceneScale;
+      lastScissorMode = "full";
       glCanvas.width = cw;
       glCanvas.height = ch;
 
       freeRT(gl, rtScene);
       freeRT(gl, rtCell);
-      freeRT(gl, rtGlyph);
-      freeRT(gl, rtB1A);
-      freeRT(gl, rtB1B);
-      freeRT(gl, rtB2A);
-      freeRT(gl, rtB2B);
+      freeRT(gl, rtBA);
+      freeRT(gl, rtBB);
 
       const bgW = Math.max(64, Math.round(cw * sceneScale));
       const bgH = Math.max(64, Math.round(ch * sceneScale));
-      const b1W = Math.max(32, Math.round(cw * 0.25));
-      const b1H = Math.max(32, Math.round(ch * 0.25));
-      const b2W = Math.max(16, Math.round(cw * 0.125));
-      const b2H = Math.max(16, Math.round(ch * 0.125));
+      const bW = Math.max(32, Math.round(cw * 0.18));
+      const bH = Math.max(32, Math.round(ch * 0.18));
 
       rtScene = createRT(gl, bgW, bgH, gl.LINEAR);
       rtCell = createRT(gl, cols, rows, gl.NEAREST);
-      rtGlyph = createRT(gl, cw, ch, gl.NEAREST);
-      rtB1A = createRT(gl, b1W, b1H, gl.LINEAR);
-      rtB1B = createRT(gl, b1W, b1H, gl.LINEAR);
-      rtB2A = createRT(gl, b2W, b2H, gl.LINEAR);
-      rtB2B = createRT(gl, b2W, b2H, gl.LINEAR);
+      rtBA = createRT(gl, bW, bH, gl.LINEAR);
+      rtBB = createRT(gl, bW, bH, gl.LINEAR);
+      clearOffscreenRTs();
     };
+
+    // Initial buffer + runway metric setup
+    syncBuffers(true);
+    syncRunwayMetrics();
 
     let disposed = false;
     if (typeof document !== "undefined" && document.fonts?.ready) {
       document.fonts.ready
         .then(() => {
           if (disposed) return;
-          if (cssWGlobal > 0 && cssHGlobal > 0) {
+          if (!startSettled && cssWGlobal > 0 && cssHGlobal > 0) {
             wordmarkTex = buildWordmarkMaskTexture(
               gl,
               wordmarkTex,
               cssWGlobal,
               cssHGlobal
             );
-            syncBuffers(true);
           }
+          syncBuffers(true);
+          syncRunwayMetrics();
         })
         .catch(() => {});
+    }
+
+    const roCanvas = new ResizeObserver(() => {
+      if (disposed) return;
+      syncBuffers();
+      syncRunwayMetrics();
+    });
+    roCanvas.observe(glCanvas);
+
+    const runwayElInit = runwayRefLatest.current?.current;
+    let roRunway: ResizeObserver | null = null;
+    if (runwayElInit) {
+      roRunway = new ResizeObserver(() => {
+        if (!disposed) syncRunwayMetrics();
+      });
+      roRunway.observe(runwayElInit);
     }
 
     const bindTex = (
@@ -1538,13 +1583,22 @@ export function AsciiBlackholeCanvas({
       gl.uniform1i(loc, unit);
     };
 
-    const setTarget = (rt: RenderTarget | null) => {
-      if (rt) {
-        gl.bindFramebuffer(gl.FRAMEBUFFER, rt.fb);
-        gl.viewport(0, 0, rt.w, rt.h);
+    const setTargetScissored = (
+      rt: RenderTarget | null,
+      vMin: number,
+      vMax: number
+    ) => {
+      const w = rt ? rt.w : cw;
+      const h = rt ? rt.h : ch;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, rt ? rt.fb : null);
+      gl.viewport(0, 0, w, h);
+      if (vMin <= 0.001 && vMax >= 0.999) {
+        gl.disable(gl.SCISSOR_TEST);
       } else {
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.viewport(0, 0, cw, ch);
+        const sy = Math.max(0, Math.floor(vMin * h) - 2);
+        const syEnd = Math.min(h, Math.ceil(vMax * h) + 2);
+        gl.enable(gl.SCISSOR_TEST);
+        gl.scissor(0, sy, w, Math.max(1, syEnd - sy));
       }
     };
 
@@ -1557,8 +1611,8 @@ export function AsciiBlackholeCanvas({
 
     const handlePointerMove = (e: PointerEvent) => {
       if (e.pointerType === "touch" || reducedMotion) return;
-      pointerTargetX = clamp01(e.clientX / Math.max(1, window.innerWidth));
-      pointerTargetY = clamp01(1 - e.clientY / Math.max(1, window.innerHeight));
+      pointerTargetX = clamp01(e.clientX / Math.max(1, cssWGlobal));
+      pointerTargetY = clamp01(1 - e.clientY / Math.max(1, cssHGlobal));
       pointerActiveTarget = 1;
     };
     const handlePointerLeave = () => {
@@ -1575,13 +1629,14 @@ export function AsciiBlackholeCanvas({
     let lastTs = performance.now();
     let lastBgDraw = 0;
     let rafId = 0;
+    let loopRunning = false;
 
     let dtEma = 0.0166;
     let overBudgetSec = 0;
     let lastPulseEdgeSec = -1;
     let lastPulseTriggerPerfMs = 0;
 
-    // Optional deterministic QA pin: ?introAt=1.0 | 3.35 | 4.22 | 5.85 | 8.2 | 9.25
+    // Optional deterministic QA pin: ?introAt=0.35 | 1.38 | 1.85 | 2.75 | 3.25
     let pinnedIntroAt: number | null = null;
     try {
       const qs = new URLSearchParams(window.location.search);
@@ -1609,51 +1664,51 @@ export function AsciiBlackholeCanvas({
       starWave: number
     ) => {
       if (!starCtx || cssWGlobal <= 1 || cssHGlobal <= 1) return;
-      const dpr = dprGlobal;
       starCtx.setTransform(1, 0, 0, 1, 0, 0);
-      starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
+      starCtx.clearRect(0, 0, cssWGlobal, cssHGlobal);
 
-      const glowY = cssHGlobal * mixNum(0.84, 0.09, pin) * dpr;
-      const glowRad =
-        Math.max(cssWGlobal, cssHGlobal) * mixNum(0.28, 0.16, pin) * dpr;
-      const grad = starCtx.createRadialGradient(
-        cssWGlobal * 0.5 * dpr,
-        glowY,
-        0,
-        cssWGlobal * 0.5 * dpr,
-        glowY,
-        glowRad
-      );
-      grad.addColorStop(
-        0,
-        `rgba(78, 20, 140, ${(mixNum(0.04, 0.022, pin) * settle).toFixed(3)})`
-      );
-      grad.addColorStop(1, "rgba(4, 2, 6, 0)");
-      starCtx.fillStyle = grad;
-      starCtx.fillRect(0, 0, starCanvas.width, starCanvas.height);
+      if (settle > 0.05) {
+        const glowY = cssHGlobal * mixNum(0.84, 0.09, pin);
+        const glowRad = Math.max(cssWGlobal, cssHGlobal) * mixNum(0.26, 0.14, pin);
+        const grad = starCtx.createRadialGradient(
+          cssWGlobal * 0.5,
+          glowY,
+          0,
+          cssWGlobal * 0.5,
+          glowY,
+          glowRad
+        );
+        grad.addColorStop(
+          0,
+          `rgba(78, 20, 140, ${(mixNum(0.04, 0.02, pin) * settle).toFixed(3)})`
+        );
+        grad.addColorStop(1, "rgba(4, 2, 6, 0)");
+        starCtx.fillStyle = grad;
+        starCtx.fillRect(0, 0, cssWGlobal, cssHGlobal);
+      }
 
       starCtx.textAlign = "center";
       starCtx.textBaseline = "middle";
 
-      const font10 = `500 ${Math.round(10 * dpr)}px ${monoFamily}`;
-      const font12 = `500 ${Math.round(12 * dpr)}px ${monoFamily}`;
+      const font10 = `500 10px ${monoFamily}`;
+      const font12 = `500 12px ${monoFamily}`;
 
       if (starWave > 0.005) {
-        const calmBelowFold = mixNum(1.0, 0.62, pin);
+        const calmBelowFold = mixNum(1.0, 0.58, pin);
         for (let i = 0; i < stars.length; i++) {
           const st = stars[i];
           const localAppear = smoothstep(
-            st.crestDist * 0.55,
-            st.crestDist * 0.55 + 0.42,
+            st.crestDist * 0.5,
+            st.crestDist * 0.5 + 0.42,
             starWave
           );
           if (localAppear <= 0.01) continue;
 
-          const sx = Math.round(st.nx * cssWGlobal * dpr);
-          const sy = Math.round(st.ny * cssHGlobal * dpr);
-          const twinkle = 0.45 + 0.55 * Math.sin(tSec * st.speed + st.phase);
+          const sx = Math.round(st.nx * cssWGlobal);
+          const sy = Math.round(st.ny * cssHGlobal);
+          const twinkle = 0.5 + 0.5 * Math.sin(tSec * st.speed + st.phase);
           const alpha = clamp01(
-            (0.16 + 0.32 * twinkle) * calmBelowFold * localAppear
+            (0.14 + 0.28 * twinkle) * calmBelowFold * localAppear
           );
 
           starCtx.font = st.sizeCss === 12 ? font12 : font10;
@@ -1668,12 +1723,12 @@ export function AsciiBlackholeCanvas({
         }
       }
 
-      if (!reducedMotion && pointerActive > 0.01 && starWave > 0.45) {
-        const cursorGlyphs = [".", ":", "-", "^", "t", "+", "=", "T", "*"];
+      if (!reducedMotion && pointerActive > 0.015 && starWave > 0.45) {
+        const cursorGlyphs = [".", ":", "-", "^", "t", "T"];
         const ptrCssX = pointerX * cssWGlobal;
         const ptrCssY = (1 - pointerY) * cssHGlobal;
-        const gridCss = 18;
-        const radiusCss = 104;
+        const gridCss = 20;
+        const radiusCss = 92;
         const minCol = Math.max(0, Math.floor((ptrCssX - radiusCss) / gridCss));
         const maxCol = Math.min(
           Math.ceil(cssWGlobal / gridCss),
@@ -1700,33 +1755,21 @@ export function AsciiBlackholeCanvas({
 
             const norm = 1 - dist / radiusCss;
             const falloff = Math.pow(norm, 1.85);
-            const shimmer =
-              0.78 + 0.22 * Math.sin(tSec * 2.4 + col * 0.65 + row * 0.48);
-            const alpha = Math.min(0.32, falloff * shimmer * fieldFade * 0.36);
-            if (alpha < 0.012) continue;
+            const alpha = Math.min(0.28, falloff * fieldFade * 0.34);
+            if (alpha < 0.015) continue;
 
-            const cellSeed = (col * 17 + row * 31) & 63;
-            const cyclePos =
-              tSec * 2.3 + cellSeed * 0.37 - (dist / radiusCss) * 2.2;
-            const glyphIdx =
-              ((Math.floor(cyclePos) % cursorGlyphs.length) +
-                cursorGlyphs.length) %
-              cursorGlyphs.length;
-            const glyph = cursorGlyphs[glyphIdx];
-
-            starCtx.font = falloff > 0.55 ? font12 : font10;
-            const glint = Math.sin(tSec * 3.1 + col * 1.13 + row * 0.87);
+            const glyphIdx = Math.min(
+              cursorGlyphs.length - 1,
+              Math.floor(falloff * cursorGlyphs.length)
+            );
+            starCtx.font = falloff > 0.58 ? font12 : font10;
             starCtx.fillStyle =
-              dist < 36 || (dist < 62 && glint > 0.65)
-                ? "#97DFFC"
-                : dist < 78
-                  ? "#858AE3"
-                  : "#613DC1";
+              dist < 36 ? "#97DFFC" : dist < 72 ? "#858AE3" : "#613DC1";
             starCtx.globalAlpha = alpha;
             starCtx.fillText(
-              glyph,
-              Math.round(cxCss * dpr),
-              Math.round(cyCss * dpr)
+              cursorGlyphs[glyphIdx],
+              Math.round(cxCss),
+              Math.round(cyCss)
             );
           }
         }
@@ -1736,24 +1779,28 @@ export function AsciiBlackholeCanvas({
     };
 
     const frame = (ts: number) => {
-      rafId = window.requestAnimationFrame(frame);
-      if (document.hidden) {
-        lastTs = ts;
+      if (disposed || document.hidden) {
+        loopRunning = false;
         return;
       }
 
+      rafId = window.requestAnimationFrame(frame);
+
       const rawDt = Math.max(0.001, (ts - lastTs) * 0.001);
+      // Smooth UI/pointer interpolation uses capped dt, while intro timeline tracks real wall-clock time
       const dt = Math.min(0.05, rawDt);
+      const wallDt = Math.min(0.4, rawDt);
       lastTs = ts;
 
-      dtEma = dtEma * 0.935 + Math.min(rawDt, 0.1) * 0.065;
-      if (!adaptiveDegraded && dtEma > 0.024) {
-        overBudgetSec += dt;
-        if (overBudgetSec > 2.2) {
+      dtEma = dtEma * 0.92 + Math.min(rawDt, 0.12) * 0.08;
+      if (!adaptiveDegraded && dtEma > 0.026) {
+        overBudgetSec += wallDt;
+        if (overBudgetSec > 0.75) {
           adaptiveDegraded = true;
+          syncBuffers();
         }
       } else {
-        overBudgetSec = Math.max(0, overBudgetSec - dt * 0.5);
+        overBudgetSec = Math.max(0, overBudgetSec - wallDt * 0.5);
       }
 
       const pLerp = Math.min(1, dt * 8.5);
@@ -1762,17 +1809,8 @@ export function AsciiBlackholeCanvas({
       pointerActive +=
         (pointerActiveTarget - pointerActive) * Math.min(1, dt * 5.2);
 
-      let rawPin = 0;
-      const runwayEl = runwayRefLatest.current?.current;
-      if (runwayEl) {
-        const rect = runwayEl.getBoundingClientRect();
-        const scrollable = Math.max(1, rect.height - window.innerHeight);
-        rawPin = clamp01(-rect.top / scrollable);
-      } else {
-        const fallbackSpan = Math.max(420, window.innerHeight * 2.0);
-        rawPin = clamp01(window.scrollY / fallbackSpan);
-      }
-
+      // Zero-reflow scroll progress from cached runway metrics
+      const rawPin = clamp01((window.scrollY - runwayTopDocY) / runwayScrollable);
       const scrollDt = Math.min(0.18, rawDt);
       smoothedPin += (rawPin - smoothedPin) * Math.min(1, scrollDt * 14.0);
       if (Math.abs(rawPin - smoothedPin) < 0.0004) {
@@ -1783,10 +1821,13 @@ export function AsciiBlackholeCanvas({
         introElapsed = Math.min(INTRO_TOTAL_SEC, pinnedIntroAt);
         resolveElapsed = Math.max(0, pinnedIntroAt - INTRO_TOTAL_SEC);
       } else if (introElapsed < INTRO_TOTAL_SEC) {
-        const scrollBoost = window.scrollY > 24 ? 5.8 : 1.0;
-        introElapsed = Math.min(INTRO_TOTAL_SEC, introElapsed + dt * scrollBoost);
+        const scrollBoost = window.scrollY > 24 ? 6.5 : 1.0;
+        introElapsed = Math.min(
+          INTRO_TOTAL_SEC,
+          introElapsed + wallDt * scrollBoost
+        );
       } else {
-        resolveElapsed = Math.min(10, resolveElapsed + dt);
+        resolveElapsed = Math.min(10, resolveElapsed + wallDt);
       }
 
       const isResolvedNow =
@@ -1796,83 +1837,73 @@ export function AsciiBlackholeCanvas({
         onRevealRef.current(true);
       }
 
-      syncBuffers();
-      if (
-        !rtScene ||
-        !rtCell ||
-        !rtGlyph ||
-        !rtB1A ||
-        !rtB1B ||
-        !rtB2A ||
-        !rtB2B ||
-        !atlasTex
-      ) {
+      if (!rtScene || !rtCell || !rtBA || !rtBB || !atlasTex) {
         return;
       }
 
       const tSec = pinnedIntroAt !== null ? pinnedIntroAt : ts * 0.001;
       const isMobile = cssWGlobal < 768;
       const viewAsp = cw / Math.max(1, ch);
-      const tanHalfFov = Math.tan(degToRad(23)); // 46 deg vertical FOV
+      const tanHalfFov = Math.tan(degToRad(23));
 
       // =====================================================================
-      // 1) ACT I -> V TIMING
+      // 1) SNAPPY ACT I -> V TIMING (3.20s Total, 2.65s Hero Reveal Overlap)
       // =====================================================================
-      const starVis = 1.0 - smoothstep(3.68, 3.92, introElapsed);
-      const tremble = smoothstep(1.25, 2.4, introElapsed);
-      const collapseT = clamp01((introElapsed - 2.4) / (3.85 - 2.4));
-      const collapseEase = Math.pow(collapseT, 2.2);
+      const starVis = 1.0 - smoothstep(1.0, 1.14, introElapsed);
+      const tremble = smoothstep(0.18, 0.55, introElapsed);
+      const collapseT = clamp01((introElapsed - 0.52) / (1.08 - 0.52));
+      const collapseEase = Math.pow(collapseT, 2.1);
       const starRadius =
-        mixNum(1.32, 0.14, collapseEase) +
-        Math.sin(tSec * 14.0) * 0.028 * tremble * (1.0 - collapseEase);
+        mixNum(1.28, 0.14, collapseEase) +
+        Math.sin(tSec * 12.0) * 0.024 * tremble * (1.0 - collapseEase);
       const starShift = clamp01(
-        smoothstep(1.35, 2.45, introElapsed) * 0.22 +
-          smoothstep(2.4, 3.65, introElapsed) * 0.78
+        smoothstep(0.22, 0.58, introElapsed) * 0.25 +
+          smoothstep(0.55, 1.02, introElapsed) * 0.75
       );
       const starCrack = clamp01(
-        smoothstep(1.15, 2.45, introElapsed) * 0.52 +
-          smoothstep(2.4, 3.58, introElapsed) * 0.48
+        smoothstep(0.15, 0.55, introElapsed) * 0.55 +
+          smoothstep(0.55, 0.98, introElapsed) * 0.45
       );
       const implode =
-        smoothstep(2.25, 2.85, introElapsed) *
-        (1.0 - smoothstep(3.76, 3.98, introElapsed));
+        smoothstep(0.48, 0.72, introElapsed) *
+        (1.0 - smoothstep(1.04, 1.16, introElapsed));
 
       const charge =
-        smoothstep(3.38, 3.82, introElapsed) *
-        (1.0 - smoothstep(3.86, 4.12, introElapsed));
+        smoothstep(0.84, 1.04, introElapsed) *
+        (1.0 - smoothstep(1.06, 1.18, introElapsed));
 
       const blastPeak =
-        smoothstep(3.8, 4.04, introElapsed) *
-        (1.0 - smoothstep(4.84, 5.4, introElapsed));
-      const blastProgress = clamp01((introElapsed - 3.8) / (5.55 - 3.8));
+        smoothstep(1.04, 1.14, introElapsed) *
+        (1.0 - smoothstep(1.62, 1.88, introElapsed));
+      const blastProgress = clamp01((introElapsed - 1.04) / (1.92 - 1.04));
       const ejecta =
-        smoothstep(3.8, 4.02, introElapsed) *
-        (1.0 - smoothstep(5.35, 6.55, introElapsed));
-      const ejectaProg = clamp01((introElapsed - 3.8) / (6.55 - 3.8));
+        smoothstep(1.04, 1.14, introElapsed) *
+        (1.0 - smoothstep(1.82, 2.32, introElapsed));
+      const ejectaProg = clamp01((introElapsed - 1.04) / (2.32 - 1.04));
       const wordmarkCarve =
-        smoothstep(4.02, 4.2, introElapsed) *
-        (1.0 - smoothstep(4.86, 5.2, introElapsed));
+        smoothstep(1.12, 1.22, introElapsed) *
+        (1.0 - smoothstep(1.62, 1.76, introElapsed));
 
-      const bhBirth = smoothstep(4.65, 5.38, introElapsed);
-      const diskBirth = smoothstep(4.72, 5.6, introElapsed);
+      const bhBirth = smoothstep(1.52, 1.88, introElapsed);
+      const diskBirth = smoothstep(1.58, 1.98, introElapsed);
 
-      const jetBreakout = smoothstep(3.32, 3.78, introElapsed);
-      const jetFade = 1.0 - smoothstep(6.25, 7.45, introElapsed);
+      const jetBreakout = smoothstep(0.84, 1.04, introElapsed);
+      const jetFade = 1.0 - smoothstep(2.05, 2.55, introElapsed);
       const jetPower =
-        jetBreakout * (1.0 + charge * 0.65 + blastPeak * 0.35) * jetFade;
+        jetBreakout * (1.0 + charge * 0.6 + blastPeak * 0.35) * jetFade;
 
-      const settle = easeInOutQuint(clamp01((introElapsed - 6.6) / 2.4));
+      const settle = easeInOutQuint(clamp01((introElapsed - 2.1) / 1.1));
 
       const lockPulse =
-        !startSettled && isResolvedNow
+        !startSettled && introElapsed >= INTRO_TOTAL_SEC - 0.001
           ? smoothstep(0.0, 0.08, resolveElapsed) *
-            (1.0 - smoothstep(0.16, 0.58, resolveElapsed))
+            (1.0 - smoothstep(0.16, 0.54, resolveElapsed))
           : 0.0;
-      const lockWaveProg = clamp01(resolveElapsed / 0.58);
+      const lockWaveProg = clamp01(resolveElapsed / 0.54);
       const starWave = startSettled
         ? 1.0
         : isResolvedNow
-          ? smoothstep(0.0, 0.95, resolveElapsed)
+          ? smoothstep(0.0, 0.85, Math.max(0, introElapsed - HERO_REVEAL_SEC) + resolveElapsed)
           : 0.0;
 
       const warmTint = starVis * (1.0 - smoothstep(0.18, 0.72, starShift));
@@ -1880,9 +1911,8 @@ export function AsciiBlackholeCanvas({
       // =====================================================================
       // 2) 3D ORBITAL CAMERA + HERO ARC CLEARANCE + SLIM DOCKED TOP DOME
       // =====================================================================
-      // Generous hero clearance at bottom (pin=0) + slim <=122px top dome (pin=1)
-      const bottomApex = isMobile ? 0.198 : 0.214;
-      const topApex = isMobile ? 0.086 : 0.068;
+      const bottomApex = isMobile ? 0.195 : 0.212;
+      const topApex = isMobile ? 0.084 : 0.068;
 
       const distBottom = isMobile ? 2.08 : 1.62;
       const alphaBottom = Math.asin(1 / distBottom);
@@ -1896,7 +1926,6 @@ export function AsciiBlackholeCanvas({
       const botLimbAngleTop = Math.atan((1 - 2 * topApex) * tanHalfFov);
       const pitchTop = -(botLimbAngleTop + alphaTop);
 
-      // Enlarged polar core aperture for Space-Filling Polar Chronograph
       const targetPolarRadiusPx = isMobile
         ? Math.min(cssWGlobal * 0.395, cssHGlobal * 0.195)
         : Math.min(cssWGlobal * 0.19, cssHGlobal * 0.285);
@@ -1916,12 +1945,7 @@ export function AsciiBlackholeCanvas({
       const polarFactor =
         smoothstep(0.14, 0.3, s) * (1.0 - smoothstep(0.64, 0.84, s)) * settle;
 
-      // =====================================================================
-      // 2b) POLAR-ONLY UTC-SYNCED 1-SECOND ESCAPEMENT PULSE
-      // Strictly 0 on settled hero (pin=0) and slim top dome (pin=1).
-      // Shares exact `(LAUNCH_TARGET_MS - Date.now())` boundary with HorizonCountdown.
-      // 40ms fast attack + 320ms smooth exponential decay.
-      // =====================================================================
+      // Polar-only UTC 1-second escapement pulse
       const polarGate = smoothstep(0.55, 0.9, polarFactor);
       let tickPulse = 0.0;
       let tickProg = 0.0;
@@ -1942,7 +1966,7 @@ export function AsciiBlackholeCanvas({
           lastPulseTriggerPerfMs = performance.now() - tickElapsedSinceEdgeMs;
         }
 
-        const totalWindowMs = 360; // 40ms attack + 320ms exponential decay
+        const totalWindowMs = 360;
         if (tickElapsedSinceEdgeMs < totalWindowMs) {
           tickProg = tickElapsedSinceEdgeMs / totalWindowMs;
           const env =
@@ -1976,19 +2000,19 @@ export function AsciiBlackholeCanvas({
         segDock * degToRad(16);
 
       const mobileScale = isMobile ? 1.24 : 1.0;
-      const dAct1 = mixNum(7.6, 6.8, smoothstep(0.0, 2.4, introElapsed));
-      const dAct2 = mixNum(dAct1, 7.25, smoothstep(2.4, 3.8, introElapsed));
+      const dAct1 = mixNum(7.5, 6.8, smoothstep(0.0, 0.6, introElapsed));
+      const dAct2 = mixNum(dAct1, 7.15, smoothstep(0.6, 1.08, introElapsed));
       const introDist =
-        mixNum(dAct2, 5.85, smoothstep(4.1, 6.55, introElapsed)) * mobileScale;
+        mixNum(dAct2, 5.85, smoothstep(1.2, 2.1, introElapsed)) * mobileScale;
       const introElevDeg = mixNum(
         19.0,
         15.0,
-        smoothstep(0.0, 6.55, introElapsed)
+        smoothstep(0.0, 2.1, introElapsed)
       );
       const introRoll = mixNum(
         degToRad(-22),
         degToRad(-18),
-        smoothstep(0.0, 6.55, introElapsed)
+        smoothstep(0.0, 2.1, introElapsed)
       );
 
       const elevRad = degToRad(mixNum(introElevDeg, scrollElevDeg, settle));
@@ -2050,7 +2074,7 @@ export function AsciiBlackholeCanvas({
       // 3) EXACT 3D-TO-DOM COUNTDOWN & SLIM LAYER 20 CURVED PRE-RIM VEIL SYNC
       // =====================================================================
       const bottomCountdownY = cssHGlobal * (1.0 - bottomApex * 0.45);
-      const topCountdownY = isMobile ? 34 : 31;
+      const topCountdownY = isMobile ? 33 : 31;
       const polarCenterY = cssHGlobal * 0.5;
       const cdBaseY = mixNum(
         bottomCountdownY,
@@ -2061,7 +2085,7 @@ export function AsciiBlackholeCanvas({
 
       const countdownScale = mixNum(
         1.0,
-        isMobile ? 0.6 : 0.64,
+        isMobile ? 0.58 : 0.64,
         smoothstep(0.0, 1.0, s)
       );
 
@@ -2156,15 +2180,39 @@ export function AsciiBlackholeCanvas({
         };
       }
 
-      if (ts - lastBgDraw > 32) {
+      // Throttled 1x-DPR starfield (~14fps idle, ~25fps on pointer move)
+      const bgIntervalMs = pointerActive > 0.02 ? 40 : 72;
+      if (ts - lastBgDraw >= bgIntervalMs) {
         lastBgDraw = ts;
         drawBackgroundField(tSec, s, settle, starWave);
+      }
+
+      // Determine active hardware scissor band (skips 52%–66% of GPU work at idle & below fold)
+      let scissorMode: "full" | "bottom" | "top" = "full";
+      let vMin = 0.0;
+      let vMax = 1.0;
+      if (settle > 0.99 && polarFactor < 0.01 && lockPulse < 0.002) {
+        if (segDock < 0.02) {
+          scissorMode = "bottom";
+          vMin = 0.0;
+          vMax = 0.48;
+        } else if (segDock > 0.98) {
+          scissorMode = "top";
+          vMin = 0.66;
+          vMax = 1.0;
+        }
+      }
+      if (scissorMode !== lastScissorMode) {
+        lastScissorMode = scissorMode;
+        if (scissorMode !== "full") {
+          clearOffscreenRTs();
+        }
       }
 
       gl.disable(gl.BLEND);
 
       // ---- PASS 1: Analytic 3D Cosmic Scene ----
-      setTarget(rtScene);
+      setTargetScissored(rtScene, vMin, vMax);
       gl.useProgram(pScene.prog);
       gl.uniform1f(pScene.u.uTime, tSec);
       gl.uniform1f(pScene.u.uViewAsp, viewAsp);
@@ -2200,7 +2248,7 @@ export function AsciiBlackholeCanvas({
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
       // ---- PASS 2: Grid-Aligned 4-Tap AA Cell Downsample ----
-      setTarget(rtCell);
+      setTargetScissored(rtCell, vMin, vMax);
       gl.useProgram(pCell.prog);
       bindTex(0, rtScene.tex, pCell.u.uBg);
       gl.uniform2f(pCell.u.uBgInv, 1.0 / rtScene.w, 1.0 / rtScene.h);
@@ -2210,105 +2258,103 @@ export function AsciiBlackholeCanvas({
       gl.uniform2f(pCell.u.uGrid, cols, rows);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-      // ---- PASS 3: 1:1 Native-Pixel Hybrid Luminous ASCII Fragment Pass ----
-      setTarget(rtGlyph);
-      gl.useProgram(pGlyph.prog);
-      bindTex(0, rtCell.tex, pGlyph.u.uCell);
-      bindTex(1, rtScene.tex, pGlyph.u.uBg);
-      bindTex(2, atlasTex, pGlyph.u.uAtlas);
-      if (wordmarkTex) {
-        bindTex(3, wordmarkTex, pGlyph.u.uWordmarkMask);
-      }
-      gl.uniform2i(pGlyph.u.uGrid, cols, rows);
-      gl.uniform2i(pGlyph.u.uCellPx, cellPxW, cellPxH);
-      gl.uniform2i(pGlyph.u.uGridOrigin, gridOriginX, gridOriginY);
-      gl.uniform2f(pGlyph.u.uCanvasPx, cw, ch);
-      gl.uniform1f(pGlyph.u.uGlyphCount, ASCII_RAMP.length);
-      gl.uniform1f(pGlyph.u.uWordmarkCarve, wordmarkCarve);
-      gl.uniform1f(pGlyph.u.uBlastPeak, blastPeak);
-      gl.uniform1f(pGlyph.u.uWarmTint, warmTint);
-      gl.uniform1f(pGlyph.u.uSettle, settle);
-      gl.uniform1f(pGlyph.u.uTime, tSec);
-      gl.uniform2f(pGlyph.u.uPointer, pointerX, pointerY);
-      gl.uniform1f(pGlyph.u.uPointerActive, pointerActive);
-      gl.uniform1f(pGlyph.u.uViewAsp, viewAsp);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-
-      // ---- PASS 4: 2-Tier Volumetric Bloom (Strictly on rtScene, NEVER on rtGlyph) ----
+      // ---- PASS 3: Crisp Single-Tier Pre-Glyph Bloom (2 Passes on rtScene) ----
       gl.useProgram(pBlur.prog);
-      // Tier 1: 1/4-res tight luminous halo
-      setTarget(rtB1A);
+      setTargetScissored(rtBA, vMin, vMax);
       bindTex(0, rtScene.tex, pBlur.u.uTex);
-      gl.uniform2f(pBlur.u.uDir, 1.65 / rtB1A.w, 0.0);
+      gl.uniform2f(pBlur.u.uDir, 1.85 / rtBA.w, 0.0);
       gl.uniform1f(pBlur.u.uThreshold, 0.34);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-      setTarget(rtB1B);
-      bindTex(0, rtB1A.tex, pBlur.u.uTex);
-      gl.uniform2f(pBlur.u.uDir, 0.0, 1.65 / rtB1B.h);
+      setTargetScissored(rtBB, vMin, vMax);
+      bindTex(0, rtBA.tex, pBlur.u.uTex);
+      gl.uniform2f(pBlur.u.uDir, 0.0, 1.85 / rtBB.h);
       gl.uniform1f(pBlur.u.uThreshold, 0.0);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-      // Tier 2: 1/8-res wide atmospheric cosmic bloom
-      setTarget(rtB2A);
-      bindTex(0, rtB1B.tex, pBlur.u.uTex);
-      gl.uniform2f(pBlur.u.uDir, 2.25 / rtB2A.w, 0.0);
-      gl.uniform1f(pBlur.u.uThreshold, 0.0);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-
-      setTarget(rtB2B);
-      bindTex(0, rtB2A.tex, pBlur.u.uTex);
-      gl.uniform2f(pBlur.u.uDir, 0.0, 2.25 / rtB2B.h);
-      gl.uniform1f(pBlur.u.uThreshold, 0.0);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-
-      // ---- PASS 5: Crisp-On-Top 2-Tier Volumetric Composite ----
-      setTarget(null);
+      // ---- PASS 4: Direct-to-Screen 1:1 Crisp ASCII + Volumetric Bloom Composite ----
+      gl.disable(gl.SCISSOR_TEST);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, cw, ch);
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.useProgram(pComp.prog);
-      bindTex(0, rtGlyph.tex, pComp.u.uBase);
-      bindTex(1, rtB1B.tex, pComp.u.uBloom1);
-      bindTex(2, rtB2B.tex, pComp.u.uBloom2);
+
+      setTargetScissored(null, vMin, vMax);
+      gl.useProgram(pGlyphComp.prog);
+      bindTex(0, rtCell.tex, pGlyphComp.u.uCell);
+      bindTex(1, rtScene.tex, pGlyphComp.u.uBg);
+      bindTex(2, atlasTex, pGlyphComp.u.uAtlas);
+      bindTex(3, rtBB.tex, pGlyphComp.u.uBloom);
       if (wordmarkTex) {
-        bindTex(3, wordmarkTex, pComp.u.uWordmarkMask);
+        bindTex(4, wordmarkTex, pGlyphComp.u.uWordmarkMask);
       }
-      gl.uniform2f(pComp.u.uGrid, cols, rows);
-      gl.uniform1f(pComp.u.uWordmarkCarve, wordmarkCarve);
-      // Calibrated 2-tier volumetric bloom + radiant supernova boost + polar-only tick lift
+      gl.uniform2i(pGlyphComp.u.uGrid, cols, rows);
+      gl.uniform2i(pGlyphComp.u.uCellPx, cellPxW, cellPxH);
+      gl.uniform2i(pGlyphComp.u.uGridOrigin, gridOriginX, gridOriginY);
+      gl.uniform2f(pGlyphComp.u.uCanvasPx, cw, ch);
+      gl.uniform1f(pGlyphComp.u.uGlyphCount, ASCII_RAMP.length);
+      gl.uniform1f(pGlyphComp.u.uWordmarkCarve, wordmarkCarve);
+      gl.uniform1f(pGlyphComp.u.uBlastPeak, blastPeak);
+      gl.uniform1f(pGlyphComp.u.uWarmTint, warmTint);
+      gl.uniform1f(pGlyphComp.u.uSettle, settle);
       const glowAmount =
-        mixNum(0.46, 0.52, settle) +
+        mixNum(0.46, 0.54, settle) +
         starVis * 0.14 +
         ejecta * 0.16 +
-        blastPeak * 0.36 +
+        blastPeak * 0.34 +
         lockPulse * 0.1 +
         tickPulse * 0.18;
-      gl.uniform1f(pComp.u.uGlow, glowAmount);
+      gl.uniform1f(pGlyphComp.u.uGlow, glowAmount);
+      gl.uniform2f(pGlyphComp.u.uPointer, pointerX, pointerY);
+      gl.uniform1f(pGlyphComp.u.uPointerActive, pointerActive);
+      gl.uniform1f(pGlyphComp.u.uViewAsp, viewAsp);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.disable(gl.SCISSOR_TEST);
     };
 
-    rafId = window.requestAnimationFrame(frame);
+    const startLoop = () => {
+      if (disposed || loopRunning || document.hidden) return;
+      loopRunning = true;
+      lastTs = performance.now();
+      rafId = window.requestAnimationFrame(frame);
+    };
+
+    const stopLoop = () => {
+      if (!loopRunning) return;
+      loopRunning = false;
+      window.cancelAnimationFrame(rafId);
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        stopLoop();
+      } else {
+        startLoop();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    startLoop();
 
     return () => {
       disposed = true;
-      window.cancelAnimationFrame(rafId);
+      stopLoop();
+      document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerleave", handlePointerLeave);
+      roCanvas.disconnect();
+      roRunway?.disconnect();
       freeRT(gl, rtScene);
       freeRT(gl, rtCell);
-      freeRT(gl, rtGlyph);
-      freeRT(gl, rtB1A);
-      freeRT(gl, rtB1B);
-      freeRT(gl, rtB2A);
-      freeRT(gl, rtB2B);
+      freeRT(gl, rtBA);
+      freeRT(gl, rtBB);
       if (atlasTex) gl.deleteTexture(atlasTex);
       if (wordmarkTex) gl.deleteTexture(wordmarkTex);
       gl.deleteVertexArray(vao);
       gl.deleteProgram(pScene.prog);
       gl.deleteProgram(pCell.prog);
-      gl.deleteProgram(pGlyph.prog);
       gl.deleteProgram(pBlur.prog);
-      gl.deleteProgram(pComp.prog);
+      gl.deleteProgram(pGlyphComp.prog);
     };
   }, [skipIntro]);
 

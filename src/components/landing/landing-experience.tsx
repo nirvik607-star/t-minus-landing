@@ -64,6 +64,20 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
   return t * t * (3 - 2 * t);
 }
 
+interface SyncDomCache {
+  cdOpacity: string;
+  cdTransform: string;
+  stripOpacity: string;
+  stripTransform: string;
+  polarOpacity: string;
+  polarTransform: string;
+  heroOpacity: string;
+  heroTransform: string;
+  heroPointer: string;
+  veilOpacity: string;
+  veilBg: string;
+}
+
 export function LandingExperience({
   skipIntro = false,
 }: LandingExperienceProps) {
@@ -84,6 +98,19 @@ export function LandingExperience({
   const countdownStripRef = useRef<HTMLDivElement | null>(null);
   const countdownPolarRef = useRef<HTMLDivElement | null>(null);
   const preRimVeilRef = useRef<HTMLDivElement | null>(null);
+  const syncCacheRef = useRef<SyncDomCache>({
+    cdOpacity: "",
+    cdTransform: "",
+    stripOpacity: "",
+    stripTransform: "",
+    polarOpacity: "",
+    polarTransform: "",
+    heroOpacity: "",
+    heroTransform: "",
+    heroPointer: "",
+    veilOpacity: "",
+    veilBg: "",
+  });
 
   // Honor ?skipIntro=1 client-side cleanly (100% static-export compatible)
   useEffect(() => {
@@ -120,92 +147,139 @@ export function LandingExperience({
     return () => window.removeEventListener("keydown", onKey);
   }, [legalDoc]);
 
-  // Frame-locked 60fps DOM sync for dual-mode HorizonCountdown, hero lift-off, and slim Layer 20 veil (<= 122px)
+  // Dirty-checked 60fps DOM sync: zero style mutations or paint invalidations at idle!
   const handleHorizonSync = useCallback((state: HorizonSyncState) => {
+    const cache = syncCacheRef.current;
+
     // 1) Center countdown container physically inside the `#000000` 3D black hole core
     const countdownEl = countdownTrackRef.current;
     if (countdownEl) {
-      countdownEl.style.opacity = state.heroResolved ? "1" : "0";
-      countdownEl.style.transform = `translate3d(-50%, ${state.countdownCenterY.toFixed(1)}px, 0) translateY(-50%)`;
+      const cdAlpha = smoothstep(0.66, 0.98, state.settleProgress);
+      const nextCdOpacity = cdAlpha.toFixed(3);
+      const nextCdTransform = `translate3d(-50%, ${state.countdownCenterY.toFixed(1)}px, 0) translateY(-50%)`;
+      if (cache.cdOpacity !== nextCdOpacity) {
+        cache.cdOpacity = nextCdOpacity;
+        countdownEl.style.opacity = nextCdOpacity;
+      }
+      if (cache.cdTransform !== nextCdTransform) {
+        cache.cdTransform = nextCdTransform;
+        countdownEl.style.transform = nextCdTransform;
+      }
     }
 
     // 1a) Horizon Strip mode (bottom pin=0 & slim top dome pin=1)
     const stripEl = countdownStripRef.current;
     if (stripEl) {
-      const stripOpacity = 1 - smoothstep(0.18, 0.48, state.polarFactor);
-      stripEl.style.opacity = stripOpacity.toFixed(4);
-      stripEl.style.transform = `scale(${state.countdownScale.toFixed(4)})`;
+      const nextStripOpacity = (
+        1 - smoothstep(0.18, 0.48, state.polarFactor)
+      ).toFixed(3);
+      const nextStripTransform = `scale(${state.countdownScale.toFixed(4)})`;
+      if (cache.stripOpacity !== nextStripOpacity) {
+        cache.stripOpacity = nextStripOpacity;
+        stripEl.style.opacity = nextStripOpacity;
+      }
+      if (cache.stripTransform !== nextStripTransform) {
+        cache.stripTransform = nextStripTransform;
+        stripEl.style.transform = nextStripTransform;
+      }
     }
 
     // 1b) Space-Filling Polar Chronograph mode inside `#000000` polar void
     const polarEl = countdownPolarRef.current;
     if (polarEl) {
       const polarOpacity = smoothstep(0.32, 0.68, state.polarFactor);
-      const isNarrow = state.viewportW < 640;
-      const naturalW = isNarrow ? 264 : 410;
-      const naturalH = isNarrow ? 172 : 260;
-      const fitW =
-        (state.polarDiameterPx * (isNarrow ? 0.75 : 0.82)) / naturalW;
-      const fitH =
-        (state.polarDiameterPx * (isNarrow ? 0.72 : 0.78)) / naturalH;
-      const fitScale = Math.min(1.0, Math.max(0.55, Math.min(fitW, fitH)));
-      const settleZoom =
-        0.86 + 0.14 * smoothstep(0.28, 0.74, state.polarFactor);
-      const polarScale = fitScale * settleZoom;
-
-      polarEl.style.opacity = polarOpacity.toFixed(4);
-      polarEl.style.transform = `translate(-50%, -50%) scale(${polarScale.toFixed(4)})`;
+      const nextPolarOpacity = polarOpacity.toFixed(3);
+      if (cache.polarOpacity !== nextPolarOpacity) {
+        cache.polarOpacity = nextPolarOpacity;
+        polarEl.style.opacity = nextPolarOpacity;
+      }
+      if (polarOpacity > 0.001) {
+        const isNarrow = state.viewportW < 640;
+        const naturalW = isNarrow ? 264 : 410;
+        const naturalH = isNarrow ? 172 : 260;
+        const fitW =
+          (state.polarDiameterPx * (isNarrow ? 0.75 : 0.82)) / naturalW;
+        const fitH =
+          (state.polarDiameterPx * (isNarrow ? 0.72 : 0.78)) / naturalH;
+        const fitScale = Math.min(1.0, Math.max(0.55, Math.min(fitW, fitH)));
+        const settleZoom =
+          0.86 + 0.14 * smoothstep(0.28, 0.74, state.polarFactor);
+        const polarScale = fitScale * settleZoom;
+        const nextPolarTransform = `translate(-50%, -50%) scale(${polarScale.toFixed(4)})`;
+        if (cache.polarTransform !== nextPolarTransform) {
+          cache.polarTransform = nextPolarTransform;
+          polarEl.style.transform = nextPolarTransform;
+        }
+      }
     }
 
     // 2) Smoothly lift & fade sticky hero copy as camera orbits toward top-down polar spiral
     const heroEl = heroCopyRef.current;
     if (heroEl) {
       const fadeOut = smoothstep(0.015, 0.22, state.pinProgress);
-      const heroOpacity = 1 - fadeOut;
-      const liftY = -fadeOut * 34;
-      heroEl.style.opacity = heroOpacity.toFixed(4);
-      heroEl.style.transform = `translate3d(0, ${liftY.toFixed(1)}px, 0)`;
-      heroEl.style.pointerEvents = state.pinProgress > 0.14 ? "none" : "auto";
+      const nextHeroOpacity = (1 - fadeOut).toFixed(3);
+      const nextHeroTransform = `translate3d(0, ${(-fadeOut * 34).toFixed(1)}px, 0)`;
+      const nextHeroPointer = state.pinProgress > 0.14 ? "none" : "auto";
+      if (cache.heroOpacity !== nextHeroOpacity) {
+        cache.heroOpacity = nextHeroOpacity;
+        heroEl.style.opacity = nextHeroOpacity;
+      }
+      if (cache.heroTransform !== nextHeroTransform) {
+        cache.heroTransform = nextHeroTransform;
+        heroEl.style.transform = nextHeroTransform;
+      }
+      if (cache.heroPointer !== nextHeroPointer) {
+        cache.heroPointer = nextHeroPointer;
+        heroEl.style.pointerEvents = nextHeroPointer;
+      }
     }
 
     // 3) Slim Layer 20 curved #040206 pre-rim occlusion veil strictly capped <= 122px
     const veilEl = preRimVeilRef.current;
     if (veilEl) {
       const veilAlpha = smoothstep(0.68, 0.88, state.pinProgress);
-      veilEl.style.opacity = veilAlpha.toFixed(4);
+      const nextVeilOpacity = veilAlpha.toFixed(3);
+      if (cache.veilOpacity !== nextVeilOpacity) {
+        cache.veilOpacity = nextVeilOpacity;
+        veilEl.style.opacity = nextVeilOpacity;
+      }
+
+      let nextVeilBg = "none";
       if (veilAlpha > 0.002 && state.domeRadiusPx > 10) {
         const isNarrow = state.viewportW < 640;
-        const cx = state.domeCenterX.toFixed(1);
-        const cy = state.domeCenterY.toFixed(1);
+        const cx = state.domeCenterX.toFixed(0);
+        const cy = state.domeCenterY.toFixed(0);
         const maxBottomY = 122;
         const maxR = Math.max(24, maxBottomY - state.domeCenterY);
         const solidR = Math.min(
           maxR - 22,
           state.domeRadiusPx + (isNarrow ? 16 : 14)
-        ).toFixed(1);
+        ).toFixed(0);
         const midR = Math.min(
           maxR - 10,
           state.domeRadiusPx + (isNarrow ? 28 : 26)
-        ).toFixed(1);
+        ).toFixed(0);
         const fadeR = Math.min(
           maxR,
           state.domeRadiusPx + (isNarrow ? 42 : 40)
-        ).toFixed(1);
+        ).toFixed(0);
         const edgeSolid = Math.min(
           74,
           Math.max(24, state.domeEdgeY + 12)
-        ).toFixed(1);
+        ).toFixed(0);
         const edgeFade = Math.min(
           118,
           Math.max(58, state.domeEdgeY + 38)
-        ).toFixed(1);
+        ).toFixed(0);
 
-        veilEl.style.backgroundImage = [
+        nextVeilBg = [
           `radial-gradient(circle at ${cx}px ${cy}px, #040206 0px, #040206 ${solidR}px, rgba(4, 2, 6, 0.90) ${midR}px, rgba(4, 2, 6, 0) ${fadeR}px)`,
           `linear-gradient(180deg, #040206 0px, #040206 ${edgeSolid}px, rgba(4, 2, 6, 0) ${edgeFade}px)`,
         ].join(", ");
-      } else {
-        veilEl.style.backgroundImage = "none";
+      }
+      if (cache.veilBg !== nextVeilBg) {
+        cache.veilBg = nextVeilBg;
+        veilEl.style.backgroundImage = nextVeilBg;
       }
     }
   }, []);
@@ -223,7 +297,7 @@ export function LandingExperience({
 
   return (
     <div className="relative min-h-[100dvh] w-full overflow-x-clip bg-[#040206] font-sans text-white selection:bg-[#613DC1]/55 selection:text-white">
-      {/* Layer 0 (starfield) + Layer 30 (Hybrid Luminous Volumetric ASCII 3D Black Hole) */}
+      {/* Layer 0 (starfield) + Layer 30 (Crisp Volumetric ASCII 3D Black Hole) */}
       <AsciiBlackholeCanvas
         onHeroReveal={setHeroRevealed}
         onHorizonSync={handleHorizonSync}
@@ -241,8 +315,8 @@ export function LandingExperience({
 
       {/* Layer 40: Fixed Top-Left Iconic T^minus Wordmark (Italic Newsreader T + upright ^minus) */}
       <header
-        className={`pointer-events-none fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-start px-5 transition-opacity duration-800 ease-out sm:h-[76px] sm:px-10 ${
-          heroRevealed ? "opacity-100 delay-[720ms]" : "opacity-0"
+        className={`pointer-events-none fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-start px-5 transition-opacity duration-500 ease-out sm:h-[76px] sm:px-10 ${
+          heroRevealed ? "opacity-100 delay-[260ms]" : "opacity-0"
         }`}
         style={instantMode ? { transitionDelay: "0ms" } : undefined}
       >
@@ -274,7 +348,7 @@ export function LandingExperience({
           transform:
             "translate3d(-50%, calc(100dvh - 96px), 0) translateY(-50%)",
         }}
-        className="pointer-events-none fixed top-0 left-1/2 z-40 transition-opacity duration-300 ease-out will-change-transform"
+        className="pointer-events-none fixed top-0 left-1/2 z-40 will-change-transform"
       >
         <HorizonCountdown
           stripRef={countdownStripRef}
@@ -282,7 +356,7 @@ export function LandingExperience({
         />
       </div>
 
-      {/* Main Flow (no trapping z-index on <main> so Hero sits at z-[35] above shader while below-fold scrolls at z-10 beneath slim top dome) */}
+      {/* Main Flow (Hero sits at z-[35] above shader while below-fold scrolls at z-10 beneath slim top dome) */}
       <main id="top" className="relative w-full">
         {/* NATIVE CSS STICKY SCROLL RUNWAY: Bottom Horizon -> Polar Void -> Slim Top Dome */}
         <div
@@ -291,7 +365,7 @@ export function LandingExperience({
         >
           <section
             data-section="hero"
-            className={`sticky top-0 z-[35] flex h-[100dvh] w-full flex-col items-center justify-center px-5 pt-12 pb-[23dvh] transition-opacity duration-500 ease-out sm:px-8 sm:pt-14 sm:pb-[24vh] ${
+            className={`sticky top-0 z-[35] flex h-[100dvh] w-full flex-col items-center justify-center px-5 pt-16 pb-[23dvh] transition-opacity duration-400 ease-out sm:px-8 sm:pt-[76px] sm:pb-[25vh] ${
               heroRevealed ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
           >
@@ -299,28 +373,28 @@ export function LandingExperience({
               ref={heroCopyRef}
               className="flex w-full max-w-[660px] flex-col items-center text-center will-change-transform"
             >
-              {/* Upright Inter Tight + 2B Vector Micro-ASCII MINUS Lockup (Zero Italics) */}
+              {/* Balanced Sculptural Lockup: Fashion. / MINUS / the Noise. */}
               <h1 className="flex w-full flex-col items-center">
                 <span
                   style={{ fontSize: "clamp(2.05rem, 4.1vw, 3.45rem)" }}
-                  className="block font-heading leading-[0.98] font-semibold tracking-[-0.035em] text-white"
+                  className="block font-heading leading-[1.0] font-semibold tracking-[-0.035em] text-white"
                 >
                   <AsciiRevealText
                     text="Fashion."
                     active={heroRevealed}
                     instant={instantMode}
                     origin="left"
-                    delayMs={120}
-                    durationMs={1080}
+                    delayMs={40}
+                    durationMs={540}
                   />
                 </span>
 
                 <AsciiMinusWordmark
                   active={heroRevealed}
                   instant={instantMode}
-                  delayMs={240}
-                  durationMs={1080}
-                  className="my-1.5 sm:my-2"
+                  delayMs={110}
+                  durationMs={620}
+                  className="my-2 sm:my-2.5"
                 />
 
                 <span
@@ -332,48 +406,31 @@ export function LandingExperience({
                     active={heroRevealed}
                     instant={instantMode}
                     origin="left"
-                    delayMs={420}
-                    durationMs={1140}
+                    delayMs={200}
+                    durationMs={560}
                   />
                 </span>
               </h1>
 
-              {/* Plain human subhead with single-word #97DFFC emphasis */}
-              <p className="mt-3.5 max-w-[330px] font-sans text-[14.5px] leading-[1.52] font-normal text-[#DCD5EE] sm:mt-4 sm:max-w-[460px] sm:text-[16px] sm:leading-[1.55]">
-                <AsciiRevealText
-                  text="The best clothes in the world rarely have the loudest "
-                  active={heroRevealed}
-                  instant={instantMode}
-                  delayMs={680}
-                  durationMs={1120}
-                  glyphClassName="text-[#858AE3]"
-                />
-                <span className="font-medium text-[#97DFFC]">
-                  <AsciiRevealText
-                    text="voice"
-                    active={heroRevealed}
-                    instant={instantMode}
-                    delayMs={1180}
-                    durationMs={620}
-                    glyphClassName="text-[#97DFFC]"
-                  />
-                </span>
-                <AsciiRevealText
-                  text="."
-                  active={heroRevealed}
-                  instant={instantMode}
-                  delayMs={1480}
-                  durationMs={220}
-                  glyphClassName="text-[#858AE3]"
-                />
+              {/* Plain human subhead (optical rise — no overlapping body-text ASCII scramble) */}
+              <p
+                className={`mt-5 max-w-[330px] font-sans text-[14.5px] leading-[1.52] font-normal text-[#DCD5EE] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:mt-6 sm:max-w-[460px] sm:text-[16px] sm:leading-[1.55] ${
+                  heroRevealed
+                    ? "translate-y-0 opacity-100 delay-[260ms]"
+                    : "translate-y-2 opacity-0"
+                }`}
+                style={instantMode ? { transitionDelay: "0ms" } : undefined}
+              >
+                The best clothes in the world rarely have the loudest{" "}
+                <span className="font-medium text-[#97DFFC]">voice</span>.
               </p>
 
               {/* Matte architectural switcher + input bar + 1-line consent (Waitlist offer OFF) */}
               <div
                 data-hero-waitlist="true"
-                className={`mt-5 w-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] sm:mt-6 ${
+                className={`mt-6 w-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:mt-7 ${
                   heroRevealed
-                    ? "translate-y-0 opacity-100 delay-[720ms]"
+                    ? "translate-y-0 opacity-100 delay-[300ms]"
                     : "translate-y-2 opacity-0"
                 }`}
                 style={instantMode ? { transitionDelay: "0ms" } : undefined}
@@ -393,7 +450,7 @@ export function LandingExperience({
         {/* ======================================================================== */}
         <div
           data-below-fold="true"
-          className="relative z-10 mx-auto w-full max-w-[1080px] px-5 pt-20 sm:px-10 sm:pt-28"
+          className="relative z-10 mx-auto w-full max-w-[1080px] px-5 pt-16 sm:px-10 sm:pt-24"
         >
           {/* BAND 1: Balanced 12-Col Asymmetric Premise */}
           <section data-band="premise" className="pb-16 sm:pb-24">
@@ -424,7 +481,7 @@ export function LandingExperience({
                 <ScrollAsciiReveal
                   tier="prose"
                   instant={instantMode}
-                  delayMs={160}
+                  delayMs={120}
                 >
                   <p className="font-sans text-[15.5px] leading-[1.68] font-normal text-[#DDD6EF] sm:text-[16px]">
                     Small clothing brands put months into fabric, cut, and
@@ -452,7 +509,7 @@ export function LandingExperience({
             </div>
           </section>
 
-          {/* BAND 2 (4B): Pure 01–04 Editorial Architectural Index (Zero Boxes, Zero Sprites) */}
+          {/* BAND 2 (4B): Pure 01–04 Editorial Architectural Index */}
           <section data-band="architecture" className="pb-16 sm:pb-24">
             <div className="mb-8 flex items-center justify-between font-mono text-[11px] font-medium tracking-[0.18em] text-[#A2A7F0] uppercase sm:mb-10">
               <span>
@@ -472,7 +529,6 @@ export function LandingExperience({
                   key={item.index}
                   className="group relative py-7 transition-colors duration-200 [@media(hover:hover)]:hover:bg-[#613DC1]/[0.06] sm:px-3 sm:py-9"
                 >
-                  {/* Restrained crisp ASCII edge tick visible on desktop hover */}
                   <span
                     aria-hidden="true"
                     className="pointer-events-none absolute top-1/2 left-0 hidden -translate-y-1/2 font-mono text-[11px] text-[#97DFFC] opacity-0 transition-opacity duration-200 [@media(hover:hover)]:group-hover:opacity-100 sm:block"
@@ -481,7 +537,6 @@ export function LandingExperience({
                   </span>
 
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-baseline md:gap-8">
-                    {/* Mobile top meta row: Index + Right-aligned Spec Tag */}
                     <div className="flex items-center justify-between md:col-span-1 md:block">
                       <span className="font-mono text-[12.5px] font-medium tracking-[0.16em] text-[#97DFFC] tabular-nums">
                         {item.index}
@@ -491,24 +546,22 @@ export function LandingExperience({
                       </span>
                     </div>
 
-                    {/* Title */}
                     <div className="md:col-span-4">
                       <h3 className="font-heading text-[21px] leading-[1.18] font-semibold tracking-[-0.025em] text-white sm:text-[23px]">
                         <ScrollAsciiReveal
                           text={item.title}
                           tier="headline"
                           instant={instantMode}
-                          delayMs={idx * 70}
+                          delayMs={idx * 60}
                         />
                       </h3>
                     </div>
 
-                    {/* Concise 2-line Copy */}
                     <div className="md:col-span-5">
                       <ScrollAsciiReveal
                         tier="prose"
                         instant={instantMode}
-                        delayMs={100 + idx * 60}
+                        delayMs={80 + idx * 50}
                       >
                         <p className="max-w-[44ch] font-sans text-[15px] leading-[1.64] text-[#D8D1EC]">
                           {item.body}
@@ -516,7 +569,6 @@ export function LandingExperience({
                       </ScrollAsciiReveal>
                     </div>
 
-                    {/* Desktop Right-Aligned Mono Spec Tag */}
                     <div className="hidden text-right md:col-span-2 md:block">
                       <span className="font-mono text-[10.5px] font-medium tracking-[0.16em] text-[#A2A7F0] uppercase transition-colors duration-200 [@media(hover:hover)]:group-hover:text-[#97DFFC]">
                         {item.specTag}
@@ -530,7 +582,6 @@ export function LandingExperience({
 
           {/* BAND 3 (6A): Shopper / Brand Distinction + "Be there at T-zero." + Inline WaitlistBar */}
           <section data-band="closing" className="pb-12 sm:pb-16">
-            {/* Compact 2-side audience distinction */}
             <div className="grid grid-cols-1 gap-10 pb-14 md:grid-cols-2 md:gap-0 md:divide-x md:divide-[#858AE3]/22 sm:pb-16">
               {/* For Shoppers */}
               <div className="flex flex-col justify-between md:pr-12 lg:pr-16">
@@ -553,7 +604,7 @@ export function LandingExperience({
                   <ScrollAsciiReveal
                     tier="prose"
                     instant={instantMode}
-                    delayMs={100}
+                    delayMs={80}
                   >
                     <p className="mt-3.5 max-w-[42ch] font-sans text-[15px] leading-[1.66] text-[#D8D1EC]">
                       Discover independent releases on a live clock, check true
@@ -594,7 +645,7 @@ export function LandingExperience({
                   <ScrollAsciiReveal
                     tier="prose"
                     instant={instantMode}
-                    delayMs={100}
+                    delayMs={80}
                   >
                     <p className="mt-3.5 max-w-[42ch] font-sans text-[15px] leading-[1.66] text-[#D8D1EC]">
                       Keep your own identity, story, and pricing. Turn every
@@ -621,7 +672,7 @@ export function LandingExperience({
               className="mb-10 sm:mb-12"
             />
 
-            {/* Inline T-Zero Closing Conversion Split (Zero scroll-to-top) */}
+            {/* Inline T-Zero Closing Conversion Split */}
             <div
               ref={closingSectionRef}
               className="grid grid-cols-1 gap-8 border-b border-[#858AE3]/22 pb-12 md:grid-cols-12 md:items-center md:gap-10 sm:pb-14"
@@ -644,7 +695,7 @@ export function LandingExperience({
                       text="T-zero."
                       tier="headline"
                       instant={instantMode}
-                      delayMs={260}
+                      delayMs={180}
                     />
                   </span>
                 </h2>

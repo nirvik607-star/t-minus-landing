@@ -50,6 +50,7 @@ function computeParts(nowMs: number): TimeParts {
  * - Synchronized 1:1 with the UTC `(LAUNCH_TARGET_MS - Date.now())` second boundary
  *   via recursive aligned `setTimeout` so the polar escapement shader pulse fires on
  *   the exact millisecond the visible seconds digit decrements.
+ * - Fixed `min-w-[2ch]` + `tabular-nums` prevents horizontal digit jitter on every tick.
  * - Layer A (`stripRef`): Crisp horizontal strip for bottom horizon (`pin=0`) and slim top dome (`pin=1`).
  * - Layer B (`polarRef`): Space-Filling Circular Chronograph inside the `#000000` polar black hole void.
  */
@@ -132,7 +133,9 @@ export function HorizonCountdown({
               key={unit.label}
               className="inline-flex items-baseline gap-1 sm:gap-1.5"
             >
-              <span>{unit.value}</span>
+              <span className="inline-block min-w-[2ch] text-right">
+                {unit.value}
+              </span>
               <span className="font-mono text-[11px] font-medium tracking-[0.06em] text-[#9EA3EE] sm:text-[13px]">
                 {unit.label}
               </span>
@@ -182,7 +185,9 @@ export function HorizonCountdown({
               key={unit.label}
               className="inline-flex items-baseline gap-1 sm:gap-1.5"
             >
-              <span>{unit.value}</span>
+              <span className="inline-block min-w-[2ch] text-right">
+                {unit.value}
+              </span>
               <span className="font-mono text-[10px] font-medium tracking-[0.08em] text-[#9EA3EE] sm:text-[14px]">
                 {unit.label}
               </span>
