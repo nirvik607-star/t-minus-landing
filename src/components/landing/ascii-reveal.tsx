@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * Strict locked ASCII glyph vocabulary (`^ - t + = T *`).
@@ -14,6 +14,8 @@ interface AsciiRevealTextProps {
   active: boolean;
   /** Bypass animation completely (used for `?skipIntro=1` and reduced-motion) */
   instant?: boolean;
+  /** Wave sweep origin: left-to-right or symmetric center-outward */
+  origin?: "left" | "center";
   /** Delay in ms after `active` flips true before the wave begins */
   delayMs?: number;
   /** Total wave sweep duration in ms */
@@ -32,13 +34,16 @@ function deterministicGlyph(index: number, tick: number): string {
  * Zero-jitter organic ASCII materialization:
  * - Each character slot reserves its exact final typographic width so mixed
  *   sans + serif-italic kerning never shifts during decode.
- * - Calm ~19Hz cadence (2–3 deliberate glyph steps per character, never frantic).
+ * - Supports `origin="center"` (blossoms outward from the black hole axis)
+ *   and `origin="left"` (editorial wave).
+ * - Calm ~19Hz cadence (2-3 deliberate glyph steps per character, never frantic).
  * - Swaps to plain native text once resolved for exact kerning & selection.
  */
 export function AsciiRevealText({
   text,
   active,
   instant = false,
+  origin = "left",
   delayMs = 0,
   durationMs = 760,
   glyphClassName = "text-[#858AE3]",
@@ -113,13 +118,17 @@ export function AsciiRevealText({
 
   if (!active) {
     return (
-      <span className={`opacity-0 ${className}`} aria-hidden="true">
-        {text}
+      <span aria-label={text} className={className}>
+        <span aria-hidden="true" className="opacity-0">
+          {text}
+        </span>
       </span>
     );
   }
 
   const total = Math.max(1, chars.length);
+  const mid = (total - 1) * 0.5;
+  const maxDist = Math.max(0.5, mid);
 
   return (
     <span aria-label={text} className={className}>
@@ -128,10 +137,16 @@ export function AsciiRevealText({
           return <React.Fragment key={idx}> </React.Fragment>;
         }
 
-        // Smooth left-to-right wave with subtle organic stagger
-        const slotStart = (idx / total) * 0.62;
-        const slotEnd = Math.min(1, slotStart + 0.36);
-        const local = (phase.progress - slotStart) / Math.max(0.01, slotEnd - slotStart);
+        const normPos =
+          origin === "center"
+            ? Math.abs(idx - mid) / maxDist
+            : idx / total;
+
+        const slotStart = normPos * (origin === "center" ? 0.54 : 0.62);
+        const slotSpan = origin === "center" ? 0.42 : 0.36;
+        const slotEnd = Math.min(1, slotStart + slotSpan);
+        const local =
+          (phase.progress - slotStart) / Math.max(0.01, slotEnd - slotStart);
 
         if (local <= 0) {
           return (
@@ -154,7 +169,7 @@ export function AsciiRevealText({
         }
 
         const g = deterministicGlyph(idx, phase.tick);
-        const glyphAlpha = Math.min(1, local * 1.4);
+        const glyphAlpha = Math.min(1, local * 1.45);
 
         return (
           <span key={idx} aria-hidden="true" className="relative inline-block">
@@ -168,6 +183,74 @@ export function AsciiRevealText({
           </span>
         );
       })}
+    </span>
+  );
+}
+
+interface ScrollAsciiRevealProps {
+  text: string;
+  origin?: "left" | "center";
+  delayMs?: number;
+  durationMs?: number;
+  glyphClassName?: string;
+  className?: string;
+}
+
+/**
+ * One-time viewport-triggered ASCII decode for below-the-fold editorial eyebrows
+ * and section headlines so the ASCII craft flows seamlessly down the entire page.
+ */
+export function ScrollAsciiReveal({
+  text,
+  origin = "left",
+  delayMs = 0,
+  durationMs = 560,
+  glyphClassName = "text-[#858AE3]",
+  className = "",
+}: ScrollAsciiRevealProps) {
+  const triggerRef = useRef<HTMLSpanElement | null>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = triggerRef.current;
+    if (!el) return;
+
+    const reducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion || typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setInView(true);
+            obs.disconnect();
+            break;
+          }
+        }
+      },
+      { threshold: 0.25, rootMargin: "0px 0px -8% 0px" }
+    );
+
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  return (
+    <span ref={triggerRef} className="inline">
+      <AsciiRevealText
+        text={text}
+        active={inView}
+        origin={origin}
+        delayMs={delayMs}
+        durationMs={durationMs}
+        glyphClassName={glyphClassName}
+        className={className}
+      />
     </span>
   );
 }

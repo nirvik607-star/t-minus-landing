@@ -10,7 +10,10 @@ import { HorizonCountdown } from "@/components/landing/horizon-countdown";
 import { WaitlistBar } from "@/components/landing/waitlist-bar";
 import { TMinusWordmark } from "@/components/landing/t-minus-wordmark";
 import { AsciiCornerButton } from "@/components/landing/ascii-corner-button";
-import { AsciiRevealText } from "@/components/landing/ascii-reveal";
+import {
+  AsciiRevealText,
+  ScrollAsciiReveal,
+} from "@/components/landing/ascii-reveal";
 
 interface LandingExperienceProps {
   skipIntro?: boolean;
@@ -51,25 +54,27 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
 export function LandingExperience({
   skipIntro = false,
 }: LandingExperienceProps) {
-  const [skipIntroResolved, setSkipIntroResolved] = useState(skipIntro);
+  const [instantMode, setInstantMode] = useState(skipIntro);
   const [heroRevealed, setHeroRevealed] = useState(skipIntro);
-
-  useEffect(() => {
-    try {
-      if (new URLSearchParams(window.location.search).get("skipIntro") === "1") {
-        setSkipIntroResolved(true);
-        setHeroRevealed(true);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
   const [legalDoc, setLegalDoc] = useState<"privacy" | "terms" | null>(null);
   const phoneInputRef = useRef<HTMLInputElement | null>(null);
   const runwayRef = useRef<HTMLDivElement | null>(null);
   const heroCopyRef = useRef<HTMLDivElement | null>(null);
   const countdownTrackRef = useRef<HTMLDivElement | null>(null);
   const preRimVeilRef = useRef<HTMLDivElement | null>(null);
+
+  // Honor ?skipIntro=1 client-side as well (supports static exports cleanly)
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      if (qs.get("skipIntro") === "1") {
+        setInstantMode(true);
+        setHeroRevealed(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // Keep document root painted in true obsidian #040206 so overscroll matches space cleanly
   useEffect(() => {
@@ -96,10 +101,10 @@ export function LandingExperience({
   // Frame-locked DOM sync for HorizonCountdown, hero lift-off fade, and Layer 20 curved pre-rim occlusion veil
   const handleHorizonSync = useCallback((state: HorizonSyncState) => {
     // 1) Sync HorizonCountdown physically inside the pure #000000 3D black hole core
+    //    Strictly hidden (opacity 0) until the black hole has fully resolved at the bottom!
     const countdownEl = countdownTrackRef.current;
     if (countdownEl) {
-      const vis = clamp01((state.settleProgress - 0.5) / 0.5);
-      countdownEl.style.opacity = vis.toFixed(4);
+      countdownEl.style.opacity = state.heroResolved ? "1" : "0";
       countdownEl.style.transform = `translate3d(-50%, ${state.countdownCenterY.toFixed(1)}px, 0) translateY(-50%) scale(${state.countdownScale.toFixed(4)})`;
     }
 
@@ -122,7 +127,6 @@ export function LandingExperience({
       if (veilAlpha > 0.002 && state.domeRadiusPx > 10) {
         const cx = state.domeCenterX.toFixed(1);
         const cy = state.domeCenterY.toFixed(1);
-        // Solid obsidian extends ~42px past the bright photon rim, then feathers smoothly 76px below
         const solidR = (state.domeRadiusPx + 42).toFixed(1);
         const midR = (state.domeRadiusPx + 74).toFixed(1);
         const fadeR = (state.domeRadiusPx + 120).toFixed(1);
@@ -147,12 +151,12 @@ export function LandingExperience({
 
   return (
     <div className="relative min-h-[100dvh] w-full overflow-x-clip bg-[#040206] text-white selection:bg-[#613DC1]/55 selection:text-white">
-      {/* Layer 0 (obsidian starfield + global cursor T-field) + Layer 30 (single persistent 3D WebGL2 black hole) */}
+      {/* Layer 0 (obsidian starfield + global cursor T-field) + Layer 30 (single persistent 3D WebGL2 Star -> Supernova -> Black Hole) */}
       <AsciiBlackholeCanvas
         onHeroReveal={setHeroRevealed}
         onHorizonSync={handleHorizonSync}
         runwayRef={runwayRef}
-        skipIntro={skipIntroResolved}
+        skipIntro={instantMode}
       />
 
       {/* Layer 20: Curved #040206 pre-rim occlusion veil synced to exact 3D-projected top dome */}
@@ -163,11 +167,12 @@ export function LandingExperience({
         className="pointer-events-none fixed inset-0 z-20 will-change-[opacity]"
       />
 
-      {/* Layer 40: Enlarged Responsive Top-Left T^minus Wordmark (crisp & unobstructed above the pinned dome) */}
+      {/* Layer 40: Enlarged Responsive Top-Left T^minus Wordmark (appears in tandem with WaitlistBar post-resolve) */}
       <header
-        className={`pointer-events-none fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-start px-6 transition-opacity duration-900 ease-out sm:h-20 sm:px-10 ${
-          heroRevealed ? "opacity-100" : "opacity-0"
+        className={`pointer-events-none fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-start px-6 transition-opacity duration-800 ease-out sm:h-20 sm:px-10 ${
+          heroRevealed ? "opacity-100 delay-[720ms]" : "opacity-0"
         }`}
+        style={instantMode ? { transitionDelay: "0ms" } : undefined}
       >
         <a
           href="#top"
@@ -185,13 +190,13 @@ export function LandingExperience({
       <div
         ref={countdownTrackRef}
         style={{
-          opacity: skipIntroResolved ? 1 : 0,
+          opacity: instantMode ? 1 : 0,
           transform:
             "translate3d(-50%, calc(100dvh - 108px), 0) translateY(-50%)",
         }}
-        className="pointer-events-none fixed top-0 left-1/2 z-40 will-change-transform"
+        className="pointer-events-none fixed top-0 left-1/2 z-40 transition-opacity duration-300 ease-out will-change-transform"
       >
-        <HorizonCountdown revealed={heroRevealed} instant={skipIntroResolved} />
+        <HorizonCountdown revealed={heroRevealed} instant={instantMode} />
       </div>
 
       {/* Layer 10: Main Content Flow (scrolls cleanly upward behind the Layer 20 veil & Layer 30 3D horizon) */}
@@ -202,7 +207,7 @@ export function LandingExperience({
           className="relative h-[250dvh] w-full sm:h-[300dvh]"
         >
           <section
-            className={`sticky top-0 flex h-[100dvh] w-full flex-col items-center justify-center px-5 pt-16 pb-[27vh] transition-opacity duration-700 ease-out sm:px-8 sm:pt-20 sm:pb-[29vh] ${
+            className={`sticky top-0 flex h-[100dvh] w-full flex-col items-center justify-center px-5 pt-16 pb-[27vh] transition-opacity duration-500 ease-out sm:px-8 sm:pt-20 sm:pb-[29vh] ${
               heroRevealed ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
           >
@@ -210,7 +215,7 @@ export function LandingExperience({
               ref={heroCopyRef}
               className="flex w-full max-w-[660px] flex-col items-center text-center will-change-transform"
             >
-              {/* Two-Line Centered Headline with Organic ASCII Materialization on Settle */}
+              {/* Two-Line Centered Headline with Center-Outward ASCII Materialization Strictly After Horizon Resolve */}
               <h1
                 style={{ fontSize: "clamp(2.55rem, 5.6vw, 4.25rem)" }}
                 className="font-sans leading-[1.06] font-medium tracking-[-0.036em] text-white"
@@ -219,8 +224,9 @@ export function LandingExperience({
                   <AsciiRevealText
                     text="Fashion."
                     active={heroRevealed}
-                    instant={skipIntroResolved}
-                    delayMs={140}
+                    instant={instantMode}
+                    origin="center"
+                    delayMs={180}
                     durationMs={640}
                     glyphClassName="text-[#858AE3]"
                   />
@@ -230,8 +236,9 @@ export function LandingExperience({
                     <AsciiRevealText
                       text="Minus"
                       active={heroRevealed}
-                      instant={skipIntroResolved}
-                      delayMs={240}
+                      instant={instantMode}
+                      origin="center"
+                      delayMs={260}
                       durationMs={620}
                       glyphClassName="text-[#97DFFC]"
                     />
@@ -239,30 +246,31 @@ export function LandingExperience({
                   <AsciiRevealText
                     text="the Noise."
                     active={heroRevealed}
-                    instant={skipIntroResolved}
-                    delayMs={320}
-                    durationMs={680}
+                    instant={instantMode}
+                    origin="left"
+                    delayMs={340}
+                    durationMs={660}
                     glyphClassName="text-[#858AE3]"
                   />
                 </span>
               </h1>
 
-              {/* Locked Subhead with single-word #97DFFC emphasis & organic ASCII resolve */}
+              {/* Locked Subhead with single-word #97DFFC emphasis & upward cascade ASCII resolve */}
               <p className="mt-4 max-w-[460px] text-[15px] leading-[1.55] font-normal text-[#D4CCE8]/86 sm:text-[16.5px]">
                 <AsciiRevealText
                   text="The best clothes in the world rarely have the loudest "
                   active={heroRevealed}
-                  instant={skipIntroResolved}
-                  delayMs={360}
-                  durationMs={780}
+                  instant={instantMode}
+                  delayMs={520}
+                  durationMs={760}
                   glyphClassName="text-[#613DC1]"
                 />
                 <span className="font-medium text-[#97DFFC]">
                   <AsciiRevealText
                     text="voice"
                     active={heroRevealed}
-                    instant={skipIntroResolved}
-                    delayMs={740}
+                    instant={instantMode}
+                    delayMs={900}
                     durationMs={420}
                     glyphClassName="text-[#97DFFC]"
                   />
@@ -270,8 +278,8 @@ export function LandingExperience({
                 <AsciiRevealText
                   text="."
                   active={heroRevealed}
-                  instant={skipIntroResolved}
-                  delayMs={860}
+                  instant={instantMode}
+                  delayMs={1020}
                   durationMs={180}
                   glyphClassName="text-[#858AE3]"
                 />
@@ -281,10 +289,10 @@ export function LandingExperience({
               <div
                 className={`mt-7 w-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] sm:mt-8 ${
                   heroRevealed
-                    ? "translate-y-0 opacity-100 delay-[420ms]"
-                    : "translate-y-2.5 opacity-0"
+                    ? "translate-y-0 opacity-100 delay-[760ms]"
+                    : "translate-y-2 opacity-0"
                 }`}
-                style={skipIntroResolved ? { transitionDelay: "0ms" } : undefined}
+                style={instantMode ? { transitionDelay: "0ms" } : undefined}
               >
                 <WaitlistBar
                   inputRef={phoneInputRef}
@@ -300,16 +308,32 @@ export function LandingExperience({
           {/* + THE MISSION */}
           <section className="relative mx-auto flex min-h-[76dvh] max-w-[660px] flex-col items-center justify-center px-6 py-28 text-center sm:py-36">
             <p className="font-mono text-[10.5px] font-medium tracking-[0.18em] text-[#858AE3] uppercase">
-              <span className="text-[#613DC1]">+</span> THE MISSION
+              <span className="text-[#613DC1]">+</span>{" "}
+              <ScrollAsciiReveal
+                text="THE MISSION"
+                durationMs={440}
+                glyphClassName="text-[#613DC1]"
+              />
             </p>
 
             <h2
               style={{ fontSize: "clamp(2.05rem, 4.8vw, 3.4rem)" }}
               className="mt-5 font-sans leading-[1.09] font-medium tracking-[-0.035em] text-white"
             >
-              Craft over{" "}
+              <ScrollAsciiReveal
+                text="Craft over"
+                origin="center"
+                delayMs={80}
+                durationMs={520}
+                glyphClassName="text-[#858AE3]"
+              />{" "}
               <span className="font-serif text-[1.07em] font-medium italic tracking-[-0.015em] text-[#97DFFC]">
-                ad spend.
+                <ScrollAsciiReveal
+                  text="ad spend."
+                  delayMs={180}
+                  durationMs={520}
+                  glyphClassName="text-[#97DFFC]"
+                />
               </span>
             </h2>
 
@@ -324,16 +348,32 @@ export function LandingExperience({
           {/* + THE EXPERIENCE */}
           <section className="relative mx-auto max-w-[620px] px-6 py-24 text-center sm:py-32">
             <p className="font-mono text-[10.5px] font-medium tracking-[0.18em] text-[#858AE3] uppercase">
-              <span className="text-[#613DC1]">+</span> THE EXPERIENCE
+              <span className="text-[#613DC1]">+</span>{" "}
+              <ScrollAsciiReveal
+                text="THE EXPERIENCE"
+                durationMs={460}
+                glyphClassName="text-[#613DC1]"
+              />
             </p>
 
             <h2
               style={{ fontSize: "clamp(2.05rem, 4.6vw, 3.25rem)" }}
               className="mt-5 font-sans leading-[1.09] font-medium tracking-[-0.035em] text-white"
             >
-              Built for every{" "}
+              <ScrollAsciiReveal
+                text="Built for every"
+                origin="center"
+                delayMs={80}
+                durationMs={520}
+                glyphClassName="text-[#858AE3]"
+              />{" "}
               <span className="font-serif text-[1.07em] font-medium italic tracking-[-0.015em] text-[#97DFFC]">
-                drop.
+                <ScrollAsciiReveal
+                  text="drop."
+                  delayMs={200}
+                  durationMs={460}
+                  glyphClassName="text-[#97DFFC]"
+                />
               </span>
             </h2>
 
@@ -357,18 +397,38 @@ export function LandingExperience({
           {/* CLOSING ACTION — Dark Secondary Polarity (#613DC1 fill + crisp #97DFFC diagonal-X corner ASCII) */}
           <section className="relative mx-auto flex max-w-[540px] flex-col items-center px-6 pt-20 pb-28 text-center sm:pt-24 sm:pb-36">
             <p className="font-mono text-[10.5px] tracking-[0.18em] text-[#858AE3] uppercase">
-              APP STORE V1.0 - JANUARY 1, 2027
+              <ScrollAsciiReveal
+                text="APP STORE V1.0 - JANUARY 1, 2027"
+                durationMs={540}
+                glyphClassName="text-[#613DC1]"
+              />
             </p>
 
             <h2
               style={{ fontSize: "clamp(1.9rem, 4vw, 2.8rem)" }}
               className="mt-4 font-sans leading-[1.12] font-medium tracking-[-0.032em] text-white"
             >
-              Be there when the{" "}
+              <ScrollAsciiReveal
+                text="Be there when the"
+                origin="center"
+                delayMs={80}
+                durationMs={520}
+                glyphClassName="text-[#858AE3]"
+              />{" "}
               <span className="font-serif text-[1.06em] font-medium italic text-[#97DFFC]">
-                clock
+                <ScrollAsciiReveal
+                  text="clock"
+                  delayMs={200}
+                  durationMs={440}
+                  glyphClassName="text-[#97DFFC]"
+                />
               </span>{" "}
-              hits zero.
+              <ScrollAsciiReveal
+                text="hits zero."
+                delayMs={280}
+                durationMs={480}
+                glyphClassName="text-[#858AE3]"
+              />
             </h2>
 
             <AsciiCornerButton
