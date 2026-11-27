@@ -11,7 +11,7 @@ const useIsomorphicLayoutEffect =
 /**
  * Shared scroll & 3D camera telemetry published every animation frame so
  * `HorizonCountdown`, hero lift-off, Layer 20 curved pre-rim veil,
- * perimeter telemetry HUD, vernier rail, and the polar 60-tick bezel
+ * perimeter telemetry HUD, and vernier rail
  * stay pixel-locked at 60fps with the real 3D black hole.
  */
 export interface HorizonSyncState {
@@ -27,7 +27,7 @@ export interface HorizonSyncState {
   heroResolved: boolean;
   /** Screen Y (px from top) where the countdown centers inside the pure #000000 core */
   countdownCenterY: number;
-  /** Scale factor for Horizon Strip mode (1.0 bottom -> 0.64/0.58 slim top dome) */
+  /** Scale factor for Horizon Strip mode (1.0 bottom -> 0.84/0.76 docked top dome) */
   countdownScale: number;
   /** Exact 3D-projected top-dome circle in CSS px for the slim Layer 20 curved pre-rim veil */
   domeCenterX: number;
@@ -41,12 +41,6 @@ export interface HorizonSyncState {
   introElapsed: number;
   /** Current 3D orbital camera elevation in degrees (26° -> 88° -> 154°) */
   elevDeg: number;
-  /** Current orbital scroll azimuth in degrees (counter-rotates UI-3 outer bezel ring) */
-  scrollAzimDeg: number;
-  /** Live polar UTC 1-second escapement pulse (0..1) */
-  tickPulse: number;
-  /** Live polar UTC 1-second escapement wave progress (0..1) */
-  tickProg: number;
 }
 
 export interface AsciiBlackholeControl {
@@ -2266,7 +2260,7 @@ export function AsciiBlackholeCanvas({
       // 2) 3D ORBITAL CAMERA + UI-5 POINTER PARALLAX + SLIM DOCKED TOP DOME
       // =====================================================================
       const bottomApex = isMobile ? 0.195 : 0.212;
-      const topApex = isMobile ? 0.084 : 0.068;
+      const topApex = isMobile ? 0.102 : 0.088;
 
       const distBottom = isMobile ? 2.08 : 1.62;
       const alphaBottom = Math.asin(1 / distBottom);
@@ -2281,8 +2275,8 @@ export function AsciiBlackholeCanvas({
       const pitchTop = -(botLimbAngleTop + alphaTop);
 
       const targetPolarRadiusPx = isMobile
-        ? Math.min(cssWGlobal * 0.395, cssHGlobal * 0.195)
-        : Math.min(cssWGlobal * 0.19, cssHGlobal * 0.285);
+        ? Math.min(cssWGlobal * 0.42, cssHGlobal * 0.21)
+        : Math.min(cssWGlobal * 0.215, cssHGlobal * 0.315);
       const polarTanAlpha =
         (targetPolarRadiusPx / (cssHGlobal * 0.5)) * tanHalfFov;
       const polarAlpha = Math.atan(Math.max(0.08, polarTanAlpha));
@@ -2444,8 +2438,8 @@ export function AsciiBlackholeCanvas({
       // =====================================================================
       // 3) EXACT 3D-TO-DOM COUNTDOWN & SLIM LAYER 20 CURVED PRE-RIM VEIL SYNC
       // =====================================================================
-      const bottomCountdownY = cssHGlobal * (1.0 - bottomApex * 0.45);
-      const topCountdownY = isMobile ? 33 : 31;
+      const bottomCountdownY = cssHGlobal * (1.0 - bottomApex * 0.41);
+      const topCountdownY = isMobile ? 41 : 39;
       const polarCenterY = cssHGlobal * 0.5;
       const cdBaseY = mixNum(
         bottomCountdownY,
@@ -2456,7 +2450,7 @@ export function AsciiBlackholeCanvas({
 
       const countdownScale = mixNum(
         1.0,
-        isMobile ? 0.58 : 0.64,
+        isMobile ? 0.76 : 0.84,
         smoothstep(0.0, 1.0, s)
       );
 
@@ -2521,9 +2515,6 @@ export function AsciiBlackholeCanvas({
         viewportW: cssWGlobal,
         introElapsed,
         elevDeg: baseScrollElevDeg,
-        scrollAzimDeg: (scrollAzim * 180) / Math.PI,
-        tickPulse,
-        tickProg,
       });
 
       // Throttled 1x-DPR starfield (~14fps idle, ~25fps on pointer/shockwave; skipped during Act I-IV)
@@ -2553,7 +2544,7 @@ export function AsciiBlackholeCanvas({
           vMax = 0.48;
         } else if (segDock > 0.98) {
           scissorMode = "top";
-          vMin = 0.66;
+          vMin = 0.62;
           vMax = 1.0;
         }
       }

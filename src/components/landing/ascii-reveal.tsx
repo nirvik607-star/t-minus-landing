@@ -14,8 +14,10 @@ interface AsciiRevealTextProps {
   text: string;
   /** Starts the crisp ASCII wavefront materialization when true */
   active: boolean;
-  /** Bypass animation completely (used for `?skipIntro=1` and reduced-motion) */
+  /** Bypass animation completely (used for initial `?skipIntro=1` paint and reduced-motion) */
   instant?: boolean;
+  /** Increment to cleanly replay the wavefront on scroll re-entry */
+  replayKey?: number;
   /** Wave sweep origin */
   origin?: "left" | "center" | "right";
   /** Delay in ms after `active` flips true before the wave begins */
@@ -41,6 +43,7 @@ export function AsciiRevealText({
   text,
   active,
   instant = false,
+  replayKey = 0,
   origin = "left",
   delayMs = 0,
   durationMs = 640,
@@ -74,7 +77,7 @@ export function AsciiRevealText({
     return { chars: arr, words: grouped };
   }, [text]);
 
-  const [resolved, setResolved] = useState(instant);
+  const [resolved, setResolved] = useState(instant && replayKey === 0);
   const nativeRefs = useRef<Array<HTMLSpanElement | null>>([]);
   const glyphRefs = useRef<Array<HTMLSpanElement | null>>([]);
 
@@ -93,11 +96,6 @@ export function AsciiRevealText({
       // ignore
     }
 
-    if (pinnedProgress === null && instant) {
-      setResolved(true);
-      return;
-    }
-
     const reducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -106,8 +104,8 @@ export function AsciiRevealText({
       return;
     }
 
-    if (!active && pinnedProgress === null) {
-      setResolved(false);
+    if (pinnedProgress === null && instant && replayKey === 0) {
+      setResolved(true);
       return;
     }
 
@@ -182,6 +180,12 @@ export function AsciiRevealText({
       }
     };
 
+    if (!active && pinnedProgress === null) {
+      setResolved(false);
+      const id = window.requestAnimationFrame(() => applyProgress(0));
+      return () => window.cancelAnimationFrame(id);
+    }
+
     if (pinnedProgress !== null) {
       setResolved(false);
       const id = window.requestAnimationFrame(() => applyProgress(pinnedProgress!));
@@ -192,9 +196,13 @@ export function AsciiRevealText({
     let rafId = 0;
     let startTs = 0;
 
-    applyProgress(0);
+    // Zero spans cleanly on the next frame (handles transition from `resolved=true -> false`)
+    rafId = window.requestAnimationFrame(() => {
+      applyProgress(0);
+    });
 
     const timer = window.setTimeout(() => {
+      window.cancelAnimationFrame(rafId);
       startTs = performance.now();
 
       const step = (ts: number) => {
@@ -216,11 +224,16 @@ export function AsciiRevealText({
       window.clearTimeout(timer);
       window.cancelAnimationFrame(rafId);
     };
-  }, [active, instant, origin, delayMs, durationMs, chars]);
+  }, [active, instant, replayKey, origin, delayMs, durationMs, chars]);
 
   if (resolved) {
     return (
-      <span style={{ fontKerning: "none" }} className={className}>
+      <span
+        data-ascii-reveal="resolved"
+        data-ascii-run={replayKey}
+        style={{ fontKerning: "none" }}
+        className={className}
+      >
         {text}
       </span>
     );
@@ -229,6 +242,8 @@ export function AsciiRevealText({
   return (
     <span
       aria-label={text}
+      data-ascii-reveal={active ? "animating" : "armed"}
+      data-ascii-run={replayKey}
       style={{ fontKerning: "none" }}
       className={className}
     >
@@ -276,7 +291,12 @@ interface ScrollAsciiRevealProps {
 }
 
 /**
- * Below-the-fold one-shot IntersectionObserver ASCII materialization:
+ * Bidirectional IntersectionObserver ASCII materialization:
+ * - Triggers whenever an element is uncovered from under the docked top-dome black hole
+ *   or from below the viewport, and silently re-arms only once fully cleared past the
+ *   docked dome (`bottom <= 84`) or below the fold (`top >= innerHeight + 16`).
+ * - Preserves `?skipIntro=1` initial settled load (while still replaying on subsequent
+ *   scroll transitions), `?revealAt=...` QA pins, and `prefers-reduced-motion`.
  * - `telemetry`: crisp 540ms wavefront for coordinates & eyebrows
  * - `headline`: crisp 740ms wavefront with `#97DFFC -> #F7FAFF` crest
  * - `prose`: calm 480ms optical rise (never scrambles reading copy)
@@ -292,13 +312,19 @@ export function ScrollAsciiReveal({
 }: ScrollAsciiRevealProps) {
   const hostRef = useRef<HTMLSpanElement | null>(null);
   const [visible, setVisible] = useState(instant);
+  const [playCount, setPlayCount] = useState(0);
   const [hasRevealPin, setHasRevealPin] = useState(false);
+  const [isReducedMotion, setIsReducedMotion] = useState(false);
+
+  const visibleRef = useRef(instant);
+  const armedRef = useRef(!instant);
 
   useEffect(() => {
     try {
       const qs = new URLSearchParams(window.location.search);
       if (qs.get("revealAt") !== null) {
         setHasRevealPin(true);
+        visibleRef.current = true;
         setVisible(true);
         return;
       }
@@ -306,51 +332,95 @@ export function ScrollAsciiReveal({
       // ignore
     }
 
-    if (instant) {
-      setVisible(true);
-      return;
-    }
-
     const reducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reducedMotion) {
+      setIsReducedMotion(true);
+      visibleRef.current = true;
       setVisible(true);
       return;
     }
 
     const el = hostRef.current;
     if (!el || typeof IntersectionObserver === "undefined") {
+      visibleRef.current = true;
       setVisible(true);
       return;
+    }
+
+    // If loaded with `?skipIntro=1`, keep elements currently visible on-screen settled
+    // initially, while arming off-screen below-the-fold elements so scrolling uncovers them cleanly.
+    const initRect = el.getBoundingClientRect();
+    const initVh = window.innerHeight || 900;
+    const initCleared = initRect.bottom <= 84 || initRect.top >= initVh + 16;
+    if (initCleared) {
+      armedRef.current = true;
+      visibleRef.current = false;
+      setVisible(false);
+    } else if (instant) {
+      armedRef.current = false;
+      visibleRef.current = true;
+      setVisible(true);
     }
 
     const obs = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
+          const rect = entry.boundingClientRect;
+          const vh = window.innerHeight || 900;
+
           if (entry.isIntersecting) {
-            setVisible(true);
-            obs.disconnect();
-            break;
+            const largeBlock = rect.height > vh * 0.55;
+            if (entry.intersectionRatio >= 0.1 || largeBlock) {
+              if (!visibleRef.current) {
+                visibleRef.current = true;
+                if (armedRef.current) {
+                  armedRef.current = false;
+                  setPlayCount((n) => n + 1);
+                }
+                setVisible(true);
+              }
+            }
+          } else {
+            // Re-arm strictly once cleared past the docked top-dome veil or below viewport (zero edge flicker)
+            const clearedAbove = rect.bottom <= 84;
+            const clearedBelow = rect.top >= vh + 16;
+            if (clearedAbove || clearedBelow) {
+              armedRef.current = true;
+              if (visibleRef.current) {
+                visibleRef.current = false;
+                setVisible(false);
+              }
+            }
           }
         }
       },
-      { threshold: 0.14, rootMargin: "0px 0px -24px 0px" }
+      { threshold: [0, 0.14], rootMargin: "-92px 0px -24px 0px" }
     );
 
     obs.observe(el);
     return () => obs.disconnect();
   }, [instant]);
 
+  const effectiveInstant =
+    hasRevealPin
+      ? false
+      : isReducedMotion || (instant && playCount === 0);
+
   if (tier === "prose") {
     return (
       <span
         ref={hostRef}
+        data-scroll-reveal-prose={visible ? "visible" : "armed"}
+        data-scroll-reveal-run={playCount}
         style={{
-          transitionDelay: instant ? "0ms" : `${delayMs}ms`,
+          transitionDelay: effectiveInstant || !visible ? "0ms" : `${delayMs}ms`,
         }}
-        className={`block transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          visible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+        className={`block transition-all ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          visible
+            ? "duration-500 translate-y-0 opacity-100"
+            : "duration-0 translate-y-2 opacity-0"
         } ${className}`}
       >
         {children ?? text}
@@ -365,7 +435,8 @@ export function ScrollAsciiReveal({
       <AsciiRevealText
         text={text ?? ""}
         active={visible}
-        instant={hasRevealPin ? false : instant}
+        instant={effectiveInstant}
+        replayKey={playCount}
         origin={origin}
         delayMs={delayMs}
         durationMs={durationMs}
@@ -387,7 +458,7 @@ interface AsciiHorizonRuleProps {
  * Refined architectural hairline + restrained ASCII horizon calibration rule:
  * - Clean precision horizontal hairline (`1px` subtle `#858AE3/24`) with intentional
  *   corner ticks and a central micro-ASCII focal crest (`.:-^tT`) that materializes
- *   center-outward and responds smoothly to desktop hover.
+ *   center-outward on every bidirectional scroll uncover without reallocating its canvas.
  */
 export function AsciiHorizonRule({
   instant = false,
@@ -398,43 +469,81 @@ export function AsciiHorizonRule({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const monoProbeRef = useRef<HTMLSpanElement | null>(null);
   const [visible, setVisible] = useState(instant);
+  const [playCount, setPlayCount] = useState(0);
+
+  const visibleRef = useRef(instant);
+  const armedRef = useRef(!instant);
+  const controllerRef = useRef<{
+    arm: () => void;
+    settle: () => void;
+    play: () => void;
+  } | null>(null);
 
   useEffect(() => {
-    if (instant) {
-      setVisible(true);
-      return;
-    }
-
     const reducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reducedMotion) {
+      visibleRef.current = true;
       setVisible(true);
       return;
     }
 
     const el = containerRef.current;
     if (!el || typeof IntersectionObserver === "undefined") {
+      visibleRef.current = true;
       setVisible(true);
       return;
+    }
+
+    const initRect = el.getBoundingClientRect();
+    const initVh = window.innerHeight || 900;
+    const initCleared = initRect.bottom <= 84 || initRect.top >= initVh + 16;
+    if (initCleared) {
+      armedRef.current = true;
+      visibleRef.current = false;
+      setVisible(false);
+    } else if (instant) {
+      armedRef.current = false;
+      visibleRef.current = true;
+      setVisible(true);
     }
 
     const obs = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
+          const rect = entry.boundingClientRect;
+          const vh = window.innerHeight || 900;
+
           if (entry.isIntersecting) {
-            setVisible(true);
-            obs.disconnect();
-            break;
+            if (!visibleRef.current) {
+              visibleRef.current = true;
+              if (armedRef.current) {
+                armedRef.current = false;
+                setPlayCount((n) => n + 1);
+              }
+              setVisible(true);
+            }
+          } else {
+            const clearedAbove = rect.bottom <= 84;
+            const clearedBelow = rect.top >= vh + 16;
+            if (clearedAbove || clearedBelow) {
+              armedRef.current = true;
+              if (visibleRef.current) {
+                visibleRef.current = false;
+                setVisible(false);
+              }
+            }
           }
         }
       },
-      { threshold: 0.2 }
+      { threshold: [0, 0.14], rootMargin: "-92px 0px -24px 0px" }
     );
     obs.observe(el);
     return () => obs.disconnect();
   }, [instant]);
 
+  // Persistent canvas setup (never reallocates when scrolling up/down)
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
@@ -445,7 +554,6 @@ export function AsciiHorizonRule({
     const reducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const settleImmediately = instant || reducedMotion;
 
     let cssW = 0;
     let cssH = 0;
@@ -455,7 +563,9 @@ export function AsciiHorizonRule({
     let pointerNormX = -10;
     let pointerInfluence = 0;
     let pointerTarget = 0;
-    let revealProgress = settleImmediately ? 1 : 0;
+    let isVisible = false;
+    let settleImmediately = reducedMotion;
+    let revealProgress = reducedMotion ? 1 : 0;
     let animStartTs = 0;
     let rafId = 0;
     let running = false;
@@ -476,7 +586,7 @@ export function AsciiHorizonRule({
     const draw = () => {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (!visible && !settleImmediately) return;
+      if (!isVisible && !settleImmediately) return;
       if (cssW <= 2 || cssH <= 2) return;
 
       const cw = canvas.width;
@@ -619,7 +729,7 @@ export function AsciiHorizonRule({
         const dt = Math.min(0.05, Math.max(0.001, (ts - lastTs) * 0.001));
         lastTs = ts;
 
-        if (!settleImmediately && visible && revealProgress < 1) {
+        if (!settleImmediately && isVisible && revealProgress < 1) {
           if (animStartTs === 0) animStartTs = ts;
           revealProgress = Math.min(1, (ts - animStartTs) / 680);
         }
@@ -633,7 +743,7 @@ export function AsciiHorizonRule({
         draw();
 
         const stillAnimating =
-          (!settleImmediately && visible && revealProgress < 1) ||
+          (!settleImmediately && isVisible && revealProgress < 1) ||
           pointerInfluence > 0.003 ||
           pointerTarget > 0;
 
@@ -647,14 +757,51 @@ export function AsciiHorizonRule({
       rafId = window.requestAnimationFrame(step);
     };
 
-    syncSize();
-    if (visible || settleImmediately) {
-      if (settleImmediately) {
-        revealProgress = 1;
+    const stopLoop = () => {
+      if (!running) return;
+      running = false;
+      window.cancelAnimationFrame(rafId);
+    };
+
+    controllerRef.current = {
+      arm: () => {
+        if (reducedMotion) return;
+        isVisible = false;
+        settleImmediately = false;
+        revealProgress = 0;
+        animStartTs = 0;
+        pointerTarget = 0;
+        pointerInfluence = 0;
+        stopLoop();
         draw();
-      } else {
+      },
+      settle: () => {
+        isVisible = true;
+        settleImmediately = true;
+        revealProgress = 1;
+        animStartTs = 0;
+        stopLoop();
+        draw();
+      },
+      play: () => {
+        if (reducedMotion) {
+          isVisible = true;
+          settleImmediately = true;
+          revealProgress = 1;
+          draw();
+          return;
+        }
+        isVisible = true;
+        settleImmediately = false;
+        revealProgress = 0;
+        animStartTs = 0;
         ensureLoop();
-      }
+      },
+    };
+
+    syncSize();
+    if (reducedMotion) {
+      draw();
     }
 
     const onPointerMove = (e: PointerEvent) => {
@@ -689,17 +836,40 @@ export function AsciiHorizonRule({
 
     return () => {
       disposed = true;
-      window.cancelAnimationFrame(rafId);
+      controllerRef.current = null;
+      stopLoop();
       container.removeEventListener("pointermove", onPointerMove);
       container.removeEventListener("pointerleave", onPointerLeave);
       ro.disconnect();
     };
-  }, [visible, instant, variant]);
+  }, [variant]);
+
+  // Drive zero-reallocation reveal/reset transitions cleanly
+  useEffect(() => {
+    const ctrl = controllerRef.current;
+    if (!ctrl) return;
+    const reducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) {
+      ctrl.settle();
+      return;
+    }
+    if (!visible) {
+      ctrl.arm();
+    } else if (instant && playCount === 0) {
+      ctrl.settle();
+    } else {
+      ctrl.play();
+    }
+  }, [visible, instant, playCount]);
 
   return (
     <div
       ref={containerRef}
       aria-hidden="true"
+      data-horizon-rule={visible ? "visible" : "armed"}
+      data-horizon-rule-run={playCount}
       className={`relative w-full select-none ${
         variant === "arch" ? "h-9 sm:h-11" : "h-5 sm:h-6"
       } ${className}`}

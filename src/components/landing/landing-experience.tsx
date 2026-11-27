@@ -7,10 +7,7 @@ import {
   type AsciiBlackholeControl,
   type HorizonSyncState,
 } from "@/components/landing/ascii-blackhole-canvas";
-import {
-  HorizonCountdown,
-  type PolarBezelControl,
-} from "@/components/landing/horizon-countdown";
+import { HorizonCountdown } from "@/components/landing/horizon-countdown";
 import { WaitlistBar } from "@/components/landing/waitlist-bar";
 import { TMinusWordmark } from "@/components/landing/t-minus-wordmark";
 import {
@@ -75,62 +72,6 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
   return t * t * (3 - 2 * t);
 }
 
-interface IntroPhaseSpec {
-  num: string;
-  shortLabel: string;
-  fullLabel: string;
-  start: number;
-  end: number;
-}
-
-const INTRO_PHASES: readonly IntroPhaseSpec[] = [
-  {
-    num: "01",
-    shortLabel: "SUPERGIANT",
-    fullLabel: "01 · SUPERGIANT",
-    start: 0.0,
-    end: 2.65,
-  },
-  {
-    num: "02",
-    shortLabel: "COLLAPSE",
-    fullLabel: "02 · CORE COLLAPSE",
-    start: 2.65,
-    end: 4.15,
-  },
-  {
-    num: "03",
-    shortLabel: "SUPERNOVA",
-    fullLabel: "03 · SUPERNOVA",
-    start: 4.15,
-    end: 5.2,
-  },
-  {
-    num: "04",
-    shortLabel: "HORIZON",
-    fullLabel: "04 · EVENT HORIZON",
-    start: 5.2,
-    end: 9.9,
-  },
-] as const;
-
-function getIntroPhaseState(introElapsed: number): {
-  activeIdx: number;
-  localProg: number;
-} {
-  for (let i = 0; i < INTRO_PHASES.length; i++) {
-    const p = INTRO_PHASES[i];
-    if (introElapsed < p.end || i === INTRO_PHASES.length - 1) {
-      const span = Math.max(0.001, p.end - p.start);
-      return {
-        activeIdx: i,
-        localProg: clamp01((introElapsed - p.start) / span),
-      };
-    }
-  }
-  return { activeIdx: 3, localProg: 1 };
-}
-
 function getOrbitalHudLabel(pinProgress: number, elevDeg: number): string {
   const deg = Math.round(elevDeg);
   if (pinProgress < 0.2) return `${deg}° HORIZON`;
@@ -143,6 +84,7 @@ interface SyncDomCache {
   cdTransform: string;
   stripOpacity: string;
   stripTransform: string;
+  stripSublineOpacity: string;
   polarOpacity: string;
   polarTransform: string;
   heroOpacity: string;
@@ -151,8 +93,6 @@ interface SyncDomCache {
   veilOpacity: string;
   veilBg: string;
   hudText: string;
-  introPhaseIdx: number;
-  introPhaseProgBucket: number;
   scrollCueOpacity: string;
   vernierActiveIdx: number;
 }
@@ -162,6 +102,8 @@ export function LandingExperience({
 }: LandingExperienceProps) {
   const [instantMode, setInstantMode] = useState(skipIntro);
   const [heroRevealed, setHeroRevealed] = useState(skipIntro);
+  const [heroTextActive, setHeroTextActive] = useState(skipIntro);
+  const [heroTextRunId, setHeroTextRunId] = useState(0);
   const [legalDoc, setLegalDoc] = useState<"privacy" | "terms" | null>(null);
   const [closingRequestedRole, setClosingRequestedRole] = useState<{
     role: WaitlistRole;
@@ -173,7 +115,7 @@ export function LandingExperience({
   );
 
   const canvasControlRef = useRef<AsciiBlackholeControl | null>(null);
-  const bezelControlRef = useRef<PolarBezelControl | null>(null);
+  const heroTextArmedRef = useRef(false);
   const heroPhoneRef = useRef<HTMLInputElement | null>(null);
   const closingPhoneRef = useRef<HTMLInputElement | null>(null);
   const closingSectionRef = useRef<HTMLDivElement | null>(null);
@@ -182,17 +124,10 @@ export function LandingExperience({
   const heroCopyRef = useRef<HTMLDivElement | null>(null);
   const countdownTrackRef = useRef<HTMLDivElement | null>(null);
   const countdownStripRef = useRef<HTMLDivElement | null>(null);
+  const countdownStripSublineRef = useRef<HTMLDivElement | null>(null);
   const countdownPolarRef = useRef<HTMLDivElement | null>(null);
   const preRimVeilRef = useRef<HTMLDivElement | null>(null);
   const hudReadoutRef = useRef<HTMLSpanElement | null>(null);
-  const introStepperRef = useRef<HTMLDivElement | null>(null);
-  const mobilePhaseLabelRef = useRef<HTMLSpanElement | null>(null);
-  const desktopPhaseItemRefs = useRef<Array<HTMLDivElement | null>>([]);
-  const desktopPhaseNumRefs = useRef<Array<HTMLSpanElement | null>>([]);
-  const desktopPhaseDotRefs = useRef<Array<HTMLSpanElement | null>>([]);
-  const desktopPhaseBarRefs = useRef<Array<HTMLSpanElement | null>>([]);
-  const mobilePipNumRefs = useRef<Array<HTMLSpanElement | null>>([]);
-  const mobilePipBarRefs = useRef<Array<HTMLSpanElement | null>>([]);
   const scrollCueRef = useRef<HTMLDivElement | null>(null);
   const vernierTickRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const vernierBarRefs = useRef<Array<HTMLSpanElement | null>>([]);
@@ -212,6 +147,7 @@ export function LandingExperience({
     cdTransform: "",
     stripOpacity: "",
     stripTransform: "",
+    stripSublineOpacity: "",
     polarOpacity: "",
     polarTransform: "",
     heroOpacity: "",
@@ -220,8 +156,6 @@ export function LandingExperience({
     veilOpacity: "",
     veilBg: "",
     hudText: "",
-    introPhaseIdx: -1,
-    introPhaseProgBucket: -1,
     scrollCueOpacity: "",
     vernierActiveIdx: -1,
   });
@@ -233,9 +167,18 @@ export function LandingExperience({
       if (qs.get("skipIntro") === "1") {
         setInstantMode(true);
         setHeroRevealed(true);
+        setHeroTextActive(true);
       }
     } catch {
       // ignore
+    }
+  }, []);
+
+  const handleHeroReveal = useCallback((revealed: boolean) => {
+    setHeroRevealed(revealed);
+    setHeroTextActive(revealed);
+    if (!revealed) {
+      heroTextArmedRef.current = false;
     }
   }, []);
 
@@ -348,7 +291,7 @@ export function LandingExperience({
         }
       }
 
-      // 1a) Horizon Strip mode (bottom pin=0 & slim top dome pin=1)
+      // 1a) Horizon Strip mode (Option 2A bottom pin=0 & enlarged docked top dome pin=1)
       const stripEl = countdownStripRef.current;
       if (stripEl) {
         const nextStripOpacity = (
@@ -365,8 +308,19 @@ export function LandingExperience({
         }
       }
 
-      // 1b) Space-Filling Polar Chronograph mode inside `#000000` polar void
-      //     (Sized to sit cleanly inside UI-3 60-tick orbital bezel with zero mobile overlap)
+      // Fade out redundant `APP STORE V1.0 · JAN 1, 2027` subline when docking into top dome
+      const sublineEl = countdownStripSublineRef.current;
+      if (sublineEl) {
+        const nextSubOpacity = (
+          1 - smoothstep(0.72, 0.88, state.pinProgress)
+        ).toFixed(3);
+        if (cache.stripSublineOpacity !== nextSubOpacity) {
+          cache.stripSublineOpacity = nextSubOpacity;
+          sublineEl.style.opacity = nextSubOpacity;
+        }
+      }
+
+      // 1b) Enlarged Space-Filling Polar Chronograph inside bezel-free `#000000` polar void (Option B2)
       const polarEl = countdownPolarRef.current;
       if (polarEl) {
         const polarOpacity = smoothstep(0.32, 0.68, state.polarFactor);
@@ -377,13 +331,11 @@ export function LandingExperience({
         }
         if (polarOpacity > 0.001) {
           const isNarrow = state.viewportW < 640;
-          const naturalW = isNarrow ? 264 : 410;
-          const naturalH = isNarrow ? 172 : 260;
-          const fitW =
-            (state.polarDiameterPx * (isNarrow ? 0.65 : 0.72)) / naturalW;
-          const fitH =
-            (state.polarDiameterPx * (isNarrow ? 0.62 : 0.68)) / naturalH;
-          const fitScale = Math.min(1.0, Math.max(0.5, Math.min(fitW, fitH)));
+          const naturalW = isNarrow ? 290 : 460;
+          const naturalH = isNarrow ? 204 : 306;
+          const fitW = (state.polarDiameterPx * 0.85) / naturalW;
+          const fitH = (state.polarDiameterPx * 0.82) / naturalH;
+          const fitScale = Math.min(1.18, Math.max(0.55, Math.min(fitW, fitH)));
           const settleZoom =
             0.88 + 0.12 * smoothstep(0.28, 0.74, state.polarFactor);
           const polarScale = fitScale * settleZoom;
@@ -395,15 +347,7 @@ export function LandingExperience({
         }
       }
 
-      // 1c) UI-3: Update Horological 60-Tick Orbital Bezel (active strictly when polarFactor > 0.32)
-      bezelControlRef.current?.update({
-        polarFactor: state.polarFactor,
-        polarDiameterPx: state.polarDiameterPx,
-        scrollAzimDeg: state.scrollAzimDeg,
-        tickPulse: state.tickPulse,
-      });
-
-      // 2) Smoothly lift & fade sticky hero copy as camera orbits toward top-down polar spiral
+      // 2) Smoothly lift & fade sticky hero copy + hysteresis latch for bidirectional ASCII re-trigger
       const heroEl = heroCopyRef.current;
       if (heroEl) {
         const fadeOut = smoothstep(0.015, 0.22, state.pinProgress);
@@ -424,7 +368,19 @@ export function LandingExperience({
         }
       }
 
-      // 3) Slim Layer 20 curved #040206 pre-rim occlusion veil strictly capped <= 122px
+      // Bidirectional hero text ASCII reveal latch (keeps WaitlistBar mounted & untouched)
+      if (state.heroResolved) {
+        if (!heroTextArmedRef.current && state.pinProgress >= 0.24) {
+          heroTextArmedRef.current = true;
+          setHeroTextActive(false);
+        } else if (heroTextArmedRef.current && state.pinProgress <= 0.14) {
+          heroTextArmedRef.current = false;
+          setHeroTextRunId((n) => n + 1);
+          setHeroTextActive(true);
+        }
+      }
+
+      // 3) Slim Layer 20 curved #040206 pre-rim occlusion veil (capped <= 140px for enlarged docked dome)
       const veilEl = preRimVeilRef.current;
       if (veilEl) {
         const veilAlpha = smoothstep(0.68, 0.88, state.pinProgress);
@@ -439,7 +395,7 @@ export function LandingExperience({
           const isNarrow = state.viewportW < 640;
           const cx = state.domeCenterX.toFixed(0);
           const cy = state.domeCenterY.toFixed(0);
-          const maxBottomY = 122;
+          const maxBottomY = 140;
           const maxR = Math.max(24, maxBottomY - state.domeCenterY);
           const solidR = Math.min(
             maxR - 22,
@@ -454,12 +410,12 @@ export function LandingExperience({
             state.domeRadiusPx + (isNarrow ? 42 : 40)
           ).toFixed(0);
           const edgeSolid = Math.min(
-            74,
-            Math.max(24, state.domeEdgeY + 12)
+            88,
+            Math.max(28, state.domeEdgeY + 14)
           ).toFixed(0);
           const edgeFade = Math.min(
-            118,
-            Math.max(58, state.domeEdgeY + 38)
+            136,
+            Math.max(66, state.domeEdgeY + 42)
           ).toFixed(0);
 
           nextVeilBg = [
@@ -473,78 +429,7 @@ export function LandingExperience({
         }
       }
 
-      // 4a) Dirty-checked Centered Top 4-Stage Astrophysical Phase Stepper (intro only)
-      const stepperEl = introStepperRef.current;
-      if (!state.heroResolved && stepperEl) {
-        const { activeIdx, localProg } = getIntroPhaseState(state.introElapsed);
-        const phaseChanged = cache.introPhaseIdx !== activeIdx;
-        if (phaseChanged) {
-          cache.introPhaseIdx = activeIdx;
-          stepperEl.dataset.activePhase = String(activeIdx + 1);
-          const mobileLabelEl = mobilePhaseLabelRef.current;
-          if (mobileLabelEl) {
-            mobileLabelEl.textContent = INTRO_PHASES[activeIdx].fullLabel;
-          }
-          for (let i = 0; i < INTRO_PHASES.length; i++) {
-            const isActive = i === activeIdx;
-            const isDone = i < activeIdx;
-            const dItem = desktopPhaseItemRefs.current[i];
-            const dNum = desktopPhaseNumRefs.current[i];
-            const dDot = desktopPhaseDotRefs.current[i];
-            const mNum = mobilePipNumRefs.current[i];
-            if (dItem) {
-              dItem.dataset.state = isActive
-                ? "active"
-                : isDone
-                  ? "done"
-                  : "upcoming";
-              dItem.style.color = isActive
-                ? "#FFFFFF"
-                : isDone
-                  ? "rgba(216, 209, 236, 0.88)"
-                  : "rgba(220, 213, 238, 0.46)";
-            }
-            if (dNum) {
-              dNum.style.color = isActive
-                ? "#97DFFC"
-                : isDone
-                  ? "rgba(151, 223, 252, 0.72)"
-                  : "rgba(162, 167, 240, 0.55)";
-            }
-            if (dDot) {
-              dDot.style.opacity = isActive ? "1" : "0";
-            }
-            if (mNum) {
-              mNum.style.color = isActive
-                ? "#97DFFC"
-                : isDone
-                  ? "rgba(151, 223, 252, 0.78)"
-                  : "rgba(162, 167, 240, 0.5)";
-            }
-          }
-        }
-
-        const progBucket = Math.round(localProg * 200);
-        if (phaseChanged || cache.introPhaseProgBucket !== progBucket) {
-          cache.introPhaseProgBucket = progBucket;
-          for (let i = 0; i < INTRO_PHASES.length; i++) {
-            const fill = i < activeIdx ? 1 : i === activeIdx ? localProg : 0;
-            const scaleStr = `scaleX(${fill.toFixed(4)})`;
-            const dBar = desktopPhaseBarRefs.current[i];
-            const mBar = mobilePipBarRefs.current[i];
-            if (dBar) {
-              dBar.style.transform = scaleStr;
-              dBar.style.opacity = i <= activeIdx ? "1" : "0.3";
-            }
-            if (mBar) {
-              mBar.style.transform = scaleStr;
-              mBar.style.opacity = i <= activeIdx ? "1" : "0.3";
-            }
-          }
-        }
-      }
-
-      // 4b) UI-1: Dirty-checked Top-Right Orbital Telemetry HUD text (settled hero & scroll)
+      // 4) UI-1: Dirty-checked Top-Right Orbital Telemetry HUD text (settled hero & scroll)
       const hudEl = hudReadoutRef.current;
       if (hudEl && state.heroResolved) {
         const nextHud = getOrbitalHudLabel(state.pinProgress, state.elevDeg);
@@ -600,14 +485,17 @@ export function LandingExperience({
 
   const handleSkipIntro = useCallback(() => {
     canvasControlRef.current?.skipIntro();
+    heroTextArmedRef.current = false;
     setHeroRevealed(true);
+    setHeroTextActive(true);
   }, []);
 
   const handleReplayIntro = useCallback(() => {
-    syncCacheRef.current.introPhaseIdx = -1;
-    syncCacheRef.current.introPhaseProgBucket = -1;
+    heroTextArmedRef.current = false;
     setInstantMode(false);
     setHeroRevealed(false);
+    setHeroTextActive(false);
+    setHeroTextRunId(0);
     window.scrollTo({ top: 0, behavior: "smooth" });
     canvasControlRef.current?.replayIntro();
   }, []);
@@ -628,7 +516,7 @@ export function LandingExperience({
         return;
       }
       if (id === "index") {
-        const targetY = Math.max(0, Math.round(anchors.indexTop - 118));
+        const targetY = Math.max(0, Math.round(anchors.indexTop - 132));
         window.scrollTo({ top: targetY, behavior: "smooth" });
         return;
       }
@@ -653,18 +541,20 @@ export function LandingExperience({
     }, 340);
   }, []);
 
+  const heroInitialInstant = instantMode && heroTextRunId === 0;
+
   return (
     <div className="relative min-h-[100dvh] w-full overflow-x-clip bg-[#040206] font-sans text-white selection:bg-[#613DC1]/55 selection:text-white">
       {/* Layer 0 (starfield) + Layer 30 (Crisp Volumetric ASCII 3D Black Hole) */}
       <AsciiBlackholeCanvas
-        onHeroReveal={setHeroRevealed}
+        onHeroReveal={handleHeroReveal}
         onHorizonSync={handleHorizonSync}
         runwayRef={runwayRef}
         controlRef={canvasControlRef}
         skipIntro={skipIntro}
       />
 
-      {/* Layer 20: Slim curved #040206 pre-rim occlusion veil (<= 122px total) */}
+      {/* Layer 20: Slim curved #040206 pre-rim occlusion veil (<= 140px total) */}
       <div
         ref={preRimVeilRef}
         aria-hidden="true"
@@ -672,7 +562,7 @@ export function LandingExperience({
         className="pointer-events-none fixed inset-0 z-20 will-change-[opacity]"
       />
 
-      {/* Layer 40: Fixed Top-Left Iconic T^minus Wordmark + UI-1 Top-Right Perimeter Telemetry HUD */}
+      {/* Layer 40: Fixed Top-Left Iconic T^minus Wordmark + Top-Right Perimeter Telemetry HUD / SKIP */}
       <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between px-4 sm:h-[76px] sm:px-10">
         {/* Subtle left obsidian corner backing for T^minus */}
         <div
@@ -749,129 +639,6 @@ export function LandingExperience({
         </div>
       </header>
 
-      {/* Centered Top-of-Screen 4-Stage Astrophysical Phase Stepper (fades out cleanly once heroRevealed) */}
-      <div
-        ref={introStepperRef}
-        data-intro-phase-stepper="true"
-        data-active-phase="1"
-        aria-hidden={heroRevealed}
-        className={`pointer-events-none fixed top-3.5 left-1/2 z-40 -translate-x-1/2 transition-opacity duration-400 ease-out sm:top-5 ${
-          heroRevealed ? "opacity-0" : "opacity-100"
-        }`}
-        style={instantMode ? { transitionDuration: "0ms" } : undefined}
-      >
-        <div className="rounded-[6px] border border-[#858AE3]/30 bg-[#040206]/84 shadow-[0_8px_28px_rgba(0,0,0,0.68)] backdrop-blur-sm">
-          {/* Desktop (sm+): All 4 numbered stages in one sleek horizontal track with #97DFFC progress segments */}
-          <div className="hidden items-stretch gap-3.5 px-4 py-2 sm:flex">
-            {INTRO_PHASES.map((phase, idx) => (
-              <div
-                key={phase.num}
-                ref={(el) => {
-                  desktopPhaseItemRefs.current[idx] = el;
-                }}
-                data-phase-step={phase.num}
-                data-state={idx === 0 ? "active" : "upcoming"}
-                style={{
-                  color:
-                    idx === 0 ? "#FFFFFF" : "rgba(220, 213, 238, 0.46)",
-                }}
-                className="flex min-w-[92px] flex-col gap-1.5 font-mono uppercase"
-              >
-                <div className="flex items-center gap-1.5 text-[10px] font-medium tracking-[0.14em] whitespace-nowrap">
-                  <span
-                    ref={(el) => {
-                      desktopPhaseDotRefs.current[idx] = el;
-                    }}
-                    aria-hidden="true"
-                    style={{ opacity: idx === 0 ? 1 : 0 }}
-                    className="size-1.5 shrink-0 rounded-full bg-[#97DFFC] transition-opacity duration-200"
-                  />
-                  <span
-                    ref={(el) => {
-                      desktopPhaseNumRefs.current[idx] = el;
-                    }}
-                    style={{
-                      color:
-                        idx === 0
-                          ? "#97DFFC"
-                          : "rgba(162, 167, 240, 0.55)",
-                    }}
-                    className="tabular-nums font-semibold"
-                  >
-                    {phase.num}
-                  </span>
-                  <span>{phase.shortLabel}</span>
-                </div>
-                <div className="h-[2px] w-full overflow-hidden rounded-full bg-[#858AE3]/22">
-                  <span
-                    ref={(el) => {
-                      desktopPhaseBarRefs.current[idx] = el;
-                    }}
-                    style={{
-                      transform: "scaleX(0)",
-                      opacity: idx === 0 ? 1 : 0.3,
-                    }}
-                    className="block h-full w-full origin-left bg-[#97DFFC] will-change-transform"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Mobile (< 640px): Compact centered 01-04 pip segments + bold active stage name (never overlaps SKIP ->) */}
-          <div className="flex min-w-[162px] max-w-[188px] flex-col items-center gap-1 px-2.5 py-1.5 font-mono uppercase sm:hidden">
-            <div className="grid w-full grid-cols-4 gap-1.5">
-              {INTRO_PHASES.map((phase, idx) => (
-                <div
-                  key={phase.num}
-                  className="flex flex-col items-center gap-0.5"
-                >
-                  <span
-                    ref={(el) => {
-                      mobilePipNumRefs.current[idx] = el;
-                    }}
-                    style={{
-                      color:
-                        idx === 0
-                          ? "#97DFFC"
-                          : "rgba(162, 167, 240, 0.5)",
-                    }}
-                    className="text-[8px] leading-none font-semibold tracking-[0.08em] tabular-nums"
-                  >
-                    {phase.num}
-                  </span>
-                  <span className="block h-[2px] w-full overflow-hidden rounded-full bg-[#858AE3]/24">
-                    <span
-                      ref={(el) => {
-                        mobilePipBarRefs.current[idx] = el;
-                      }}
-                      style={{
-                        transform: "scaleX(0)",
-                        opacity: idx === 0 ? 1 : 0.3,
-                      }}
-                      className="block h-full w-full origin-left bg-[#97DFFC] will-change-transform"
-                    />
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-center gap-1.5 text-[9.5px] leading-tight font-semibold tracking-[0.09em] text-white whitespace-nowrap">
-              <span
-                aria-hidden="true"
-                className="size-1.5 shrink-0 rounded-full bg-[#97DFFC]"
-              />
-              <span
-                ref={mobilePhaseLabelRef}
-                data-mobile-phase-label="true"
-                className="tabular-nums"
-              >
-                01 · SUPERGIANT
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* UI-1: Quiet Centered `↓ SCROLL TO ORBIT` Micro-Cue above settled horizon crest */}
       <div
         ref={scrollCueRef}
@@ -942,20 +709,20 @@ export function LandingExperience({
         </div>
       </nav>
 
-      {/* Layer 40: Dual-Mode Horizon & Space-Filling Polar Chronograph + UI-3 60-Tick Orbital Bezel */}
+      {/* Layer 40: Dual-Mode Horizon Strip (Option 2A) & Enlarged Polar Chronograph (Option B2) */}
       <div
         ref={countdownTrackRef}
         style={{
           opacity: instantMode ? 1 : 0,
           transform:
-            "translate3d(-50%, calc(100dvh - 96px), 0) translateY(-50%)",
+            "translate3d(-50%, calc(100dvh - 80px), 0) translateY(-50%)",
         }}
         className="pointer-events-none fixed top-0 left-1/2 z-40 will-change-transform"
       >
         <HorizonCountdown
           stripRef={countdownStripRef}
+          stripSublineRef={countdownStripSublineRef}
           polarRef={countdownPolarRef}
-          bezelControlRef={bezelControlRef}
         />
       </div>
 
@@ -984,18 +751,20 @@ export function LandingExperience({
                 >
                   <AsciiRevealText
                     text="Fashion."
-                    active={heroRevealed}
-                    instant={instantMode}
+                    active={heroTextActive}
+                    instant={heroInitialInstant}
+                    replayKey={heroTextRunId}
                     origin="left"
-                    delayMs={40}
+                    delayMs={heroTextRunId > 0 ? 0 : 40}
                     durationMs={540}
                   />
                 </span>
 
                 <AsciiMinusWordmark
-                  active={heroRevealed}
-                  instant={instantMode}
-                  delayMs={110}
+                  active={heroTextActive}
+                  instant={heroInitialInstant}
+                  replayKey={heroTextRunId}
+                  delayMs={heroTextRunId > 0 ? 70 : 110}
                   durationMs={620}
                   className="my-2 sm:my-2.5"
                 />
@@ -1006,10 +775,11 @@ export function LandingExperience({
                 >
                   <AsciiRevealText
                     text="the Noise."
-                    active={heroRevealed}
-                    instant={instantMode}
+                    active={heroTextActive}
+                    instant={heroInitialInstant}
+                    replayKey={heroTextRunId}
                     origin="left"
-                    delayMs={200}
+                    delayMs={heroTextRunId > 0 ? 140 : 200}
                     durationMs={560}
                   />
                 </span>

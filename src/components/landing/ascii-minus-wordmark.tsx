@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 /** Strict T^minus ASCII ramp (no cluttered `* + =` static). */
 const MICRO_RAMP = [".", ":", "-", "^", "t", "T"] as const;
@@ -19,8 +19,10 @@ interface MicroCell {
 interface AsciiMinusWordmarkProps {
   /** Triggers the crisp left-to-right micro-ASCII crystallization entrance */
   active: boolean;
-  /** Render immediately settled (`?skipIntro=1` or reduced-motion) */
+  /** Render immediately settled (`?skipIntro=1` initial load or reduced-motion) */
   instant?: boolean;
+  /** Increment to replay crystallization without reallocating offscreen canvases */
+  replayKey?: number;
   /** Delay in ms after `active` turns true */
   delayMs?: number;
   /** Total entrance duration in ms */
@@ -28,10 +30,18 @@ interface AsciiMinusWordmarkProps {
   className?: string;
 }
 
+interface WordmarkController {
+  arm: () => void;
+  settle: () => void;
+  play: (delayMs: number) => void;
+}
+
 /**
  * Vector `MINUS` Filled Internally With Crisp Pre-Baked Micro-ASCII:
  * - Defers all canvas/DOM work until `active || instant` so cold load has zero
  *   overhead before the opening dying star paints.
+ * - Splits persistent mask/sprite canvas initialization from lightweight replay
+ *   transitions so returning to the hero never reallocates canvases or drops frames.
  * - Ink-cropped upright `Inter Tight` 700 vector letterforms clipped cleanly via
  *   offscreen `maskCanvas` (`destination-in`), eliminating dead top/bottom padding
  *   so vertical spacing above and below `MINUS` is visually exact.
@@ -43,6 +53,7 @@ interface AsciiMinusWordmarkProps {
 export function AsciiMinusWordmark({
   active,
   instant = false,
+  replayKey = 0,
   delayMs = 110,
   durationMs = 620,
   className = "",
@@ -51,10 +62,18 @@ export function AsciiMinusWordmark({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const headingProbeRef = useRef<HTMLSpanElement | null>(null);
   const monoProbeRef = useRef<HTMLSpanElement | null>(null);
+  const controllerRef = useRef<WordmarkController | null>(null);
 
+  const [booted, setBooted] = useState(active || instant);
   useEffect(() => {
-    // Do zero canvas allocation or layout work during the 9s intro before hero reveal
-    if (!active && !instant) return;
+    if ((active || instant) && !booted) {
+      setBooted(true);
+    }
+  }, [active, instant, booted]);
+
+  // Persistent canvas + mask + sprite atlas lifecycle (runs once after first activation)
+  useEffect(() => {
+    if (!booted) return;
 
     const container = containerRef.current;
     const canvas = canvasRef.current;
@@ -73,7 +92,6 @@ export function AsciiMinusWordmark({
     const reducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const settleImmediately = instant || reducedMotion;
 
     let cssW = 0;
     let cssH = 0;
@@ -93,9 +111,11 @@ export function AsciiMinusWordmark({
     let loopRunning = false;
     let delayTimer = 0;
     let animStartTs = 0;
-    let introProgress = settleImmediately ? 1 : 0;
-    let introStarted = settleImmediately;
-    let settled = settleImmediately;
+    let isArmedHidden = false;
+    let settleImmediately = reducedMotion;
+    let introProgress = reducedMotion ? 1 : 0;
+    let introStarted = reducedMotion;
+    let settled = reducedMotion;
     let inViewport = true;
     let lastShimmerTs = 0;
     let disposed = false;
@@ -291,7 +311,7 @@ export function AsciiMinusWordmark({
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, cw, ch);
 
-      if (!active && !settleImmediately) return;
+      if (isArmedHidden && !settleImmediately) return;
       if (introProgress <= 0.001 && !settleImmediately) return;
 
       const tSec = ts * 0.001;
@@ -422,7 +442,7 @@ export function AsciiMinusWordmark({
 
     let lastTs = performance.now();
     const tick = (ts: number) => {
-      if (disposed || document.hidden || !inViewport) {
+      if (disposed || document.hidden || !inViewport || isArmedHidden) {
         loopRunning = false;
         return;
       }
@@ -461,7 +481,14 @@ export function AsciiMinusWordmark({
     };
 
     const startLoop = () => {
-      if (disposed || reducedMotion || loopRunning || document.hidden || !inViewport) {
+      if (
+        disposed ||
+        reducedMotion ||
+        loopRunning ||
+        document.hidden ||
+        !inViewport ||
+        isArmedHidden
+      ) {
         return;
       }
       loopRunning = true;
@@ -475,26 +502,59 @@ export function AsciiMinusWordmark({
       window.cancelAnimationFrame(rafId);
     };
 
-    rebuildMaskAndCells();
-
-    if (settleImmediately) {
-      introProgress = 1;
-      introStarted = true;
-      settled = true;
-      draw(performance.now());
-    } else if (active) {
-      delayTimer = window.setTimeout(() => {
-        introStarted = true;
+    controllerRef.current = {
+      arm: () => {
+        if (reducedMotion) return;
+        window.clearTimeout(delayTimer);
+        isArmedHidden = true;
+        settleImmediately = false;
+        introProgress = 0;
+        introStarted = false;
+        settled = false;
         animStartTs = 0;
-        startLoop();
-      }, delayMs);
-    }
+        wakeTarget = 0;
+        wakeStrength = 0;
+        stopLoop();
+        draw(performance.now());
+      },
+      settle: () => {
+        window.clearTimeout(delayTimer);
+        isArmedHidden = false;
+        settleImmediately = true;
+        introProgress = 1;
+        introStarted = true;
+        settled = true;
+        draw(performance.now());
+        if (!reducedMotion) startLoop();
+      },
+      play: (nextDelayMs: number) => {
+        window.clearTimeout(delayTimer);
+        if (reducedMotion) {
+          isArmedHidden = false;
+          settleImmediately = true;
+          introProgress = 1;
+          introStarted = true;
+          settled = true;
+          draw(performance.now());
+          return;
+        }
+        isArmedHidden = false;
+        settleImmediately = false;
+        introProgress = 0;
+        introStarted = false;
+        settled = false;
+        animStartTs = 0;
+        draw(performance.now());
+        delayTimer = window.setTimeout(() => {
+          if (disposed || isArmedHidden) return;
+          introStarted = true;
+          animStartTs = 0;
+          startLoop();
+        }, Math.max(0, nextDelayMs));
+      },
+    };
 
-    if (!reducedMotion && (settleImmediately || active)) {
-      startLoop();
-    } else if (active || settleImmediately) {
-      draw(performance.now());
-    }
+    rebuildMaskAndCells();
 
     const onPointerMove = (e: PointerEvent) => {
       if (e.pointerType === "touch" || reducedMotion || !settled) return;
@@ -511,7 +571,7 @@ export function AsciiMinusWordmark({
     const onVisibility = () => {
       if (document.hidden) {
         stopLoop();
-      } else if (inViewport && (active || settleImmediately)) {
+      } else if (inViewport && !isArmedHidden) {
         startLoop();
       }
     };
@@ -527,7 +587,7 @@ export function AsciiMinusWordmark({
           inViewport = entries[0]?.isIntersecting ?? true;
           if (!inViewport) {
             stopLoop();
-          } else if (active || settleImmediately) {
+          } else if (!isArmedHidden) {
             startLoop();
           }
         },
@@ -538,7 +598,7 @@ export function AsciiMinusWordmark({
 
     const ro = new ResizeObserver(() => {
       rebuildMaskAndCells();
-      if (settled || settleImmediately || introProgress > 0) {
+      if (!isArmedHidden && (settled || settleImmediately || introProgress > 0)) {
         draw(performance.now());
       }
     });
@@ -548,7 +608,7 @@ export function AsciiMinusWordmark({
       .then(() => {
         if (disposed) return;
         rebuildMaskAndCells();
-        if (settled || settleImmediately || introProgress > 0) {
+        if (!isArmedHidden && (settled || settleImmediately || introProgress > 0)) {
           draw(performance.now());
         }
       })
@@ -556,6 +616,7 @@ export function AsciiMinusWordmark({
 
     return () => {
       disposed = true;
+      controllerRef.current = null;
       window.clearTimeout(delayTimer);
       stopLoop();
       container.removeEventListener("pointermove", onPointerMove);
@@ -564,12 +625,40 @@ export function AsciiMinusWordmark({
       io?.disconnect();
       ro.disconnect();
     };
-  }, [active, instant, delayMs, durationMs]);
+  }, [booted, durationMs]);
+
+  // Lightweight zero-allocation replay / arming controller
+  useEffect(() => {
+    if (!booted) return;
+    const ctrl = controllerRef.current;
+    if (!ctrl) return;
+
+    const reducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) {
+      ctrl.settle();
+      return;
+    }
+
+    if (!active && !(instant && replayKey === 0)) {
+      ctrl.arm();
+      return;
+    }
+
+    if (instant && replayKey === 0) {
+      ctrl.settle();
+      return;
+    }
+
+    ctrl.play(delayMs);
+  }, [booted, active, instant, replayKey, delayMs]);
 
   return (
     <span
       ref={containerRef}
       data-minus-wordmark="vector-micro-ascii"
+      data-minus-run={replayKey}
       className={`relative mx-auto block h-[48px] w-[264px] max-w-full cursor-default select-none sm:h-[74px] sm:w-[418px] ${className}`}
     >
       <span
