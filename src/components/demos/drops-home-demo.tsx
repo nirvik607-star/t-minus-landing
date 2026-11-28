@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { AppFrame, AppPrimaryButton, GlyphPatch } from "@/components/demos/app-ui";
 import { HeroClock } from "@/components/demos/hero-clock";
+import { GarmentGlyph } from "@/components/demos/garment-glyph";
 
 const START = 11 * 3600 + 59 * 60 + 59;
 
@@ -43,7 +44,10 @@ export function DropsHomeDemo({ active }: { active: boolean }) {
       <div className="px-2 pt-4">
         <div className="relative overflow-hidden rounded-[12px] border border-white/15 bg-[color:var(--galaxy-deep)]" style={{ aspectRatio: "1.28 / 1" }}>
           <div className="absolute inset-0">
-            <GlyphPatch />
+            <GlyphPatch opacity={0.12} />
+          </div>
+          <div className="absolute inset-0 px-10 pb-7 pt-4">
+            <GarmentGlyph kind="jacket" label="Field jacket, drawn in glyphs" />
           </div>
           <div className="absolute left-2 top-2 flex flex-col gap-[3px] bg-black/70 px-2 py-1.5">
             <span className="app-label text-[color:var(--secondary)]">50 units allocated</span>

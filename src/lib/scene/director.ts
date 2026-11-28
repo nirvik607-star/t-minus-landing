@@ -31,6 +31,11 @@ export interface DirectorInput {
   py: number;
   /** Whole seconds remaining, for the second hand. */
   secondsLeft: number;
+  /**
+   * The pinned feature demo, when there is one: the hole sits behind it and
+   * its disk shows around the frame. x, y in CSS px; on and turn are 0..1.
+   */
+  feat?: { x: number; y: number; r: number; on: number; turn: number };
 }
 
 export interface SceneValues {
@@ -142,10 +147,10 @@ export function isWideDial(w: number, h: number): boolean {
 
 export function dialFraming(w: number, h: number): Framing {
   const wide = isWideDial(w, h);
-  const r = wide ? Math.min(0.235 * h, 0.15 * w) : Math.min(0.36 * w, 0.185 * h);
+  const r = wide ? Math.min(0.228 * h, 0.145 * w) : Math.min(0.36 * w, 0.185 * h);
   return {
     elev: 90,
-    cx: wide ? w * 0.35 : w / 2,
+    cx: wide ? w * 0.335 : w / 2,
     cy: wide ? h * 0.5 : h * 0.36,
     r,
     diskOut: 4.9,
@@ -171,7 +176,25 @@ export function direct(input: DirectorInput): SceneValues {
   // Past the runway the dial leaves with the page.
   if (exitPx > 0) {
     f.cy -= exitPx;
-    alpha = 1 - smooth(h * 0.55, h * 1.15, exitPx);
+    alpha = 1 - smooth(h * 0.22, h * 0.6, exitPx);
+  }
+
+  // Through the features the hole stays with the page: it sits behind the
+  // pinned demo, seen at a tilt that turns as the reader scrolls.
+  let orbit = 0;
+  const feat = input.feat;
+  if (feat && feat.on > 0.002 && alpha < 0.02 && closing <= 0.001) {
+    f = {
+      elev: 60 + 13 * Math.sin(feat.turn * Math.PI * 2.4),
+      cx: feat.x,
+      cy: feat.y,
+      r: feat.r,
+      diskOut: 5.4,
+      exposure: 2.3,
+    };
+    orbit = feat.turn * 2.6;
+    polar = 1;
+    alpha = feat.on;
   }
 
   // The horizon returns behind the closing form.
@@ -237,7 +260,7 @@ export function direct(input: DirectorInput): SceneValues {
   // ---------------- camera basis ----------------
   const parallax = 1 - polar;
   const elev = (f.elev + py * -1.6 * parallax) * DEG;
-  const az = px * 5.5 * DEG * parallax;
+  const az = px * 5.5 * DEG * parallax + orbit;
   const ce = Math.cos(elev);
   const se = Math.sin(elev);
   const ca = Math.cos(az);
@@ -267,8 +290,10 @@ export function direct(input: DirectorInput): SceneValues {
   const sec = ((input.secondsLeft % 60) + 60) % 60;
   const handAngle = -Math.PI / 2 - (sec / 60) * Math.PI * 2;
 
-  const horizonClock = clockReveal * (1 - smooth(0.16, 0.42, polar)) * alpha;
-  const dialClock = smooth(0.62, 0.92, polar) * alpha;
+  // Each readout is either plainly there or gone: no half-visible in-between.
+  const inFeatures = orbit !== 0 || (feat !== undefined && feat.on > 0.002 && closing <= 0.001 && exitPx > 0);
+  const horizonClock = inFeatures ? 0 : clockReveal * (1 - smooth(0.03, 0.16, polar)) * alpha;
+  const dialClock = inFeatures ? 0 : smooth(0.8, 0.97, polar) * alpha;
 
   return {
     camPos,
@@ -304,6 +329,6 @@ export function direct(input: DirectorInput): SceneValues {
     fadeGuard: (1 - smooth(0.05, 0.3, polar)) * smooth(3.4, 4.1, intro),
     glow: 0.9,
     well: 0.78 * mass,
-    wellPx: f.r * lerp(0.62, 1.5, polar) * (f.diskOut / 4.4),
+    wellPx: f.r * lerp(0.62, 1.5, polar) * (f.diskOut / 4.4) * (orbit !== 0 ? 0.85 : 1),
   };
 }

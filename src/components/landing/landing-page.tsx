@@ -34,7 +34,7 @@ function AppStoreButton() {
   );
 }
 
-const MINUS_TINTS = ["#97DFFC", "#BFEAFD", "#E6F6FE"];
+const MINUS_TINTS = ["#FFFFFF", "#E6F6FE", "#BFEAFD"];
 
 export function LandingPage() {
   const clock = useLaunchClock();
@@ -45,6 +45,8 @@ export function LandingPage() {
     role: WaitlistRole;
     seq: number;
   } | null>(null);
+  const [closingRole, setClosingRole] = useState<WaitlistRole>("SHOPPER");
+  const [joined, setJoined] = useState(false);
 
   const runwayRef = useRef<HTMLDivElement | null>(null);
   const closingRef = useRef<HTMLElement | null>(null);
@@ -61,6 +63,8 @@ export function LandingPage() {
   const headerClockRef = useRef<HTMLSpanElement | null>(null);
   const headerBackRef = useRef<HTMLDivElement | null>(null);
   const closingPhoneRef = useRef<HTMLInputElement | null>(null);
+  const featPanelRef = useRef<HTMLDivElement | null>(null);
+  const featListRef = useRef<HTMLOListElement | null>(null);
   const minusReveal = useRef(0);
   const cache = useRef<Record<string, string>>({});
   const sceneOffRef = useRef(false);
@@ -93,7 +97,7 @@ export function LandingPage() {
         premise.style.left = `${left}px`;
         premise.style.right = "auto";
         premise.style.top = "50%";
-        premise.style.width = `${Math.max(260, Math.min(430, w - left - 56))}px`;
+        premise.style.width = `${Math.max(260, Math.min(440, w - left - 80))}px`;
         premise.style.transform = "translateY(-50%)";
         premise.style.textAlign = "left";
       } else {
@@ -143,7 +147,8 @@ export function LandingPage() {
     );
     write("hero-p", heroRef.current, "pointer-events", heroOpacity > 0.5 ? "auto" : "none");
     write("hero-v", heroRef.current, "visibility", heroOpacity < 0.01 ? "hidden" : "visible");
-    minusReveal.current = f.heroReveal;
+    // The word finishes resolving before the rest of the hero has faded in.
+    minusReveal.current = Math.min(1, f.heroReveal * 1.8);
 
     // The field stays clear of whichever form sits above the horizon.
     inputsRef.current.fadeLine =
@@ -154,7 +159,7 @@ export function LandingPage() {
     // Strip clock: inside the void, under the crest.
     const crestY = f.holeY - f.shadowR;
     const room = h - crestY;
-    const stripY = crestY + Math.max(54, Math.min(room * 0.5, 104));
+    const stripY = crestY + Math.max(52, Math.min(room * 0.44, 104));
     write(
       "hc-t",
       horizonClockRef.current,
@@ -162,6 +167,7 @@ export function LandingPage() {
       `translate3d(${f.holeX.toFixed(1)}px, ${stripY.toFixed(1)}px, 0) translate(-50%, -50%)`
     );
     write("hc-o", horizonClockRef.current, "opacity", f.horizonClock.toFixed(3));
+    write("hc-v", horizonClockRef.current, "visibility", f.horizonClock < 0.02 ? "hidden" : "visible");
 
     // Dial clock: centred in the void, sized to it.
     const dialEm = Math.min(20, ((f.shadowR * 2 * 0.8) / 300) * 16);
@@ -173,6 +179,26 @@ export function LandingPage() {
       `translate3d(${f.holeX.toFixed(1)}px, ${f.holeY.toFixed(1)}px, 0) translate(-50%, -50%)`
     );
     write("dc-o", dialClockRef.current, "opacity", f.dialClock.toFixed(3));
+    write("dc-v", dialClockRef.current, "visibility", f.dialClock < 0.02 ? "hidden" : "visible");
+
+    // Through the features the hole sits behind the pinned demo (wide screens).
+    const panel = featPanelRef.current;
+    const list = featListRef.current;
+    if (panel && list && f.exitPx > 0 && f.closing < 0.001) {
+      const pr = panel.getBoundingClientRect();
+      const lr = list.getBoundingClientRect();
+      const cy = pr.top + pr.height / 2;
+      const on = smooth(h * 1.0, h * 0.62, cy) * smooth(-h * 0.12, h * 0.2, cy);
+      inputsRef.current.feat = {
+        x: pr.left + pr.width / 2,
+        y: cy,
+        r: Math.min(pr.width, 440) * 0.36,
+        on,
+        turn: Math.min(1, Math.max(0, (h * 0.5 - lr.top) / Math.max(1, lr.height))),
+      };
+    } else {
+      inputsRef.current.feat = undefined;
+    }
     write("pr-o", premiseRef.current, "opacity", smooth(0.7, 0.95, f.polar).toFixed(3));
     write(
       "pr-y",
@@ -274,7 +300,7 @@ export function LandingPage() {
           <span
             ref={headerClockRef}
             style={{ opacity: 0 }}
-            className="hidden transition-opacity duration-300 ease-out min-[420px]:inline-flex"
+            className="hidden transition-opacity duration-300 ease-out sm:inline-flex"
           >
             <HeaderClock parts={clock} />
           </span>
@@ -283,7 +309,7 @@ export function LandingPage() {
             onClick={() => goToForm()}
             className="h-11 cursor-pointer rounded-[8px] bg-ink px-4 text-[13.5px] font-semibold uppercase tracking-[0.03em] text-accent transition-opacity duration-100 ease-out active:opacity-70"
           >
-            Join
+            Join the waitlist
           </button>
         </div>
       </header>
@@ -294,7 +320,7 @@ export function LandingPage() {
         style={{ opacity: 0 }}
         className="pointer-events-none fixed left-0 top-0 z-20 will-change-transform"
       >
-        <HorizonClock parts={clock} />
+        <HorizonClock parts={clock} joined={joined} />
       </div>
       <div
         ref={dialClockRef}
@@ -358,10 +384,23 @@ export function LandingPage() {
                 {live ? "On the App Store now." : "On the App Store January 1."}
               </p>
               {offerApp ? null : (
-                <PerkLine className="mt-3 [@media(max-height:700px)]:hidden" />
+                <PerkLine className="mt-3 text-center [@media(max-height:680px)]:hidden" />
               )}
-              <div ref={heroFormRef} className="mt-3.5 flex w-full justify-center sm:mt-4">
-                {offerApp ? <AppStoreButton /> : <WaitlistForm onPulse={pulse} />}
+              <div ref={heroFormRef} className="mt-3.5 flex w-full flex-col items-center sm:mt-4">
+                {offerApp ? (
+                  <AppStoreButton />
+                ) : (
+                  <>
+                    <WaitlistForm onPulse={pulse} roleSwitch={false} onJoined={() => setJoined(true)} />
+                    <button
+                      type="button"
+                      onClick={() => goToForm("BRAND")}
+                      className="mt-1 inline-flex h-11 cursor-pointer items-center text-[14px] text-mute underline decoration-peri/60 underline-offset-[3px] [@media(hover:hover)]:hover:text-ink"
+                    >
+                      Run a brand? Apply here
+                    </button>
+                  </>
+                )}
               </div>
             </section>
 
@@ -375,87 +414,61 @@ export function LandingPage() {
                   The best clothes in the world rarely have the loudest voice.
                 </p>
                 <p className="mt-4 text-[15.5px] leading-[1.55] text-soft sm:mt-5 sm:text-[17px]">
-                  Small brands put months into fabric, cut and finish, then get
-                  one post to launch it. T^minus gives every release a
-                  countdown, a place to get ready, and a crowd that shows up on
-                  time.
+                  <span className="hidden sm:inline">
+                    Small brands put months into fabric, cut and finish, then
+                    get one post to launch it.{" "}
+                  </span>
+                  T^minus gives every release a countdown, a place to get
+                  ready, and one moment to open.
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        <Features />
+        <Features panelRef={featPanelRef} listRef={featListRef} />
 
-        {/* Two audiences, one form. */}
-        <section data-section="audiences" className="mx-auto w-full max-w-[1120px] px-5 pb-24 pt-10 sm:px-9 sm:pb-36">
-          <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:gap-0">
-            <div className="md:border-r md:border-line md:pr-14">
-              <p className="text-[14px] font-medium text-mute">For shoppers</p>
-              <h2 className="mt-3 text-[clamp(1.9rem,3.2vw,2.7rem)] font-semibold leading-[1.05] tracking-[-0.03em] text-ink">
-                Find drops worth waiting for.
-              </h2>
-              <p className="mt-4 max-w-[40ch] text-[16.5px] leading-[1.55] text-soft">
-                Follow independent releases on a live clock, sort out your size
-                before launch, and be there when it opens.
-              </p>
-              <button
-                type="button"
-                onClick={() => goToForm("SHOPPER")}
-                className="mt-6 h-12 cursor-pointer rounded-[8px] bg-ink px-5 text-[14px] font-semibold uppercase tracking-[0.03em] text-accent transition-opacity duration-100 ease-out active:opacity-70"
-              >
-                Join as a shopper
-              </button>
-            </div>
-            <div className="md:pl-14">
-              <p className="text-[14px] font-medium text-mute">For brands</p>
-              <h2 className="mt-3 text-[clamp(1.9rem,3.2vw,2.7rem)] font-semibold leading-[1.05] tracking-[-0.03em] text-ink">
-                Launch on your own clock.
-              </h2>
-              <p className="mt-4 max-w-[40ch] text-[16.5px] leading-[1.55] text-soft">
-                Keep your identity, your pricing and your checkout. Turn each
-                collection into a scheduled release, and see real demand before
-                you commit to a run.
-              </p>
-              <button
-                type="button"
-                onClick={() => goToForm("BRAND")}
-                className="mt-6 h-12 cursor-pointer rounded-[8px] border border-peri/60 px-5 text-[14px] font-semibold uppercase tracking-[0.03em] text-ink transition-colors duration-150 [@media(hover:hover)]:hover:border-ink"
-              >
-                Apply as a brand
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* Closing: the horizon returns. */}
+        {/* Closing: the horizon returns. The audience choice changes the pitch. */}
         <section
           ref={closingRef}
           data-section="closing"
-          className="relative flex min-h-[100dvh] flex-col items-center px-5 pt-[12dvh] sm:px-9 lg:pt-[15dvh]"
+          className="relative flex min-h-[100dvh] flex-col items-center px-5 pt-[12dvh] sm:px-10 lg:px-20 lg:pt-[14dvh]"
         >
-          <div className="grid w-full max-w-[1120px] grid-cols-1 items-start gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,1fr)_460px]">
+          <div className="grid w-full max-w-[1200px] grid-cols-1 items-start gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,1fr)_460px]">
             <div className="text-center lg:text-left">
-              <h2 className="statement text-[clamp(2.9rem,7.4vw,6.2rem)] leading-[0.94] text-ink">
-                Be ready <br className="hidden lg:block" />
-                at <span className="text-ice">zero.</span>
+              <h2 className="statement text-[clamp(2.9rem,7.2vw,6rem)] leading-[0.94] text-ink">
+                {closingRole === "BRAND" ? (
+                  <>
+                    Launch on <br className="hidden lg:block" />
+                    your own <span className="text-ice">clock.</span>
+                  </>
+                ) : (
+                  <>
+                    Be ready <br className="hidden lg:block" />
+                    at <span className="text-ice">zero.</span>
+                  </>
+                )}
               </h2>
-              <p className="mx-auto mt-4 max-w-[30ch] text-[16.5px] leading-[1.45] text-soft sm:text-[18px] lg:mx-0 lg:mt-6">
-                {live
-                  ? "T^minus is live. Leave your number for drop alerts."
-                  : "Leave your number. We\u2019ll text you the moment T^minus is live."}
+              <p className="mx-auto mt-4 max-w-[34ch] text-[16.5px] leading-[1.5] text-soft sm:text-[18px] lg:mx-0 lg:mt-6">
+                {closingRole === "BRAND"
+                  ? "Keep your identity, your pricing and your checkout. Turn each collection into a scheduled release. Leave a number and we\u2019ll text you about setting up your first drop."
+                  : live
+                    ? "T^minus is live. Leave your number for drop alerts."
+                    : "Follow independent releases on a live clock and be there when they open. Leave your number and we\u2019ll text you the moment T^minus is live."}
               </p>
             </div>
-            <div className="flex flex-col items-center lg:items-start lg:pt-3">
+            <div className="flex flex-col items-center lg:items-start lg:pt-2">
+              <PerkLine className="mb-3 text-center lg:text-left" />
               <div ref={closingFormRef} className="flex w-full justify-center lg:justify-start">
                 <WaitlistForm
                   inputRef={closingPhoneRef}
                   requestedRole={requestedRole}
                   onPulse={pulse}
+                  onRoleChange={setClosingRole}
+                  onJoined={() => setJoined(true)}
                   align="split"
                 />
               </div>
-              <PerkLine className="mt-4" />
             </div>
           </div>
           <footer className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-center gap-x-1 px-5 pb-2 text-[13px] text-mute sm:pb-3">

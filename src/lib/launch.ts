@@ -13,7 +13,7 @@ export const LAUNCH_DATE_SHORT = "January 1";
  * incentive. Set to null to show no perk line at all.
  */
 export const WAITLIST_PERK: string | null =
-  "Two weeks of Premium, free, when it opens.";
+  "2 weeks of Premium, free when it opens.";
 
 /** Text-message programme details shown in the consent line and legal pages. */
 export const SMS_PROGRAM = {

@@ -167,7 +167,7 @@ function ChipRow<T extends string>({
               }`}
             >
               <span
-                className={`text-[0.8125em] @[330px]:text-[0.875em] ${
+                className={`text-[0.75em] @[330px]:text-[0.8125em] ${
                   checked ? "font-semibold" : "font-medium"
                 }`}
               >
@@ -215,7 +215,7 @@ function ResultCard({
         </Swap>
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-[0.5em] gap-y-[0.3125em]">
+        <div className="flex flex-col gap-[0.3125em] @[330px]:flex-row @[330px]:items-baseline @[330px]:justify-between @[330px]:gap-[0.5em]">
           <span className="app-label font-semibold! tracking-[0.055em]! text-[#8f6cf0]">
             <Swap value={label} animate={animate}>
               {label}
@@ -225,7 +225,7 @@ function ResultCard({
             <Swap value={confidence} animate={animate}>
               {confidence}%
             </Swap>{" "}
-            demo confidence
+            confidence
           </span>
         </div>
         <p className="mt-[0.45em] text-[0.8125em] leading-[1.4] text-[color:var(--secondary)]">
@@ -288,7 +288,7 @@ export function SizeAssistDemo({ active }: { active: boolean }) {
             <Swap value={result.confidence} animate={animate}>
               {result.confidence}%
             </Swap>{" "}
-            demo confidence, with one clear alternate. You make the final choice.
+            confidence, with one clear alternate. You make the final choice.
           </p>
         </div>
 
@@ -305,7 +305,7 @@ export function SizeAssistDemo({ active }: { active: boolean }) {
             options={REFERENCE_FITS}
             value={fit}
             onChange={answer(setFit)}
-            columns="grid-cols-4"
+            columns="grid-cols-[1fr_1.2fr_1.2fr_1.45fr]"
           />
           <ChipRow
             question="How should this piece fit?"
@@ -316,7 +316,7 @@ export function SizeAssistDemo({ active }: { active: boolean }) {
           />
         </div>
 
-        <div className="mt-[0.875em] flex flex-col gap-[0.625em]">
+        <div className="@container mt-[0.875em] flex flex-col gap-[0.625em]">
           <ResultCard
             selected
             size={result.recommended}

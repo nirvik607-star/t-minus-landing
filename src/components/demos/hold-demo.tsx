@@ -1,5 +1,7 @@
 "use client";
 
+import { GarmentGlyph } from "@/components/demos/garment-glyph";
+
 import React, { useEffect, useId, useRef, useState } from "react";
 import {
   AppCard,
@@ -293,11 +295,12 @@ function HoldView({ active }: { active: boolean }) {
           }}
           className={`app-label -mx-[0.5em] flex min-h-[44px] items-center px-[0.5em] underline decoration-white/30 underline-offset-[0.3em] ${
             nearEnd
-              ? "cursor-default text-[color:var(--secondary)] opacity-40"
+              ? "cursor-default text-[color:var(--secondary)]"
               : "cursor-pointer text-[color:var(--secondary)] active:opacity-70 [@media(hover:hover)]:hover:text-white"
           }`}
         >
-          Skip to the last five seconds
+          {/* Dimmed on the text only, so the focus ring keeps its full strength. */}
+          <span className={nearEnd ? "opacity-40" : ""}>Skip to the last five seconds</span>
         </button>
       </div>
 
@@ -308,8 +311,8 @@ function HoldView({ active }: { active: boolean }) {
             aria-hidden="true"
             className="relative h-[5em] w-[4.25em] shrink-0 overflow-hidden rounded-[8px] border border-white/[0.12] bg-[color:var(--galaxy-deep)]"
           >
-            <div className="absolute inset-0 [mask-composite:intersect] [mask-image:linear-gradient(90deg,transparent,#000_16%,#000_84%,transparent),linear-gradient(180deg,transparent,#000_14%,#000_86%,transparent)]">
-              <GlyphPatch cell={4} />
+            <div className="absolute inset-0 p-[3px]">
+              <GarmentGlyph kind="jacket" label="" />
             </div>
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-[0.375em]">

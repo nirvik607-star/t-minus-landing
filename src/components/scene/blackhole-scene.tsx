@@ -26,6 +26,8 @@ export interface SceneFrame extends SceneValues {
 export interface SceneInputs {
   /** CSS px from the top of the viewport; the field stays clear above it. 0 = off. */
   fadeLine: number;
+  /** The pinned feature demo the hole should sit behind, if any. */
+  feat?: { x: number; y: number; r: number; on: number; turn: number };
 }
 
 export interface SceneControl {
@@ -353,6 +355,7 @@ export function BlackholeScene({
         px: finePointer && !reducedMotion ? pointer.x : 0,
         py: finePointer && !reducedMotion ? pointer.y : 0,
         secondsLeft,
+        feat: inputsRef?.current.feat,
       });
 
       const settled = introClock >= INTRO_SECONDS;

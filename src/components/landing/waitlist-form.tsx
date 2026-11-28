@@ -10,17 +10,13 @@ import {
 } from "@/lib/waitlist";
 import { SMS_PROGRAM, WAITLIST_PERK, siteUrl } from "@/lib/launch";
 
-/** The waitlist incentive, as one short line. Renders nothing when no perk is set. */
+/** The waitlist incentive, as one plain line. Renders nothing when no perk is set. */
 export function PerkLine({ className = "" }: { className?: string }) {
   if (!WAITLIST_PERK) return null;
   return (
-    <p
-      className={`inline-flex items-center gap-2 rounded-full border border-accent/70 bg-accent/25 px-3.5 py-1.5 text-[13px] font-medium leading-tight text-ink ${className}`}
-    >
-      <span aria-hidden="true" className="font-mono text-ice">
-        +
-      </span>
-      <span>Waitlist perk: {WAITLIST_PERK.charAt(0).toLowerCase() + WAITLIST_PERK.slice(1)}</span>
+    <p className={`text-[14px] leading-[1.4] text-soft ${className}`}>
+      <span className="font-semibold text-ink">Waitlist perk:</span>{" "}
+      {WAITLIST_PERK.charAt(0).toLowerCase() + WAITLIST_PERK.slice(1)}
     </p>
   );
 }
@@ -33,6 +29,12 @@ interface WaitlistFormProps {
   align?: "center" | "start" | "split";
   /** Light pulse through the scene while typing, a stronger one on success. */
   onPulse?: (strength: number) => void;
+  /** Show the shopper / brand choice. Off in the hero, where the form stays short. */
+  roleSwitch?: boolean;
+  /** Told whenever the chosen audience changes, so the page can change its pitch. */
+  onRoleChange?: (role: WaitlistRole) => void;
+  /** Told once a signup has been saved. */
+  onJoined?: (role: WaitlistRole) => void;
 }
 
 const ROLES: { id: WaitlistRole; label: string }[] = [
@@ -45,6 +47,9 @@ export function WaitlistForm({
   inputRef,
   align = "center",
   onPulse,
+  roleSwitch = true,
+  onRoleChange,
+  onJoined,
 }: WaitlistFormProps) {
   const uid = useId();
   const phoneId = `${uid}-phone`;
@@ -69,6 +74,10 @@ export function WaitlistForm({
     setRole(requestedRole.role);
     setError(null);
   }, [requestedRole]);
+
+  useEffect(() => {
+    onRoleChange?.(role);
+  }, [role, onRoleChange]);
 
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
@@ -128,6 +137,7 @@ export function WaitlistForm({
         return;
       }
       setJoined(role);
+      onJoined?.(role);
       onPulse?.(1);
     } catch {
       setError({ field: "form", text: "No connection. Check your signal and try again." });
@@ -212,41 +222,43 @@ export function WaitlistForm({
 
   return (
     <form onSubmit={submit} noValidate className={`flex w-full max-w-[460px] flex-col ${alignCls}`}>
-      <div
-        role="radiogroup"
-        aria-label="Who is joining"
-        className="flex h-11 items-stretch gap-7"
-      >
-        {ROLES.map((opt) => {
-          const on = role === opt.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              onClick={() => {
-                setRole(opt.id);
-                setError(null);
-                onPulse?.(0.3);
-              }}
-              className={`relative flex cursor-pointer items-center px-0.5 text-[15px] transition-colors duration-150 ease-out ${
-                on ? "font-semibold text-ink" : "font-medium text-mute [@media(hover:hover)]:hover:text-ink"
-              }`}
-            >
-              {opt.label}
-              <span
-                aria-hidden="true"
-                className={`absolute bottom-[5px] left-0.5 h-[2px] w-[22px] bg-ink transition-opacity duration-150 ease-out ${
-                  on ? "opacity-100" : "opacity-0"
+      {roleSwitch ? (
+        <div
+          role="radiogroup"
+          aria-label="Who is joining"
+          className="flex h-11 items-stretch gap-7"
+        >
+          {ROLES.map((opt) => {
+            const on = role === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => {
+                  setRole(opt.id);
+                  setError(null);
+                  onPulse?.(0.3);
+                }}
+                className={`relative flex cursor-pointer items-center px-0.5 text-[15px] transition-colors duration-150 ease-out ${
+                  on ? "font-semibold text-ink" : "font-medium text-mute [@media(hover:hover)]:hover:text-ink"
                 }`}
-              />
-            </button>
-          );
-        })}
-      </div>
+              >
+                {opt.label}
+                <span
+                  aria-hidden="true"
+                  className={`absolute bottom-[5px] left-0.5 h-[2px] w-[22px] bg-ink transition-opacity duration-150 ease-out ${
+                    on ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
-      <div className="mt-2 flex w-full items-center gap-1.5 rounded-[12px] border border-line bg-ground-deep/80 p-1.5 transition-colors duration-150 focus-within:border-peri">
+      <div className={`${roleSwitch ? "mt-2" : ""} flex w-full items-center gap-1.5 rounded-[12px] border border-line bg-ground-deep/80 p-1.5 transition-colors duration-150 focus-within:border-peri`}>
         <label htmlFor={phoneId} className="sr-only">
           Mobile number
         </label>
@@ -336,15 +348,15 @@ export function WaitlistForm({
             </svg>
           </span>
         </span>
-        <label htmlFor={consentId} className="cursor-pointer text-[12.5px] leading-[1.45] text-mute">
+        <label htmlFor={consentId} className="cursor-pointer text-[13px] leading-[1.45] text-soft/85">
           Text me {SMS_PROGRAM.brand} launch and drop alerts. Up to{" "}
           {SMS_PROGRAM.maxMessagesPerMonth} msgs/month. Msg &amp; data rates may
           apply. Reply STOP to cancel, HELP for help.{" "}
-          <Link href="/privacy" className="text-soft underline decoration-peri/60 underline-offset-2">
+          <Link href="/privacy" className="text-ink underline decoration-peri/70 underline-offset-2">
             Privacy
           </Link>{" "}
           and{" "}
-          <Link href="/terms" className="text-soft underline decoration-peri/60 underline-offset-2">
+          <Link href="/terms" className="text-ink underline decoration-peri/70 underline-offset-2">
             Terms
           </Link>
           .

@@ -14,11 +14,11 @@ interface Stage {
 }
 
 const STAGES: Stage[] = [
-  { id: "far", name: "Hours out", start: 11 * 3600 + 59 * 60 + 59, shows: "hh mm ss", note: "Two slow waves cross the field." },
-  { id: "hour", name: "Inside the hour", start: 59 * 60 + 59, shows: "mm ss", note: "Hours drop away. Scan lanes start to run." },
-  { id: "quarter", name: "Fifteen minutes", start: 14 * 60 + 59, shows: "mm ss", note: "Diamonds open from the centre." },
-  { id: "final", name: "The final minute", start: 12, shows: "ss", note: "Only seconds are left, and only the letter T." },
-  { id: "live", name: "Zero and after", start: 0, shows: "T+", note: "The minus becomes a plus and the clock keeps counting." },
+  { id: "far", name: "Hours out", start: 11 * 3600 + 59 * 60 + 59, shows: "hh mm ss", note: "Hours, minutes, seconds. The field moves slowly." },
+  { id: "hour", name: "Inside the hour", start: 59 * 60 + 59, shows: "mm ss", note: "The hours drop away and the pace picks up." },
+  { id: "quarter", name: "Fifteen minutes", start: 14 * 60 + 59, shows: "mm ss", note: "Fifteen minutes. The field opens from the centre." },
+  { id: "final", name: "The final minute", start: 12, shows: "ss", note: "Only seconds now, and only the letter T." },
+  { id: "live", name: "Zero and after", start: 0, shows: "T+", note: "Zero. The minus becomes a plus and it keeps counting." },
 ];
 
 const RUNG_STAGE: Record<Rung, number> = {

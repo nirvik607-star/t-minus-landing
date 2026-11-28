@@ -40,7 +40,7 @@ const SHOTS = [
   { id: "S07c-size", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "size-assist" },
   { id: "S07d-hold", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "hold" },
   { id: "S07e-lab", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "lab" },
-  { id: "S08-audiences", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[data-section='audiences']", block: "center" },
+  { id: "S08-after", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[data-section='features']", block: "end" },
   { id: "S09-closing", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[data-section='closing']" },
   { id: "S11a-privacy", vps: ["m"], path: "/privacy", qs: "" },
   { id: "S11b-terms", vps: ["m"], path: "/terms", qs: "" },

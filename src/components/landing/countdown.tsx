@@ -65,7 +65,7 @@ export function useLaunchClock(): ClockParts {
 function Prefix({ plus, className = "" }: { plus: boolean; className?: string }) {
   return (
     <span aria-hidden="true" className={`inline-flex items-baseline ${className}`}>
-      <span className="font-display font-medium italic">T</span>
+      <span className="font-display font-semibold italic">T</span>
       <span className="font-sans font-medium">{plus ? "+" : "−"}</span>
     </span>
   );
@@ -95,7 +95,7 @@ function Unit({ value, unit, numeralClass, unitClass }: UnitProps) {
 }
 
 /** The strip that sits inside the event horizon under the form. */
-export function HorizonClock({ parts }: { parts: ClockParts }) {
+export function HorizonClock({ parts, joined = false }: { parts: ClockParts; joined?: boolean }) {
   const numeral =
     "text-[34px] leading-[0.9] tracking-[-0.03em] text-ink sm:text-[46px]";
   const unit = "ml-[3px] mt-[2px] text-[14px] leading-none text-peri sm:text-[17px]";
@@ -115,8 +115,14 @@ export function HorizonClock({ parts }: { parts: ClockParts }) {
         <Unit value={parts.minutes} unit="m" numeralClass={numeral} unitClass={unit} />
         <Unit value={parts.seconds} unit="s" numeralClass={numeral} unitClass={unit} />
       </div>
-      <p className="mt-2.5 font-sans text-[12px] leading-none text-mute sm:mt-3 sm:text-[13px]">
-        {parts.plus ? "Live on the App Store" : `On the App Store ${LAUNCH_DATE_LONG}`}
+      <p className="mt-2.5 font-sans text-[13px] leading-none text-mute sm:mt-3">
+        {joined ? (
+          <span className="text-ink">You&rsquo;re in. See you at zero.</span>
+        ) : parts.plus ? (
+          "Live on the App Store"
+        ) : (
+          `On the App Store ${LAUNCH_DATE_LONG}`
+        )}
       </p>
     </div>
   );
@@ -142,7 +148,7 @@ export function DialClock({ parts }: { parts: ClockParts }) {
         <span className="value font-sans text-[7.4em] font-semibold leading-[0.8] tracking-[-0.045em] text-ink">
           {parts.days}
         </span>
-        <span className="ml-[0.2em] mt-[0.2em] font-mono text-[max(14px,1.25em)] font-medium leading-none text-ice">
+        <span className="ml-[0.2em] mt-[0.2em] font-mono text-[max(15px,1.6em)] font-medium leading-none text-ice">
           d
         </span>
       </div>

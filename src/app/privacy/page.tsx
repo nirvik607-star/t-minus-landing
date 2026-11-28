@@ -78,7 +78,7 @@ export default function PrivacyPage() {
           <a href={`mailto:${mail}`} className="text-ink underline decoration-peri/60 underline-offset-2">
             {mail}
           </a>
-          . The text-message programme is described in the{" "}
+          . The text-message program is described in the{" "}
           <Link href="/terms" className="text-ink underline decoration-peri/60 underline-offset-2">
             Terms
           </Link>

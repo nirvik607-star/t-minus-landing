@@ -13,9 +13,9 @@ export default function TermsPage() {
   const brand = SMS_PROGRAM.brand;
   return (
     <LegalShell title="Text message terms" updated="November 28, 2026">
-      <LegalSection heading="The programme">
+      <LegalSection heading="The program">
         <p>
-          {brand} launch and drop alerts is a text-message programme run by {brand}. When you enter your
+          {brand} launch and drop alerts is a text-message program run by {brand}. When you enter your
           mobile number on this website and tick the consent box, you agree to receive recurring
           automated text messages from {brand} at that number: a message when the app is live on the App
           Store, and alerts about drops. Brands that join may also receive messages about setting up a

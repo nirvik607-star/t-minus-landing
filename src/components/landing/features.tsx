@@ -13,6 +13,8 @@ interface Feature {
   line: string;
   body: string;
   tryIt: string;
+  /** The same hint for touch screens, where it differs. */
+  tryItTouch?: string;
   Demo: React.ComponentType<{ active: boolean }>;
 }
 
@@ -20,16 +22,16 @@ const FEATURES: Feature[] = [
   {
     id: "drops-home",
     name: "Drops Home",
-    line: "Every drop in one place.",
-    body: "The next release owns the whole screen: its clock, its pieces, its price. There is no feed to dig through.",
+    line: "The next drop gets the whole screen.",
+    body: "One place for every release you follow. Whichever is next owns the screen: its clock, its pieces, its price. There is no feed to dig through.",
     tryIt: "Tap the bookmark to track the drop.",
     Demo: DropsHomeDemo,
   },
   {
     id: "clock",
     name: "The clock",
-    line: "One clock, and it means it.",
-    body: "It tightens at one hour, at fifteen minutes and in the final minute. At zero it doesn't stop. It becomes T-plus and keeps counting.",
+    line: "A clock that tightens as zero gets close.",
+    body: "It changes at one hour, at fifteen minutes and in the final minute. At zero it doesn't stop. It becomes T-plus and keeps counting.",
     tryIt: "Pick a moment and watch the field change.",
     Demo: ClockDemo,
   },
@@ -55,6 +57,7 @@ const FEATURES: Feature[] = [
     line: "Vote before it's made.",
     body: "Swipe through unreleased concepts. Support one, pass on another. Brands see what is worth producing before a unit is cut.",
     tryIt: "Drag the card, or use the arrow keys.",
+    tryItTouch: "Swipe the card, or tap a button.",
     Demo: LabDemo,
   },
 ];
@@ -97,7 +100,15 @@ function Copy({ feature }: { feature: Feature }) {
       </h3>
       <p className="mt-4 max-w-[40ch] text-[17px] leading-[1.55] text-soft">{feature.body}</p>
       <p className="mt-5 text-[14.5px] leading-[1.4] text-mute">
-        <span className="text-ink">Try it.</span> {feature.tryIt}
+        <span className="text-ink">Try it.</span>{" "}
+        {feature.tryItTouch ? (
+          <>
+            <span className="[@media(hover:none)]:hidden">{feature.tryIt}</span>
+            <span className="hidden [@media(hover:none)]:inline">{feature.tryItTouch}</span>
+          </>
+        ) : (
+          feature.tryIt
+        )}
       </p>
     </>
   );
@@ -109,14 +120,22 @@ function InlineFeature({ feature }: { feature: Feature }) {
   return (
     <li data-feature={feature.id} className="py-10">
       <Copy feature={feature} />
-      <div ref={ref} className="mt-7 flex justify-center">
+      <div ref={ref} className="mt-7 flex flex-col items-center">
         <Demo active={inView} />
+        <p className="mt-3 text-[13px] text-mute">Live demo, example data</p>
       </div>
     </li>
   );
 }
 
-export function Features() {
+interface FeaturesProps {
+  /** The pinned demo column on wide screens, so the scene can sit behind it. */
+  panelRef?: React.RefObject<HTMLDivElement | null>;
+  /** The scrolling list of features, for scroll progress. */
+  listRef?: React.RefObject<HTMLOListElement | null>;
+}
+
+export function Features({ panelRef, listRef }: FeaturesProps) {
   const wide = useWide("(min-width: 1024px)");
   const [active, setActive] = useState(0);
   const [sectionRef, sectionInView] = useInView<HTMLElement>("0px");
@@ -144,7 +163,7 @@ export function Features() {
     <section
       ref={sectionRef}
       data-section="features"
-      className="mx-auto w-full max-w-[1120px] px-5 pb-10 pt-24 sm:px-9 sm:pt-36"
+      className="mx-auto w-full max-w-[1360px] px-5 pb-10 pt-24 sm:px-10 sm:pt-36 lg:px-20"
     >
       <h2 className="max-w-[18ch] text-[clamp(2.2rem,4.4vw,3.8rem)] font-semibold leading-[1.02] tracking-[-0.035em] text-ink">
         Everything a drop needs, before it opens.
@@ -155,8 +174,8 @@ export function Features() {
       </p>
 
       {wide ? (
-        <div className="mt-6 grid grid-cols-[minmax(0,1fr)_420px] gap-x-20">
-          <ol>
+        <div className="mt-6 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-16">
+          <ol ref={listRef}>
             {FEATURES.map((f, i) => (
               <li
                 key={f.id}
@@ -177,7 +196,10 @@ export function Features() {
             ))}
           </ol>
           <div className="relative">
-            <div className="sticky top-[max(76px,calc(50vh-330px))] h-[min(660px,calc(100vh-92px))]">
+            <div
+              ref={panelRef}
+              className="sticky top-[max(76px,calc(50vh-330px))] h-[min(660px,calc(100vh-92px))]"
+            >
               {FEATURES.map((f, i) => {
                 const on = i === active;
                 const { Demo } = f;
@@ -192,7 +214,10 @@ export function Features() {
                         : "pointer-events-none translate-y-2 opacity-0"
                     }`}
                   >
-                    <Demo active={on && sectionInView} />
+                    <div className="flex w-full flex-col items-center">
+                      <Demo active={on && sectionInView} />
+                      <p className="mt-3 text-[13px] text-mute">Live demo, example data</p>
+                    </div>
                   </div>
                 );
               })}
@@ -207,10 +232,25 @@ export function Features() {
         </ol>
       )}
 
-      <p className="mt-10 max-w-[52ch] text-[17px] leading-[1.55] text-soft sm:mt-4">
-        After the drop, every purchase lands in your Closet as a verified
-        record, and each brand keeps its own membership.
-      </p>
+      <div className="mt-12 grid grid-cols-1 gap-x-16 gap-y-8 border-t border-line pt-10 sm:mt-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:pt-14">
+        <h3 className="text-[clamp(1.7rem,2.6vw,2.3rem)] font-semibold leading-[1.08] tracking-[-0.03em] text-ink">
+          And after the drop.
+        </h3>
+        <dl className="grid grid-cols-1 gap-y-7 sm:grid-cols-2 sm:gap-x-10">
+          <div>
+            <dt className="text-[17px] font-semibold text-ink">Closet</dt>
+            <dd className="mt-2 max-w-[34ch] text-[16.5px] leading-[1.5] text-soft">
+              Every purchase lands here as a verified record of what you own.
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[17px] font-semibold text-ink">Membership</dt>
+            <dd className="mt-2 max-w-[34ch] text-[16.5px] leading-[1.5] text-soft">
+              One identity across the app. Each brand keeps its own tiers.
+            </dd>
+          </div>
+        </dl>
+      </div>
     </section>
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { GarmentGlyph, type GarmentKind } from "@/components/demos/garment-glyph";
+
 import React, { memo, useEffect, useRef, useState } from "react";
 import {
   AppFrame,
@@ -551,12 +553,19 @@ const GlyphScene = memo(function GlyphScene({ marks }: { marks: Mark[] }) {
  * colour, the rounded clip and the caption. The scenes alternate galaxy,
  * satellite, package, and the second use of each stands on a different frame.
  */
+const CONCEPT_GARMENTS: GarmentKind[] = ["shell", "vest", "trouser", "tote", "liner", "overshirt"];
+
+/**
+ * The landing page shows each concept as the garment itself, drawn in glyphs.
+ * (The prototype's cards use space scenes as stand-in art; those components
+ * are kept below but not used here.)
+ */
 function ConceptArtwork({ index }: { index: number }) {
-  const scene = index % 3;
-  const variant = index < 3 ? 0 : 1;
-  if (scene === 0) return <GalaxyArt variant={variant} />;
-  if (scene === 1) return <GlyphScene marks={SATELLITE_MARKS[variant]} />;
-  return <GlyphScene marks={PACKAGE_MARKS[variant]} />;
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 px-2 pb-8 pt-2">
+      <GarmentGlyph kind={CONCEPT_GARMENTS[index % CONCEPT_GARMENTS.length]} label="" />
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ */
