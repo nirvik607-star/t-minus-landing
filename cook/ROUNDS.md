@@ -6,7 +6,7 @@ Bar: design 9 | usability 9 | creativity 9 | content 9 (each out of 10, fresh re
 Calibration offset: none yet (no user estimate received)
 Usage: not readable
 Gate: stills approved no | final render not applicable (the deliverable is the site)
-Best so far: round 10, `cook/stills/r10/`
+Best so far: round 11, `cook/stills/r11/`
 
 Correction, 05:20: the times first written for rounds 1 and 2 were estimates, not clock readings, and ran about 90 minutes ahead. They are replaced below with times taken from the commit log.
 
@@ -34,6 +34,7 @@ Made without asking, one line each.
 - 06:50 The intro's hole has a clean black shadow, with nothing drawn across its front. Five critics over six rounds read the band across it as a seam or a render fault at every angle tried.
 - 06:50 The demos keep the app's white primary buttons, against three critics who wanted them outlined so they do not compete with the page's own button. The user asked for accuracy to the prototype. Flagged for the user.
 - 06:50 Ice blue: the seconds of the page's countdown are the one ice-blue value in the hero and the dial; in the closing the word "zero." takes it and the seconds go white. Unit marks are periwinkle throughout.
+- 07:20 On phones each demo is scaled to fit between the arcs of the rim (never below nine tenths) and rests there for a third of a screen. Its controls then measure 40 to 43px instead of 44. Seeing the demo whole was judged worth four pixels; flagged for the user.
 - 05:10 "Example studio / Portland, OR" replaces "Independent studio / Your city" on the Drops Home stage; other demo data keeps the prototype's own placeholder style (Studio 01, CONCEPT_01) and each demo is labelled as running on example data.
 
 ## User feedback inbox
@@ -295,8 +296,34 @@ Changes:
 - Closing: columns aligned, a little lower; the brand pitch carries the membership line.
 
 Stills: `cook/stills/r10/` | Pairs: `cook/compare/r10/`
-Scores: two critics running.
+
+Scores, eyeballed, raw:
+- Blind pairs won by the new build: 8 of 8 (critic S). New build per pair: design 6.5 to 7.5, usability 6.5 to 7.5, creativity 6.5 to 8, content 4.5 (the intro frame) to 7. Closet pair: 7.5 / 7 / 8 / 7.
+- Walkthrough (critic T, stronger model), whole page: design 6.8, usability 6.4, creativity 7.3, content 6.3. The first whole-page movement since round 2 (round 9: 6.4 / 6.3 / 7.1 / 5.9). Desktop features 7 / 7 / 7 / 7, closet 7 / 7 / 6.5 / 7, intro 7 / 6 / 8, dial 7.5 / 7 / 7.5 / 7, closing 7 / 7.5 / 6.5 / 7. Phone features 5.5 / 5 / 6 / 7.
 Own score: design 8, usability 8, creativity 8.5, content 7.5.
 Measured: `tsc --noEmit` clean; axe-core reports no violations (page at three scroll states on desktop and phone, and both legal pages); functional script passes; intro timing 4.3s first visit, 0.4s returning, 1.8s after Skip, 0.1s reduced motion; five extra sizes render without horizontal overflow or console errors; no-WebGL page renders complete; production build passes.
 Not checked: real-device frame rate; a pass with a real screen reader; the demos against fresh prototype captures.
+
+Top gaps (critic T): on phones no demo was ever seen whole, because the bottom rim cut each one; two headings of the same size stacked on phones; the countdown high in an otherwise empty hole during the rise; the header clock as a third countdown style; glyphs in MINUS cut at the letter edges; faded copy ghosting behind the phone header. Critic S: the hero countdown touching the rim's glow; an undersized premise beside the dial.
+Stop check: bar no -> next round
+
+## Round 11
+
+Time: 07:10 to 07:35 UTC | total elapsed 3.5h
+Focus: phones inside the hole, the weakest shot (5.5 / 5 / 6 / 7).
+
+Changes:
+- Phones: each demo is scaled to fit between the two arcs of the rim and rests there, centred and whole, for a third of a screen of scrolling. Six new stills record that state.
+- Phones: the section heading steps down in size so it does not compete with the first part's name; solid shade behind the logo and button.
+- MINUS: only whole glyphs, inside the letters; nothing cut at an edge.
+- Hero: the countdown sits deeper in the hole, clear of the rim's glow. During the rise it reaches the centre of the void sooner.
+- Dial: larger premise.
+- Header clock: no label. Closing: new body copy that says what the texts will be, instead of repeating the hero.
+- The runway no longer takes taps meant for the first demo as it rises (found by a hit test, not by a critic).
+
+Stills: `cook/stills/r11/` | Pairs: `cook/compare/r11/`
+Scores: two critics running.
+Own score: design 8, usability 8, creativity 8.5, content 7.5.
+Measured: `tsc --noEmit` clean; axe-core reports no violations; functional script: no text under 12px, form states and keyboard order pass, no console errors, and 26 demo controls on the phone measure 40 to 43px while their demo is scaled (everything else is 44px or more); hit tests: the hero field and the first demo take taps at three scroll positions on desktop and phone; four extra sizes render without horizontal overflow or console errors; no-WebGL page renders complete.
+Not checked: real-device frame rate; a pass with a real screen reader; the demos against fresh prototype captures; the phone hold on a real iPhone with its moving address bar.
 

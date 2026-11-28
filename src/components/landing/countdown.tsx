@@ -188,10 +188,6 @@ export function HeaderClock({ parts }: { parts: ClockParts }) {
       aria-label={spoken(parts)}
       className="value inline-flex items-baseline gap-[0.45em] whitespace-nowrap font-mono text-[12px] font-medium text-soft sm:text-[13px]"
     >
-      {/* Says which clock this is, now that the demos beside it run their own. */}
-      <span aria-hidden="true" className="hidden text-mute lg:inline">
-        {parts.plus ? "Live for" : "Launch in"}
-      </span>
       <span aria-hidden="true">
         {parts.plus ? "T+" : "T−"}
         {parts.days}

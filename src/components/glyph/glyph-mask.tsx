@@ -30,6 +30,8 @@ export interface GlyphMaskProps {
   silhouetteOpacity?: number;
   /** Energy above which a cell becomes a signal T. 0..1 */
   threshold?: number;
+  /** How full a cell must be before it gets a mark. Near 1 keeps every mark whole, inside the letter. */
+  minCoverage?: number;
   /** Seconds per loop. */
   loop?: number;
   /** 0..1: how much of the word has materialised (ordered scan, left to right). */
@@ -64,6 +66,7 @@ export function GlyphMask({
   silhouette = "#97DFFC",
   silhouetteOpacity = 0.2,
   threshold = 0.74,
+  minCoverage = 0.5,
   loop = 2.0,
   reveal,
   revealSource,
@@ -237,7 +240,7 @@ export function GlyphMask({
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const cov = coverage[r * cols + c];
-          if (cov < 0.5) continue;
+          if (cov < minCoverage) continue;
           // Ordered scan: columns arrive left to right with a slight diagonal.
           const order = (c + r * 0.35) / (cols + rows * 0.35);
           const local = (rv * 1.25 - order) / 0.25;
@@ -288,6 +291,7 @@ export function GlyphMask({
     maskItalic,
     maskFamilyVar,
     cellProp,
+    minCoverage,
     rowsProp,
     tints,
     signal,

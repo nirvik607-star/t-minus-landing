@@ -38,7 +38,7 @@ const FEATURES: Feature[] = [
     name: "The clock",
     lead: "It changes as zero gets close.",
     body: "At one hour, fifteen minutes and one minute the clock tightens, so you can read how near a drop is at a glance. At zero it flips to T‑plus and counts up, so you always know how long a drop has been open.",
-    hint: "Pick a moment and watch it change.",
+    hint: "Tap a row to jump the clock.",
     Demo: ClockDemo,
   },
   {
@@ -120,14 +120,78 @@ function Copy({ feature, wide }: { feature: Feature; wide: boolean }) {
   );
 }
 
-function InlineFeature({ feature }: { feature: Feature }) {
+/**
+ * The height of the small viewport in px: the screen with a phone's address
+ * bar showing. It does not change as the bar comes and goes.
+ */
+function useSmallViewportHeight() {
+  const [h, setH] = useState(0);
+  useEffect(() => {
+    const probe = document.createElement("div");
+    probe.style.cssText =
+      "position:fixed;top:0;left:0;width:0;height:100svh;visibility:hidden;pointer-events:none";
+    document.body.appendChild(probe);
+    const update = () => setH(probe.offsetHeight || window.innerHeight);
+    update();
+    window.addEventListener("resize", update, { passive: true });
+    return () => {
+      window.removeEventListener("resize", update);
+      probe.remove();
+    };
+  }, []);
+  return h;
+}
+
+// Never below nine tenths: the demo's controls stay close to their full size.
+const HOLD_MIN_SCALE = 0.9;
+
+/**
+ * Small screens: copy, then the demo. With the scene on, the demo is scaled
+ * to fit between the two arcs of the rim and rests there, centred and whole,
+ * for a third of a screen of scrolling before it moves on.
+ */
+function InlineFeature({ feature, room }: { feature: Feature; room: number }) {
   const [ref, inView] = useInView<HTMLDivElement>("-10% 0px -10% 0px");
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [cardH, setCardH] = useState(0);
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setCardH((h) => Math.max(h, el.offsetHeight)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const { Demo } = feature;
+  // Hold only when the whole demo can be shown without shrinking it past reading size.
+  const hold = room > 0 && cardH > 0 && cardH * HOLD_MIN_SCALE <= room;
+  const scale = hold ? Math.min(1, room / cardH) : 1;
+  const shown = cardH * scale;
   return (
     <li data-feature={feature.id} className="py-10">
       <Copy feature={feature} wide={false} />
-      <div ref={ref} className="mt-8 flex justify-center">
-        <Demo active={inView} />
+      <div
+        ref={ref}
+        data-demo-run
+        className="mt-8"
+        style={hold ? { height: `calc(${shown.toFixed(1)}px + 32svh)` } : undefined}
+      >
+        <div
+          data-demo-hold={hold ? "" : undefined}
+          className={hold ? "sticky" : undefined}
+          style={hold ? { top: `calc(50dvh - ${(shown / 2).toFixed(1)}px)`, height: shown } : undefined}
+        >
+          <div
+            ref={cardRef}
+            className="mx-auto w-full max-w-[400px]"
+            style={
+              hold && scale < 1
+                ? { transform: `scale(${scale.toFixed(4)})`, transformOrigin: "top center" }
+                : undefined
+            }
+          >
+            <Demo active={inView} />
+          </div>
+        </div>
       </div>
     </li>
   );
@@ -163,6 +227,9 @@ export function Features({ outerRef, scene, onPart }: FeaturesProps) {
   const [active, setActive] = useState(0);
   const [layout, setLayout] = useState<Layout | null>(null);
   const [sectionRef, sectionInView] = useInView<HTMLElement>("0px");
+  const svh = useSmallViewportHeight();
+  // Small screens with the scene on: what is left for a demo between the arcs of the rim.
+  const holdRoom = scene && !wide && svh > 0 ? svh - 226 : 0;
   const stageColRef = useRef<HTMLDivElement | null>(null);
   const introRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Array<HTMLLIElement | null>>([]);
@@ -286,11 +353,21 @@ export function Features({ outerRef, scene, onPart }: FeaturesProps) {
 
   const intro = (
     <>
-      <h2 className="headline max-w-[14ch] text-[clamp(2.6rem,4.7vw,4.4rem)] text-ink">
+      {/* Beside the ring this stands alone. Stacked above the first part on a
+          small screen, it steps down so the two headings do not compete. */}
+      <h2
+        className={`headline max-w-[14ch] text-ink ${
+          wide ? "text-[clamp(2.6rem,4.7vw,4.4rem)]" : "text-[1.9rem]"
+        }`}
+      >
         Inside the app.
       </h2>
-      <p className="mt-5 max-w-[40ch] text-[18px] leading-[1.5] text-soft lg:text-[19px]">
-        Six working parts of it, running on example data.
+      <p
+        className={`max-w-[40ch] text-soft ${
+          wide ? "mt-5 text-[19px] leading-[1.5]" : "mt-3 text-[17px] leading-[1.45]"
+        }`}
+      >
+        Six screens from the app, running on example data. Try them.
       </p>
     </>
   );
@@ -378,7 +455,7 @@ export function Features({ outerRef, scene, onPart }: FeaturesProps) {
           {intro}
           <ol className="mt-2 pb-10">
             {FEATURES.map((f) => (
-              <InlineFeature key={f.id} feature={f} />
+              <InlineFeature key={f.id} feature={f} room={holdRoom} />
             ))}
           </ol>
         </div>

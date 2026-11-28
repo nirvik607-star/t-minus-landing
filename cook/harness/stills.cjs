@@ -43,6 +43,13 @@ const SHOTS = [
   { id: "S07d-hold", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "hold" },
   { id: "S07e-lab", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "lab" },
   { id: "S08-closet", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "closet" },
+  // Phones: each demo at rest, centred in the hole.
+  { id: "S07p1-drops-held", vps: ["m"], qs: "skipIntro=1&still=1", held: "drops-home" },
+  { id: "S07p2-clock-held", vps: ["m"], qs: "skipIntro=1&still=1", held: "clock" },
+  { id: "S07p3-size-held", vps: ["m"], qs: "skipIntro=1&still=1", held: "size-assist" },
+  { id: "S07p4-hold-held", vps: ["m"], qs: "skipIntro=1&still=1", held: "hold" },
+  { id: "S07p5-lab-held", vps: ["m"], qs: "skipIntro=1&still=1", held: "lab" },
+  { id: "S07p6-closet-held", vps: ["m"], qs: "skipIntro=1&still=1", held: "closet" },
   { id: "S08b-pullout", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[data-section='closing']", block: "end", back: 0.42 },
   { id: "S09-closing", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[data-section='closing']" },
   { id: "S11a-privacy", vps: ["m"], path: "/privacy", qs: "" },
@@ -76,6 +83,13 @@ const SHOTS = [
           const top = r.top + window.scrollY;
           window.scrollTo(0, top + (r.height - window.innerHeight) * f[0] + window.innerHeight * f[1]);
         }, [shot.pin, shot.extra || 0]);
+      } else if (shot.held) {
+        await page.evaluate((id) => {
+          const run = document.querySelector(`[data-feature='${id}'] [data-demo-run]`);
+          const r = run.getBoundingClientRect();
+          // Half-way through the stretch where the demo rests.
+          window.scrollTo(0, r.top + window.scrollY + r.height / 2 - window.innerHeight / 2);
+        }, shot.held);
       } else if (shot.feature) {
         await page.evaluate((id) => {
           const el = document.querySelector(`[data-feature='${id}']`);

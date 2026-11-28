@@ -289,7 +289,7 @@ export function WaitlistForm({
             if (error) setError(null);
             typingPulse();
           }}
-          className="h-11 w-0 min-w-0 flex-1 bg-transparent px-3 text-[16px] max-[379px]:px-2.5 text-ink outline-none placeholder:text-mute/80 sm:h-12 sm:text-[17px]"
+          className="h-11 w-0 min-w-0 flex-1 bg-transparent px-3 text-[16px] max-[379px]:px-2.5 text-ink outline-none placeholder:text-mute sm:h-12 sm:text-[17px]"
         />
         <button
           type="submit"

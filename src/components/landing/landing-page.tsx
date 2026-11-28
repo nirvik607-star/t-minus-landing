@@ -20,7 +20,7 @@ import {
 import { WaitlistForm } from "@/components/landing/waitlist-form";
 import { Features } from "@/components/landing/features";
 import type { WaitlistRole } from "@/lib/waitlist";
-import { APP_STORE_URL } from "@/lib/launch";
+import { APP_STORE_URL, SMS_PROGRAM } from "@/lib/launch";
 import { sceneEnergy, sceneStage } from "@/lib/scene/energy";
 
 /** After zero, with a listing to point at, the page offers the app instead of the waitlist. */
@@ -184,13 +184,13 @@ export function LandingPage() {
     const crestY = f.holeY - f.shadowR;
     const room = h - crestY;
     // A little deeper while the hole is still large on the way out, so the digits clear the rim.
-    const low = crestY + Math.max(50, Math.min(room * 0.36, f.closing > 0.001 ? 136 : 96));
+    const low = crestY + Math.max(50, Math.min(room * 0.5, f.closing > 0.001 ? 136 : 96));
     // Never closer to the rim than a line's height, whichever way the camera is moving.
     const stripY = Math.max(
       crestY + 46,
       // On the rise the strip travels to the centre of the void; on the way
       // out it simply rides under the crest.
-      low + (Math.min(f.holeY, h * 0.5) - low) * (f.closing > 0.001 ? 0 : smooth(0.12, 0.6, f.polar))
+      low + (Math.min(f.holeY, h * 0.5) - low) * (f.closing > 0.001 ? 0 : smooth(0.04, 0.42, f.polar))
     );
     write(
       "hc-t",
@@ -328,7 +328,7 @@ export function LandingPage() {
           ref={headerBackRef}
           aria-hidden="true"
           style={{ opacity: 0 }}
-          className="absolute inset-x-0 top-0 -z-10 h-[92px] bg-gradient-to-b from-[#13021D]/95 via-[#13021D]/70 to-transparent transition-opacity duration-200 ease-out sm:h-28"
+          className="absolute inset-x-0 top-0 -z-10 h-[92px] bg-gradient-to-b from-[#13021D] via-[#13021D]/85 to-transparent transition-opacity duration-200 ease-out sm:h-28"
         />
         {/* During the intro, a soft shade so the logo and Skip hold against the flash. */}
         <div
@@ -454,6 +454,7 @@ export function LandingPage() {
                   silhouette="#FFFFFF"
                   silhouetteOpacity={0.96}
                   threshold={0.74}
+                  minCoverage={0.93}
                   revealSource={minusReveal}
                   className="my-1.5 h-[min(62px,8dvh)] w-[min(300px,38.5dvh)] sm:my-2 sm:h-[min(112px,12.4dvh)] sm:w-[min(540px,59.8dvh)]"
                 />
@@ -501,7 +502,7 @@ export function LandingPage() {
               className={sceneOff ? "mx-auto w-full max-w-[1360px] px-5 pb-6 pt-16 sm:px-10 lg:px-20" : "pointer-events-none absolute"}
             >
               <div style={{ transform: "translateY(var(--rise, 0px))" }}>
-                <p className="statement text-[clamp(1.75rem,3.1vw,2.7rem)] leading-[1.04] text-ink">
+                <p className="statement text-[clamp(1.75rem,3.3vw,3rem)] leading-[1.04] text-ink">
                   The best clothes in the world rarely have the loudest voice.
                 </p>
                 <p className="mt-4 text-[15.5px] leading-[1.55] text-soft sm:mt-5 sm:text-[17px]">
@@ -541,7 +542,7 @@ export function LandingPage() {
                   ? "Keep your identity, your pricing and your checkout. Turn each collection into a scheduled release, and run your membership inside the app. Leave a number and we\u2019ll text you about setting up your first drop."
                   : live
                     ? "T^minus is live. Leave your number for drop alerts."
-                    : "Follow independent releases on a live clock and be there when they open. Leave your number and we\u2019ll text you the moment T^minus is live."}
+                    : `One text the moment T^minus is live, then drop alerts. Never more than ${SMS_PROGRAM.maxMessagesPerMonth} a month, and STOP ends them.`}
               </p>
             </div>
             <div className="flex flex-col items-center lg:-mt-2.5 lg:items-start">
