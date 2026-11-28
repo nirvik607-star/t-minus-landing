@@ -41,6 +41,7 @@ uniform float uExposure;
 uniform float uStar;        // 0..1 star visibility
 uniform float uStarR;       // star radius (scene units)
 uniform float uStarGain;
+uniform float uStarPx;      // apparent star radius, CSS px
 uniform float uFlood;       // 0..1 supernova light
 uniform float uFloodR;      // flood front radius, CSS px
 uniform float uDrainR;      // inner cleared radius, CSS px
@@ -136,8 +137,9 @@ vec3 shadeDisk(vec3 hit, vec3 v) {
 
   // Ring structure: gaps and bright lanes.
   // Lanes trail in a loose two-armed spiral, with real dark gaps between them.
-  float lane = 0.5 + 0.5 * sin(log(r) * 23.0 - 2.0 * (phi + base * 5.0) + n * 6.0);
-  float lanes = 0.22 + 0.78 * lane * lane;
+  float lane = 0.5 + 0.5 * sin(log(r) * 9.5 - 2.0 * (phi + base * 5.0) + n * 3.4);
+  float ripple = 0.5 + 0.5 * sin(log(r) * 31.0 - 3.0 * phi + n * 5.0);
+  float lanes = (0.16 + 0.84 * lane * lane) * (0.72 + 0.28 * ripple);
   float fine = vnoiseP(vec2((phi + base * 9.0 + omega * 3.0) / TAU * 11.0, log(r) * 38.0), 11.0);
   float tex = smoothstep(0.22, 0.78, n);
   float emit = prof * (0.2 + 2.3 * tex * tex + 0.8 * smoothstep(0.55, 0.9, fine)) * lanes;
@@ -303,6 +305,17 @@ void main() {
     float grain = 0.55 + 0.45 * hash21(cell + floor(uTime * 14.0));
     I += uFlood * inside * drained * grain * 2.4;
     heat = max(heat, uFlood * inside * drained * 0.9);
+  }
+
+  // The star throws four thin spikes along the grid, the way a bright point
+  // does through a lens. They lengthen as the core brightens.
+  if (uStar > 0.001) {
+    vec2 c = uOriginPx + (cell + 0.5) * uCellPx - uHolePx;
+    float reach = uStarPx * (1.5 + 0.9 * uStarGain) + 40.0;
+    float sx = exp(-abs(c.y) / (uCellPx.y * 0.55)) * exp(-abs(c.x) / reach);
+    float sy = exp(-abs(c.x) / (uCellPx.x * 0.55)) * exp(-abs(c.y) / (reach * 0.72));
+    float outside = smoothstep(uStarPx * 0.9, uStarPx * 1.25, length(c));
+    I += uStar * uStarGain * 0.9 * (sx + sy) * outside;
   }
 
   float ink = 1.0 - exp(-uExposure * I);

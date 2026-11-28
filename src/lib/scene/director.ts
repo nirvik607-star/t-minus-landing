@@ -31,11 +31,8 @@ export interface DirectorInput {
   py: number;
   /** Whole seconds remaining, for the second hand. */
   secondsLeft: number;
-  /**
-   * The pinned feature demo, when there is one: the hole sits behind it and
-   * its disk shows around the frame. x, y in CSS px; on and turn are 0..1.
-   */
-  feat?: { x: number; y: number; r: number; on: number; turn: number };
+  /** 0..1 through the features section: the disk turns as the reader scrolls it. */
+  turn?: number;
   /** CSS px from the top that the hero or closing form reaches; the crest stays below it. 0 = unknown. */
   clearY?: number;
   /** 0..1 from the demos: how urgent the thing on screen is. Speeds and brightens the disk. */
@@ -85,6 +82,10 @@ export interface SceneValues {
   wellPx: number;
   /** 0..1: draw the disk where it crosses in front of the shadow (the intro's full silhouette only). */
   front: number;
+  /** Apparent radius of the intro's star, CSS px. */
+  starPx: number;
+  /** 0..1: how far inside the hole the camera is. */
+  dive: number;
 }
 
 interface Framing {
@@ -130,7 +131,7 @@ export function horizonFraming(w: number, h: number, lift = 0, clearY = 0): Fram
   const r = phone ? 0.56 * w : Math.max(0.42 * w, Math.min(1.05 * w, 430));
   let crest = phone
     ? Math.min(0.345 * h, 320)
-    : Math.min(196, Math.max(128, 0.19 * h)) + lift;
+    : Math.min(240, Math.max(128, 0.235 * h)) + lift * 0.5;
   // Never rise into the form above it.
   if (clearY > 0) crest = Math.max(118, Math.min(crest, h - clearY - (phone ? 64 : 40)));
   return {
@@ -174,6 +175,24 @@ export function dialFraming(w: number, h: number): Framing {
   };
 }
 
+/**
+ * Inside: the camera has dropped through the dial. The void fills the screen
+ * as a black stage and the lit rim shows around its edge.
+ */
+export function insideFraming(w: number, h: number): Framing {
+  return {
+    elev: 90,
+    cx: w / 2,
+    cy: h / 2,
+    // Wide screens: a round stage with the rim down both sides. Tall screens:
+    // the rim sits just past the edges and shows only in the corners, clear
+    // of the copy.
+    r: Math.max(0.47 * w, 0.5 * h + 6),
+    diskOut: 4.3,
+    exposure: 2.3,
+  };
+}
+
 export function direct(input: DirectorInput): SceneValues {
   const { w, h, intro, pin, exitPx, closing, px, py } = input;
   const clearY = input.clearY ?? 0;
@@ -181,6 +200,7 @@ export function direct(input: DirectorInput): SceneValues {
   const horizon = horizonFraming(w, h, 0, clearY);
   const dial = dialFraming(w, h);
   const sil = silhouetteFraming(w, h);
+  const alpha = 1;
 
   // ---------------- scroll framing ----------------
   const rise = smoother(0.04, 0.62, pin);
@@ -189,39 +209,27 @@ export function direct(input: DirectorInput): SceneValues {
   f.cy = lerp(horizon.cy, dial.cy, smoother(0.02, 0.5, pin));
   f.r = lerp(horizon.r, dial.r, smoother(0.08, 0.6, pin));
   let polar = rise;
-  let alpha = 1;
 
-  // Past the runway the dial leaves with the page.
-  if (exitPx > 0) {
-    f.cy -= exitPx;
-    alpha = 1 - smooth(h * 0.22, h * 0.6, exitPx);
-  }
-
-  // Through the features the hole stays with the page: it sits behind the
-  // pinned demo, seen at a tilt that turns as the reader scrolls.
+  // Past the runway the camera drops through the dial: the void opens until
+  // it fills the screen, and the features play out inside it.
+  const inside = insideFraming(w, h);
   let orbit = 0;
-  const feat = input.feat;
-  if (feat && feat.on > 0.002 && alpha < 0.02 && closing <= 0.001) {
-    f = {
-      elev: 60 + 13 * Math.sin(feat.turn * Math.PI * 2.4),
-      cx: feat.x,
-      cy: feat.y,
-      r: feat.r,
-      diskOut: 5.4,
-      exposure: 2.3,
-    };
-    orbit = feat.turn * 2.6;
+  let dive = 0;
+  if (exitPx > 0) {
+    dive = smoother(0, h * 0.85, exitPx);
+    f = mixFraming(dial, inside, dive);
     polar = 1;
-    alpha = feat.on;
+    orbit = (input.turn ?? 0) * 3.2;
   }
 
-  // The horizon returns behind the closing form.
+  // At the end it pulls back out, and the hole settles as the horizon under
+  // the closing form.
   if (closing > 0.001) {
-    const k = easeOutCubic(clamp01(closing));
+    const k = smoother(0, 1, closing);
     const end = horizonFraming(w, h, 78, clearY);
-    f = { ...end, cy: end.cy + (1 - k) * (end.r * 0.5 + 120) };
-    polar = 0;
-    alpha = smooth(0.0, 0.25, closing);
+    f = mixFraming(inside, end, k);
+    polar = 1 - k;
+    orbit *= 1 - k;
   }
 
   // ---------------- intro ----------------
@@ -257,9 +265,9 @@ export function direct(input: DirectorInput): SceneValues {
     drainR = easeOutCubic(clamp01((t - 2.2) / 0.78)) * maxDim * 0.7;
 
     // The hole: horizon opens from a point; the disk gathers from infall.
-    mass = smooth(2.2, 3.0, t);
-    disk = smooth(2.25, 3.3, t);
-    voidAlpha = smooth(2.25, 2.7, t);
+    mass = smooth(2.42, 3.05, t);
+    disk = smooth(2.5, 3.4, t);
+    voidAlpha = smooth(2.45, 2.8, t);
     spin = 1 + 2.4 * (1 - smooth(2.5, 4.4, t));
 
     // Camera: hold on the star, let the full silhouette open, then sweep down
@@ -274,7 +282,6 @@ export function direct(input: DirectorInput): SceneValues {
     const drawIn = smooth(3.3, 4.25, t);
     f.diskOut = lerp(lerp(3.0, 9.5, open), horizon.diskOut, drawIn);
     polar = 0;
-    alpha = 1;
 
     heroReveal = smooth(4.1, 4.75, t);
     clockReveal = smooth(4.45, 5.0, t);
@@ -314,11 +321,12 @@ export function direct(input: DirectorInput): SceneValues {
   const handAngle = -Math.PI / 2 - (sec / 60) * Math.PI * 2;
 
   // Each readout is either plainly there or gone: no half-visible in-between.
-  const inFeatures = orbit !== 0 || (feat !== undefined && feat.on > 0.002 && closing <= 0.001 && exitPx > 0);
   // The strip rides the hole through the rise, then swaps to the dial readout
-  // in one short cross-fade at the centre of the void.
-  const horizonClock = inFeatures ? 0 : clockReveal * (1 - smooth(0.62, 0.76, polar)) * alpha;
-  const dialClock = inFeatures ? 0 : smooth(0.68, 0.86, polar) * alpha;
+  // in one short cross-fade at the centre of the void. Inside, neither shows.
+  const insideNow = exitPx > 0 && closing <= 0.001;
+  const horizonClock = insideNow ? 0 : clockReveal * (1 - smooth(0.62, 0.76, polar));
+  const dialClock =
+    closing > 0.001 ? 0 : smooth(0.68, 0.86, polar) * (1 - smooth(0, h * 0.2, exitPx));
 
   return {
     camPos,
@@ -351,12 +359,18 @@ export function direct(input: DirectorInput): SceneValues {
     horizonClock,
     dialClock,
     polar,
-    fadeGuard: (1 - smooth(0.05, 0.3, polar)) * smooth(3.4, 4.1, intro),
+    // On the way out, the field is kept off the closing copy from the start.
+    fadeGuard:
+      closing > 0.001
+        ? smooth(0, 0.12, closing)
+        : (1 - smooth(0.05, 0.3, polar)) * smooth(3.4, 4.1, intro),
     glow,
     front,
     // The ground under the glyph field drops toward black across the whole
     // disk, so the light has real dark to stand against.
     well: 0.9 * mass,
-    wellPx: f.r * (f.diskOut / B_CRIT) * lerp(0.5, 0.92, polar),
+    wellPx: f.r * (f.diskOut / B_CRIT) * lerp(0.5, 0.92, polar) * (1 - 0.5 * dive),
+    starPx: (starR * focalPx) / CAM_DIST,
+    dive: closing > 0.001 ? 1 - smoother(0, 1, closing) : dive,
   };
 }

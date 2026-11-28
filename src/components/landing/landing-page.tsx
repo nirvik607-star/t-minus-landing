@@ -66,8 +66,7 @@ export function LandingPage() {
   const headerBackRef = useRef<HTMLDivElement | null>(null);
   const skipRef = useRef<HTMLButtonElement | null>(null);
   const closingPhoneRef = useRef<HTMLInputElement | null>(null);
-  const featPanelRef = useRef<HTMLDivElement | null>(null);
-  const featListRef = useRef<HTMLOListElement | null>(null);
+  const featSectionRef = useRef<HTMLElement | null>(null);
   const minusReveal = useRef(0);
   const cache = useRef<Record<string, string>>({});
   const sceneOffRef = useRef(false);
@@ -163,15 +162,19 @@ export function LandingPage() {
     // Strip clock: inside the void, under the crest.
     const crestY = f.holeY - f.shadowR;
     const room = h - crestY;
-    const stripY = crestY + Math.max(52, Math.min(room * 0.44, 104));
+    const low = crestY + Math.max(50, Math.min(room * 0.36, 96));
+    const stripY = low + (Math.min(f.holeY, h * 0.5) - low) * smooth(0.12, 0.6, f.polar);
     write(
       "hc-t",
       horizonClockRef.current,
       "transform",
       `translate3d(${f.holeX.toFixed(1)}px, ${stripY.toFixed(1)}px, 0) translate(-50%, -50%)`
     );
-    write("hc-o", horizonClockRef.current, "opacity", f.horizonClock.toFixed(3));
-    write("hc-v", horizonClockRef.current, "visibility", f.horizonClock < 0.02 ? "hidden" : "visible");
+    const line = inputsRef.current.fadeLine;
+    const stripOpacity =
+      f.horizonClock * (f.closing > 0.001 ? smooth(line - 10, line + 34, crestY) : 1);
+    write("hc-o", horizonClockRef.current, "opacity", stripOpacity.toFixed(3));
+    write("hc-v", horizonClockRef.current, "visibility", stripOpacity < 0.02 ? "hidden" : "visible");
 
     // Dial clock: centred in the void, sized to it.
     const dialEm = Math.min(20, ((f.shadowR * 2 * 0.8) / 300) * 16);
@@ -186,34 +189,19 @@ export function LandingPage() {
     write("dc-v", dialClockRef.current, "visibility", f.dialClock < 0.02 ? "hidden" : "visible");
 
     // The premise arrives once the camera is nearly overhead.
-    const premiseIn = smooth(0.7, 0.95, f.polar) * (f.closing > 0.001 ? 0 : 1);
+    const premiseIn =
+      smooth(0.7, 0.95, f.polar) * (1 - smooth(0, h * 0.16, f.exitPx)) * (f.closing > 0.001 ? 0 : 1);
     write("pr-o", premiseRef.current, "opacity", premiseIn.toFixed(3));
     write("pr-y", premiseRef.current, "--rise", `${((1 - premiseIn) * 14).toFixed(1)}px`);
 
-    // Through the features the hole sits behind the pinned demo (wide screens),
-    // and both leave together as the list ends.
-    const panel = featPanelRef.current;
-    const list = featListRef.current;
-    if (panel && list && f.exitPx > 0 && f.closing < 0.001) {
-      const pr = panel.getBoundingClientRect();
-      const lr = list.getBoundingClientRect();
-      const cy = pr.top + pr.height / 2;
-      // The scene steps back just before the demo releases and scrolls away.
-      const leaving = smooth(h * 0.8, h * 0.98, lr.bottom);
-      const on = smooth(h * 1.0, h * 0.62, cy) * leaving;
-      // The ring shows as a crescent either side of the demo, never over the copy.
-      const card = Math.min(pr.width, 400);
-      const r = Math.min(190, (card / 2 + 44) / 2.1);
-      inputsRef.current.feat = {
-        x: pr.left + card / 2,
-        y: cy,
-        r,
-        on,
-        turn: Math.min(1, Math.max(0, (h * 0.5 - lr.top) / Math.max(1, lr.height))),
-      };
+    // Inside the hole: the disk turns with progress through the features and
+    // answers whatever the demo on screen is doing.
+    const feats = featSectionRef.current;
+    if (feats && f.exitPx > 0 && f.closing < 0.001) {
+      const fr = feats.getBoundingClientRect();
+      inputsRef.current.turn = Math.min(1, Math.max(0, (h * 0.5 - fr.top) / Math.max(1, fr.height)));
       inputsRef.current.energy = sceneEnergy.value;
     } else {
-      inputsRef.current.feat = undefined;
       inputsRef.current.energy = 0;
     }
 
@@ -225,7 +213,7 @@ export function LandingPage() {
     // Header extras appear once the scene's own clocks are out of view.
     const showClock = f.settled && f.horizonClock < 0.04 && f.dialClock < 0.04;
     write("hk-o", headerClockRef.current, "opacity", showClock ? "1" : "0");
-    const overContent = f.exitPx > f.h * 0.45 && f.closing < 0.05;
+    const overContent = f.exitPx > f.h * 0.12 && f.closing < 0.3;
     write("hb-o", headerBackRef.current, "opacity", overContent ? "1" : "0");
     const showJoin = f.settled && pin > 0.24 && f.closing < 0.35;
     write("hx-o", headerExtrasRef.current, "opacity", showJoin ? "1" : "0");
@@ -263,7 +251,7 @@ export function LandingPage() {
       "pointer-events": "auto",
     });
     set(headerExtrasRef.current, { opacity: "1", visibility: "visible", "pointer-events": "auto" });
-    set(headerBackRef.current, { opacity: "1" });
+    set(headerBackRef.current, { opacity: "1", "background-color": "rgb(44 7 53 / 0.94)" });
   }, [sceneOff]);
 
   const pulse = useCallback((strength: number) => {
@@ -295,7 +283,7 @@ export function LandingPage() {
           ref={headerBackRef}
           aria-hidden="true"
           style={{ opacity: 0 }}
-          className="absolute inset-0 -z-10 border-b border-line bg-ground/90 backdrop-blur-md transition-opacity duration-200 ease-out"
+          className="absolute inset-0 -z-10 border-b border-white/10 bg-black/90 backdrop-blur-md transition-opacity duration-200 ease-out"
         />
         {/* Same grid as the sections below: logo over the copy edge, button over the form edge. */}
         <div className="relative mx-auto flex h-full w-full max-w-[1360px] items-center justify-between px-5 sm:px-10 lg:px-20">
@@ -315,7 +303,7 @@ export function LandingPage() {
           type="button"
           onClick={() => controlRef.current?.skipIntro()}
           style={{ opacity: 0, visibility: "hidden" }}
-          className="pointer-events-auto absolute right-5 top-1/2 h-11 -translate-y-1/2 cursor-pointer rounded-[8px] border border-ink/50 bg-ground/50 px-4 text-[13.5px] font-semibold uppercase tracking-[0.03em] text-ink backdrop-blur-sm transition-opacity duration-200 ease-out sm:right-10 lg:right-20"
+          className="pointer-events-auto absolute right-3 top-1/2 h-11 -translate-y-1/2 cursor-pointer px-2 text-[14px] font-medium text-soft underline decoration-peri/60 underline-offset-[3px] transition-opacity duration-200 ease-out sm:right-8 lg:right-[72px] [@media(hover:hover)]:hover:text-ink"
         >
           Skip intro
         </button>
@@ -453,7 +441,7 @@ export function LandingPage() {
           </div>
         </div>
 
-        <Features panelRef={featPanelRef} listRef={featListRef} />
+        <Features outerRef={featSectionRef} />
 
         {/* Closing: the horizon returns. The audience choice changes the pitch. */}
         <section
@@ -498,7 +486,7 @@ export function LandingPage() {
               </div>
             </div>
           </div>
-          <footer className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-center gap-x-1 px-5 pb-2 text-[13px] text-mute sm:pb-3">
+          <footer className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-center gap-x-1 px-5 pb-2 text-[13px] text-soft sm:pb-3">
             <span className="px-2">&copy; 2026 T^minus</span>
             <nav className="flex items-center gap-1">
               <Link href="/privacy" className="inline-flex h-11 items-center px-2 [@media(hover:hover)]:hover:text-ink">

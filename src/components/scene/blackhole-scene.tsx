@@ -26,8 +26,8 @@ export interface SceneFrame extends SceneValues {
 export interface SceneInputs {
   /** CSS px from the top of the viewport; the field stays clear above it. 0 = off. */
   fadeLine: number;
-  /** The pinned feature demo the hole should sit behind, if any. */
-  feat?: { x: number; y: number; r: number; on: number; turn: number };
+  /** 0..1 through the features section. */
+  turn?: number;
   /** 0..1 urgency reported by the demo on screen. */
   energy?: number;
 }
@@ -340,9 +340,8 @@ export function BlackholeScene({
         0,
         sy - (anchors.runwayTop + anchors.runwayTravel)
       );
-      // The horizon returns over the last third of a screen of scrolling, once
-      // the closing form has cleared the space it rises into.
-      const closingSpan = h * 0.34;
+      // The pull-out runs as the closing section scrolls into place.
+      const closingSpan = h * 0.85;
       const closing = clamp01((sy - (anchors.docMax - closingSpan)) / closingSpan);
       const secondsLeft = Math.floor(
         Math.max(0, LAUNCH_TARGET_MS - Date.now()) / 1000
@@ -359,7 +358,7 @@ export function BlackholeScene({
         px: finePointer && !reducedMotion ? pointer.x : 0,
         py: finePointer && !reducedMotion ? pointer.y : 0,
         secondsLeft,
-        feat: inputsRef?.current.feat,
+        turn: inputsRef?.current.turn,
         clearY: inputsRef?.current.fadeLine,
         energy: energySmooth,
       });
@@ -418,6 +417,7 @@ export function BlackholeScene({
       gl.uniform1f(scene.u("uStar"), v.star);
       gl.uniform1f(scene.u("uStarR"), v.starR);
       gl.uniform1f(scene.u("uStarGain"), v.starGain);
+      gl.uniform1f(scene.u("uStarPx"), v.starPx);
       gl.uniform1f(scene.u("uFlood"), v.flood);
       gl.uniform1f(scene.u("uFloodR"), v.floodR);
       gl.uniform1f(scene.u("uDrainR"), v.drainR);

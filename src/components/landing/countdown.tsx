@@ -184,19 +184,19 @@ export function HeaderClock({ parts }: { parts: ClockParts }) {
       <span aria-hidden="true">
         {parts.plus ? "T+" : "T−"}
         {parts.days}
-        <span className="text-peri">d</span>
+        <span className="text-mute">d</span>
       </span>
       <span aria-hidden="true">
         {parts.hours}
-        <span className="text-peri">h</span>
+        <span className="text-mute">h</span>
       </span>
       <span aria-hidden="true">
         {parts.minutes}
-        <span className="text-peri">m</span>
+        <span className="text-mute">m</span>
       </span>
       <span aria-hidden="true">
         {parts.seconds}
-        <span className="text-peri">s</span>
+        <span className="text-mute">s</span>
       </span>
     </span>
   );

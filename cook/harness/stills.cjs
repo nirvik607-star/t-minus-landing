@@ -35,12 +35,15 @@ const SHOTS = [
   { id: "S04c-arrive", vps: ["d", "m"], qs: "introAt=4.45&still=1" },
   { id: "S05-rising", vps: ["d", "m"], qs: "skipIntro=1&still=1", pin: 0.3 },
   { id: "S06-dial", vps: ["d", "m"], qs: "skipIntro=1&still=1", pin: 0.78 },
+  { id: "S06b-dive", vps: ["d", "m"], qs: "skipIntro=1&still=1", pin: 1.0, extra: 0.42 },
+  { id: "S06c-inside", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[data-section='features'] h2", block: "center" },
   { id: "S07a-drops", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "drops-home" },
   { id: "S07b-clock", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "clock" },
   { id: "S07c-size", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "size-assist" },
   { id: "S07d-hold", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "hold" },
   { id: "S07e-lab", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "lab" },
-  { id: "S08-after", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[data-section='features']", block: "end" },
+  { id: "S08-closet", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[aria-label='Four pieces in a closet']", block: "center" },
+  { id: "S08b-pullout", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[data-section='closing']", block: "end", back: 0.42 },
   { id: "S09-closing", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[data-section='closing']" },
   { id: "S11a-privacy", vps: ["m"], path: "/privacy", qs: "" },
   { id: "S11b-terms", vps: ["m"], path: "/terms", qs: "" },
@@ -71,8 +74,8 @@ const SHOTS = [
           const run = document.querySelector("[data-runway]");
           const r = run.getBoundingClientRect();
           const top = r.top + window.scrollY;
-          window.scrollTo(0, top + (r.height - window.innerHeight) * f);
-        }, shot.pin);
+          window.scrollTo(0, top + (r.height - window.innerHeight) * f[0] + window.innerHeight * f[1]);
+        }, [shot.pin, shot.extra || 0]);
       } else if (shot.feature) {
         await page.evaluate((id) => {
           const el = document.querySelector(`[data-feature='${id}']`);
@@ -84,10 +87,11 @@ const SHOTS = [
           }
         }, shot.feature);
       } else if (shot.sel) {
-        await page.evaluate(([s, block]) => {
+        await page.evaluate(([s, block, back]) => {
           const el = document.querySelector(s);
           el.scrollIntoView({ block: block || "end" });
-        }, [shot.sel, shot.block]);
+          if (back) window.scrollBy(0, -window.innerHeight * back);
+        }, [shot.sel, shot.block, shot.back || 0]);
       }
       await page.waitForTimeout(1600);
       await page.screenshot({ path: path.join(outDir, `${shot.id}-${vk}.png`) });
