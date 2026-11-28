@@ -129,36 +129,30 @@ export function GlyphMask({
       const mctx = mask.getContext("2d", { willReadFrequently: true })!;
       const fontFor = (px: number) =>
         `${maskItalic ? "italic " : ""}${maskWeight} ${px}px ${maskFamily}`;
-      // Fit: cap height fills the box, then shrink if the word is too wide.
+      // Fit: the flat cap height (measured on H, so round letters' overshoot
+      // doesn't count) fills the rows exactly; shrink if the word is too wide.
+      const setFont = (size: number) => {
+        mctx.font = fontFor(size);
+        mctx.textBaseline = "alphabetic";
+        if ("letterSpacing" in mctx) {
+          (mctx as unknown as { letterSpacing: string }).letterSpacing = `${tracking * size}px`;
+        }
+      };
       let px = mh * 1.36;
-      mctx.font = fontFor(px);
-      if ("letterSpacing" in mctx) {
-        (mctx as unknown as { letterSpacing: string }).letterSpacing =
-          `${tracking * px}px`;
-      }
+      setFont(px);
+      const capNow = mctx.measureText("H").actualBoundingBoxAscent || px * 0.72;
+      px *= mh / capNow;
+      setFont(px);
       let m = mctx.measureText(text);
-      const capNow = m.actualBoundingBoxAscent || px * 0.72;
-      px *= (mh * 0.98) / capNow;
-      mctx.font = fontFor(px);
-      if ("letterSpacing" in mctx) {
-        (mctx as unknown as { letterSpacing: string }).letterSpacing =
-          `${tracking * px}px`;
-      }
-      m = mctx.measureText(text);
       const wide = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
       if (wide > mw * 0.995) {
         px *= (mw * 0.995) / wide;
-        mctx.font = fontFor(px);
-        if ("letterSpacing" in mctx) {
-          (mctx as unknown as { letterSpacing: string }).letterSpacing =
-            `${tracking * px}px`;
-        }
+        setFont(px);
         m = mctx.measureText(text);
       }
-      const ascent = m.actualBoundingBoxAscent;
+      const ascent = mctx.measureText("H").actualBoundingBoxAscent;
       const textW = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
       mctx.fillStyle = "#fff";
-      mctx.textBaseline = "alphabetic";
       mctx.fillText(
         text,
         (mw - textW) / 2 + m.actualBoundingBoxLeft,
@@ -217,7 +211,7 @@ export function GlyphMask({
       // Layer 1: the solid silhouette, wiped in with the same scan.
       ctx.save();
       ctx.beginPath();
-      ctx.rect(0, 0, w * Math.min(1, rv * 1.25), h);
+      ctx.rect(ox, oy, cols * cell * Math.min(1, rv * 1.25), rows * cell);
       ctx.clip();
       ctx.font = silFont;
       if ("letterSpacing" in ctx) {

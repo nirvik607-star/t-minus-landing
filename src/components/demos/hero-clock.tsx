@@ -255,7 +255,7 @@ export function HeroClock({ secondsLeft, active = true, className = "" }: HeroCl
       };
 
       let m = measure();
-      const room = W - 24 * k;
+      const room = W - 44 * k;
       if (m.total > room) {
         const s = room / m.total;
         digitPt *= s;
@@ -422,7 +422,9 @@ export function HeroClock({ secondsLeft, active = true, className = "" }: HeroCl
       ctx.clearRect(0, 0, W, H);
 
       // 1. silhouette
-      ctx.globalAlpha = spec.ground;
+      // The app sets this ground at 30 to 40%; it sits a step higher here so
+      // the digits hold on ordinary desktop screens as well as on a phone.
+      ctx.globalAlpha = Math.min(0.62, spec.ground + 0.2);
       ctx.fillStyle = "#8C8F96";
       drawGlyphs(ctx, "all");
       ctx.globalAlpha = 1;

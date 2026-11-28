@@ -36,6 +36,10 @@ export interface DirectorInput {
    * its disk shows around the frame. x, y in CSS px; on and turn are 0..1.
    */
   feat?: { x: number; y: number; r: number; on: number; turn: number };
+  /** CSS px from the top that the hero or closing form reaches; the crest stays below it. 0 = unknown. */
+  clearY?: number;
+  /** 0..1 from the demos: how urgent the thing on screen is. Speeds and brightens the disk. */
+  energy?: number;
 }
 
 export interface SceneValues {
@@ -114,24 +118,33 @@ function mixFraming(a: Framing, b: Framing, t: number): Framing {
   };
 }
 
-/** Horizon framing: the hole sits below the fold, its crest under the form. */
-export function horizonFraming(w: number, h: number, lift = 0): Framing {
-  const r = Math.max(0.42 * w, Math.min(1.05 * w, 430));
-  const crest = Math.min(196, Math.max(128, 0.19 * h)) + lift;
+/**
+ * Horizon framing: the hole rises from the bottom of the screen with the
+ * countdown inside it. On phones the hole is smaller and sits higher, so the
+ * screen shows its whole upper half and the band of disk across its front.
+ */
+export function horizonFraming(w: number, h: number, lift = 0, clearY = 0): Framing {
+  const phone = w < 700;
+  const r = phone ? 0.56 * w : Math.max(0.42 * w, Math.min(1.05 * w, 430));
+  let crest = phone
+    ? Math.min(0.345 * h, 320)
+    : Math.min(196, Math.max(128, 0.19 * h)) + lift;
+  // Never rise into the form above it.
+  if (clearY > 0) crest = Math.max(118, Math.min(crest, h - clearY - (phone ? 64 : 40)));
   return {
-    elev: 9,
+    elev: lift > 0 ? 13 : 9,
     cx: w / 2,
     cy: h - crest + r,
     r,
-    diskOut: lift > 0 ? 4.4 : 3.5,
-    exposure: 2.6,
+    diskOut: lift > 0 ? 4.8 : phone ? 3.9 : 3.5,
+    exposure: lift > 0 ? 2.9 : 2.6,
   };
 }
 
 /** The full silhouette, held mid-screen during the intro. */
 function silhouetteFraming(w: number, h: number): Framing {
   return {
-    elev: 17,
+    elev: 12,
     cx: w / 2,
     cy: h * 0.5,
     r: w < 700 ? 0.24 * w : 0.15 * Math.min(w, h * 1.25),
@@ -160,7 +173,9 @@ export function dialFraming(w: number, h: number): Framing {
 
 export function direct(input: DirectorInput): SceneValues {
   const { w, h, intro, pin, exitPx, closing, px, py } = input;
-  const horizon = horizonFraming(w, h);
+  const clearY = input.clearY ?? 0;
+  const energy = clamp01(input.energy ?? 0);
+  const horizon = horizonFraming(w, h, 0, clearY);
   const dial = dialFraming(w, h);
   const sil = silhouetteFraming(w, h);
 
@@ -200,7 +215,7 @@ export function direct(input: DirectorInput): SceneValues {
   // The horizon returns behind the closing form.
   if (closing > 0.001) {
     const k = easeOutCubic(clamp01(closing));
-    const end = horizonFraming(w, h, 78);
+    const end = horizonFraming(w, h, 78, clearY);
     f = { ...end, cy: end.cy + (1 - k) * (end.r * 0.5 + 120) };
     polar = 0;
     alpha = smooth(0.0, 0.25, closing);
@@ -292,8 +307,10 @@ export function direct(input: DirectorInput): SceneValues {
 
   // Each readout is either plainly there or gone: no half-visible in-between.
   const inFeatures = orbit !== 0 || (feat !== undefined && feat.on > 0.002 && closing <= 0.001 && exitPx > 0);
-  const horizonClock = inFeatures ? 0 : clockReveal * (1 - smooth(0.03, 0.16, polar)) * alpha;
-  const dialClock = inFeatures ? 0 : smooth(0.8, 0.97, polar) * alpha;
+  // The strip rides the hole through the rise, then swaps to the dial readout
+  // in one short cross-fade at the centre of the void.
+  const horizonClock = inFeatures ? 0 : clockReveal * (1 - smooth(0.62, 0.76, polar)) * alpha;
+  const dialClock = inFeatures ? 0 : smooth(0.68, 0.86, polar) * alpha;
 
   return {
     camPos,
@@ -308,8 +325,8 @@ export function direct(input: DirectorInput): SceneValues {
     disk,
     diskIn: 2.2,
     diskOut: f.diskOut,
-    spin,
-    exposure: f.exposure,
+    spin: spin * (1 + 2.6 * energy),
+    exposure: f.exposure * (1 + 0.28 * energy),
     star,
     starR,
     starGain,
@@ -327,8 +344,10 @@ export function direct(input: DirectorInput): SceneValues {
     dialClock,
     polar,
     fadeGuard: (1 - smooth(0.05, 0.3, polar)) * smooth(3.4, 4.1, intro),
-    glow: 0.9,
-    well: 0.78 * mass,
-    wellPx: f.r * lerp(0.62, 1.5, polar) * (f.diskOut / 4.4) * (orbit !== 0 ? 0.85 : 1),
+    glow: 0.95,
+    // The ground under the glyph field drops toward black across the whole
+    // disk, so the light has real dark to stand against.
+    well: 0.9 * mass,
+    wellPx: f.r * (f.diskOut / B_CRIT) * lerp(0.5, 0.92, polar),
   };
 }

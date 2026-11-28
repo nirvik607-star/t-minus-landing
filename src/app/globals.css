@@ -85,6 +85,19 @@
   line-height: 1;
 }
 
+/*
+ * Section and feature headlines. They share the statement's voice so the page
+ * speaks in one. To set them in the sans instead, change this one rule.
+ */
+.headline {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-variation-settings: "opsz" 28;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+}
+
 /* Live values: tabular so digits never shift their neighbours. */
 .value {
   font-variant-numeric: tabular-nums lining-nums;

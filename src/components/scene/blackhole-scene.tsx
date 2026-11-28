@@ -28,6 +28,8 @@ export interface SceneInputs {
   fadeLine: number;
   /** The pinned feature demo the hole should sit behind, if any. */
   feat?: { x: number; y: number; r: number; on: number; turn: number };
+  /** 0..1 urgency reported by the demo on screen. */
+  energy?: number;
 }
 
 export interface SceneControl {
@@ -310,6 +312,7 @@ export function BlackholeScene({
     let last = performance.now();
     let sceneTime = frozen ? frozenTime : 0;
     let slowFrames = 0;
+    let energySmooth = 0;
     let samples = 4;
     let ema = 16;
 
@@ -327,6 +330,7 @@ export function BlackholeScene({
         introClock = Math.min(INTRO_SECONDS, introClock + dt * introRate);
       }
 
+      energySmooth += ((inputsRef?.current.energy ?? 0) - energySmooth) * Math.min(1, dt * 2.2);
       pointer.x += (pointer.tx - pointer.x) * Math.min(1, dt * 3.2);
       pointer.y += (pointer.ty - pointer.y) * Math.min(1, dt * 3.2);
 
@@ -356,6 +360,8 @@ export function BlackholeScene({
         py: finePointer && !reducedMotion ? pointer.y : 0,
         secondsLeft,
         feat: inputsRef?.current.feat,
+        clearY: inputsRef?.current.fadeLine,
+        energy: energySmooth,
       });
 
       const settled = introClock >= INTRO_SECONDS;

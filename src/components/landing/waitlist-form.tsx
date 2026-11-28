@@ -279,12 +279,12 @@ export function WaitlistForm({
             if (error) setError(null);
             typingPulse();
           }}
-          className="h-11 w-0 min-w-0 flex-1 bg-transparent px-3 text-[16px] text-ink outline-none placeholder:text-mute/80"
+          className="h-11 w-0 min-w-0 flex-1 bg-transparent px-3 text-[16px] text-ink outline-none placeholder:text-mute/80 sm:h-12 sm:text-[17px]"
         />
         <button
           type="submit"
           disabled={busy}
-          className="h-11 shrink-0 cursor-pointer whitespace-nowrap rounded-[8px] bg-ink px-4 text-[13.5px] font-semibold uppercase tracking-[0.03em] text-accent transition-opacity duration-100 ease-out active:opacity-70 disabled:cursor-default disabled:opacity-60 sm:px-5 sm:text-[14px]"
+          className="h-11 shrink-0 cursor-pointer whitespace-nowrap rounded-[8px] bg-ink px-4 text-[13.5px] font-semibold uppercase tracking-[0.03em] text-accent transition-opacity duration-100 ease-out active:opacity-70 disabled:cursor-default disabled:opacity-60 sm:h-12 sm:px-6 sm:text-[14.5px]"
         >
           {busy ? "Joining" : "Join the waitlist"}
         </button>
@@ -318,7 +318,7 @@ export function WaitlistForm({
         </div>
       </div>
 
-      <div className={`mt-3 flex w-full max-w-[430px] items-start gap-3 text-left ${consentAlign}`}>
+      <div className={`mt-3 flex w-full max-w-[440px] items-start gap-3 text-left ${consentAlign}`}>
         <span className="relative mt-[1px] inline-flex size-6 shrink-0">
           <input
             id={consentId}
@@ -356,7 +356,7 @@ export function WaitlistForm({
             Privacy
           </Link>{" "}
           and{" "}
-          <Link href="/terms" className="py-3.5 text-ink underline decoration-peri/70 underline-offset-2">
+          <Link href="/terms" className="-mx-1 px-1 py-3.5 text-ink underline decoration-peri/70 underline-offset-2">
             Terms
           </Link>
           .

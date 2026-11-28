@@ -5,8 +5,9 @@ import React, { useEffect, useRef } from "react";
 /**
  * Garments drawn in the brand's glyphs.
  *
- * Each garment is a flat front view described as vector paths: a silhouette,
- * and the seams that give it structure (plackets, pockets, cuffs, quilting).
+ * Each garment is a flat lay described as vector paths: a silhouette, the
+ * parts that sit darker (sleeves), and the seams that give it structure
+ * (plackets, pockets, cuffs, quilting).
  * The silhouette becomes a mask over a fixed grid of cells; cells inside it
  * hold glyphs whose weight follows a simple light from the upper left, seam
  * cells are drawn in the structure colour, and the edge is a line of marks.
@@ -16,89 +17,119 @@ import React, { useEffect, useRef } from "react";
 export type GarmentKind = "shell" | "jacket" | "vest" | "trouser" | "tote" | "liner" | "overshirt";
 
 interface GarmentSpec {
-  /** Filled silhouette paths, in a 100 x 120 box. */
+  /** Filled silhouette paths, in a 120 x 120 box. Flat lay, arms out. */
   fills: string[];
   /** Thick strokes that are part of the silhouette (bag handles). */
   strokes?: Array<{ d: string; width: number }>;
+  /** Parts that sit a step darker than the body (sleeves, the far leg). */
+  shade?: string[];
   /** Seam lines, stroked thin. */
   seams: string[];
   /** Repeating quilting lines across the body, if any. */
   quilt?: boolean;
 }
 
-const JACKET_BODY =
-  "M38,13 L62,13 L66,19 L82,24 L96,86 L84,91 L77,50 L77,107 L23,107 L23,50 L16,91 L4,86 L18,24 L34,19 Z";
+const SLEEVE_L = "M30,18 L8,70 L20,76 L34,44 Z";
+const SLEEVE_R = "M90,18 L112,70 L100,76 L86,44 Z";
+const CUFFS = ["M11.5,62.5 L23.5,68.5", "M108.5,62.5 L96.5,68.5"];
+/** Torso with sleeves out: neck, shoulders, cuffs, straight hem. */
+const TORSO =
+  "M44,12 L76,12 L90,18 L112,70 L100,76 L86,44 L86,108 L34,108 L34,44 L20,76 L8,70 L30,18 Z";
 
 const GARMENTS: Record<GarmentKind, GarmentSpec> = {
+  // Hooded rain shell: hood, long zip, storm flap, slanted hand pockets, hem cord.
   shell: {
-    fills: [JACKET_BODY, "M34,19 C30,1 70,1 66,19 C60,10 40,10 34,19 Z"],
+    fills: [TORSO, "M43,14 C36,-6 84,-6 77,14 C70,5 50,5 43,14 Z"],
+    shade: [SLEEVE_L, SLEEVE_R],
     seams: [
-      "M50,14 L50,107",
-      "M23,100 L77,100",
-      "M29,66 L43,64 L43,84 L29,84 Z",
-      "M71,66 L57,64 L57,84 L71,84 Z",
-      "M8,80 L18,84",
-      "M92,80 L82,84",
-      "M34,19 C42,26 58,26 66,19",
+      "M60,10 L60,108",
+      "M56,10 L56,108",
+      "M43,14 C50,22 70,22 77,14",
+      "M40,68 L50,90",
+      "M80,68 L70,90",
+      "M34,101 L86,101",
+      "M36,30 L84,30",
+      ...CUFFS,
     ],
   },
+  // Field jacket: stand collar, four flap pockets, waist cord.
   jacket: {
-    fills: [JACKET_BODY, "M36,13 L64,13 L62,7 L38,7 Z"],
+    fills: [TORSO, "M45,12 L75,12 L72,4 L48,4 Z"],
+    shade: [SLEEVE_L, SLEEVE_R],
     seams: [
-      "M50,13 L50,107",
-      "M28,36 L44,36 L44,50 L28,50 Z",
-      "M72,36 L56,36 L56,50 L72,50 Z",
-      "M27,70 L45,70 L45,94 L27,94 Z",
-      "M73,70 L55,70 L55,94 L73,94 Z",
-      "M23,60 L77,60",
-      "M8,80 L18,84",
-      "M92,80 L82,84",
+      "M60,6 L60,108",
+      "M45,12 L60,20 L75,12",
+      "M39,30 L55,30 L55,46 L39,46 Z",
+      "M39,34 L55,34",
+      "M65,30 L81,30 L81,46 L65,46 Z",
+      "M65,34 L81,34",
+      "M38,72 L56,72 L56,98 L38,98 Z",
+      "M38,77 L56,77",
+      "M64,72 L82,72 L82,98 L64,98 Z",
+      "M64,77 L82,77",
+      "M34,62 L86,62",
+      ...CUFFS,
     ],
   },
+  // Work vest: deep V, armholes, two patch pockets.
   vest: {
-    fills: ["M38,12 L46,17 L54,17 L62,12 L76,21 C71,34 71,42 78,50 L78,106 L22,106 L22,50 C29,42 29,34 24,21 Z"],
+    fills: ["M46,8 L60,34 L74,8 L92,18 C85,34 85,46 92,58 L92,110 L28,110 L28,58 C35,46 35,34 28,18 Z"],
     seams: [
-      "M38,12 L50,38 L62,12",
-      "M50,38 L50,106",
-      "M27,62 L45,62 L45,84 L27,84 Z",
-      "M73,62 L55,62 L55,84 L73,84 Z",
-      "M22,98 L78,98",
+      "M60,34 L60,110",
+      "M46,8 L60,34 L74,8",
+      "M34,68 L54,68 L54,94 L34,94 Z",
+      "M66,68 L86,68 L86,94 L66,94 Z",
+      "M28,103 L92,103",
+      "M66,42 L80,42 L80,54 L66,54 Z",
     ],
   },
+  // Zip-off trouser: waistband, fly, slant pockets, zips above the knee.
   trouser: {
-    fills: ["M27,8 L73,8 L80,113 L55,113 L50,46 L45,113 L20,113 Z"],
+    fills: ["M34,6 L86,6 L96,114 L68,114 L60,44 L52,114 L24,114 Z"],
+    shade: ["M60,6 L86,6 L96,114 L68,114 L60,44 Z"],
     seams: [
-      "M27,15 L73,15",
-      "M50,15 L50,40",
-      "M30,16 C32,26 37,30 43,31",
-      "M70,16 C68,26 63,30 57,31",
-      "M23.6,66 L47.6,66",
-      "M76.4,66 L52.4,66",
-      "M21,106 L45.4,106",
-      "M79,106 L54.6,106",
+      "M34,14 L86,14",
+      "M60,14 L60,40",
+      "M37,15 C39,26 44,31 51,32",
+      "M83,15 C81,26 76,31 69,32",
+      "M29,62 L54,62",
+      "M91,62 L66,62",
+      "M29.6,65 L53.6,65",
+      "M90.4,65 L66.4,65",
+      "M25,107 L53,107",
+      "M95,107 L67,107",
     ],
   },
+  // Tote: trapezoid body, two handles, front pocket split in two.
   tote: {
-    fills: ["M20,46 L80,46 L86,110 L14,110 Z"],
+    fills: ["M22,44 L98,44 L104,112 L16,112 Z"],
     strokes: [
-      { d: "M34,48 C34,12 66,12 66,48", width: 5.2 },
+      { d: "M40,46 C40,6 80,6 80,46", width: 5 },
     ],
-    seams: ["M19,56 L81,56", "M36,68 L64,68 L65,92 L35,92 Z", "M50,68 L50,92"],
+    seams: ["M21,54 L99,54", "M38,66 L82,66 L83,96 L37,96 Z", "M60,66 L60,96", "M18,104 L102,104"],
   },
+  // Quilted liner: round neck, snap front, diamond quilting.
   liner: {
-    fills: ["M38,14 C44,20 56,20 62,14 L82,24 L95,86 L84,91 L77,50 L77,106 L23,106 L23,50 L16,91 L5,86 L18,24 Z"],
-    seams: ["M50,19 L50,106", "M38,14 C44,20 56,20 62,14", "M8,80 L18,84", "M92,80 L82,84"],
+    fills: ["M45,12 C52,22 68,22 75,12 L90,18 L112,70 L100,76 L86,44 L86,106 L34,106 L34,44 L20,76 L8,70 L30,18 Z"],
+    shade: [SLEEVE_L, SLEEVE_R],
+    seams: ["M60,19 L60,106", "M45,12 C52,22 68,22 75,12", ...CUFFS],
     quilt: true,
   },
+  // Overshirt: pointed collar, placket, one chest pocket, curved hem.
   overshirt: {
-    fills: [JACKET_BODY, "M38,13 L50,22 L62,13 L58,6 L42,6 Z"],
+    fills: [
+      "M44,12 L76,12 L90,18 L112,70 L100,76 L86,44 L86,100 C76,112 44,112 34,100 L34,44 L20,76 L8,70 L30,18 Z",
+      "M44,12 L60,24 L76,12 L71,3 L49,3 Z",
+    ],
+    shade: [SLEEVE_L, SLEEVE_R],
     seams: [
-      "M50,22 L50,107",
-      "M38,13 L50,22 L62,13",
-      "M56,40 L70,40 L70,56 L56,56 Z",
-      "M8,80 L18,84",
-      "M92,80 L82,84",
-      "M23,101 L77,101",
+      "M60,24 L60,108",
+      "M57,24 L57,108",
+      "M44,12 L60,24 L76,12",
+      "M49,3 L60,13 L71,3",
+      "M66,38 L82,38 L82,56 L74,60 L66,56 Z",
+      "M34,26 L86,26",
+      ...CUFFS,
     ],
   },
 };
@@ -140,13 +171,13 @@ export function GarmentGlyph({
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
 
-      // Fit the 100 x 120 drawing into the box with a margin.
-      const scale = Math.min((w * 0.86) / 100, (h * 0.9) / 120);
-      const gw = 100 * scale;
+      // Fit the 120 x 120 drawing into the box with a small margin.
+      const scale = Math.min((w * 0.94) / 120, (h * 0.94) / 120);
+      const gw = 120 * scale;
       const gh = 120 * scale;
       const ox = (w - gw) / 2;
       const oy = (h - gh) / 2;
-      const cell = Math.max(3.6, Math.min(6.4, gh / 44));
+      const cell = Math.max(3.4, Math.min(6, gh / 50));
       const cols = Math.ceil(w / cell);
       const rows = Math.ceil(h / cell);
 
@@ -190,6 +221,10 @@ export function GarmentGlyph({
           }
         }
       });
+      const shade = raster((c) => {
+        c.fillStyle = "#fff";
+        for (const d of spec.shade ?? []) c.fill(new Path2D(d));
+      });
       const seams = raster((c) => {
         c.strokeStyle = "#fff";
         c.lineWidth = 1.5;
@@ -197,7 +232,7 @@ export function GarmentGlyph({
         for (const d of spec.seams) c.stroke(new Path2D(d));
         if (spec.quilt) {
           c.lineWidth = 1.1;
-          for (let i = -120; i < 220; i += 13) {
+          for (let i = -120; i < 240; i += 14) {
             c.stroke(new Path2D(`M${i},0 L${i + 120},120`));
             c.stroke(new Path2D(`M${i + 120},0 L${i},120`));
           }
@@ -230,7 +265,9 @@ export function GarmentGlyph({
           const u = (x - ox) / gw;
           const v = (y - oy) / gh;
           const fold = 0.5 + 0.5 * Math.cos((c - cxm) * 0.42);
-          let tone = 0.95 - 0.66 * v - 0.26 * u + 0.18 * fold + 0.16 * (hash(c, r) - 0.5);
+          let tone =
+            0.92 - 0.34 * v - 0.2 * u + 0.16 * fold + 0.16 * (hash(c, r) - 0.5) -
+            0.24 * shade[r * cols + c];
           tone = Math.min(0.999, Math.max(0.02, tone));
 
           let glyph: string;

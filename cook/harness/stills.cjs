@@ -76,7 +76,12 @@ const SHOTS = [
       } else if (shot.feature) {
         await page.evaluate((id) => {
           const el = document.querySelector(`[data-feature='${id}']`);
-          el.scrollIntoView({ block: "center" });
+          if (window.innerWidth < 1024) {
+            // Phones: the feature's copy sits just under the header, its demo below.
+            window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 76);
+          } else {
+            el.scrollIntoView({ block: "center" });
+          }
         }, shot.feature);
       } else if (shot.sel) {
         await page.evaluate(([s, block]) => {

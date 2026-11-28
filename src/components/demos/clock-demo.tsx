@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AppFrame, AppLabel, usePrefersReducedMotion } from "@/components/demos/app-ui";
 import { HeroClock, rungFor, type Rung } from "@/components/demos/hero-clock";
+import { setSceneEnergy } from "@/lib/scene/energy";
 
 interface Stage {
   id: string;
@@ -14,7 +15,7 @@ interface Stage {
 }
 
 const STAGES: Stage[] = [
-  { id: "far", name: "Hours out", start: 11 * 3600 + 59 * 60 + 59, shows: "hh mm ss", note: "Hours, minutes, seconds. The field moves slowly." },
+  { id: "far", name: "Hours out", start: 11 * 3600 + 59 * 60 + 59, shows: "hh mm ss", note: "More than an hour out: hours, minutes and seconds." },
   { id: "hour", name: "Inside the hour", start: 59 * 60 + 59, shows: "mm ss", note: "The hours drop away and the pace picks up." },
   { id: "quarter", name: "Fifteen minutes", start: 14 * 60 + 59, shows: "mm ss", note: "Fifteen minutes. The field opens from the centre." },
   { id: "final", name: "The final minute", start: 12, shows: "ss", note: "Only seconds now, and only the letter T." },
@@ -60,6 +61,13 @@ export function ClockDemo({ active }: { active: boolean }) {
 
   const stageIndex = RUNG_STAGE[rungFor(seconds)];
   const stage = STAGES[stageIndex];
+
+  // The disk behind the demo quickens with the clock.
+  useEffect(() => {
+    if (!active) return;
+    setSceneEnergy([0, 0.3, 0.55, 1, 0.8][stageIndex]);
+    return () => setSceneEnergy(0);
+  }, [active, stageIndex]);
 
   const pick = (i: number) => {
     setTouched(true);

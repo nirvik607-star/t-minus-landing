@@ -21,6 +21,7 @@ import { PerkLine, WaitlistForm } from "@/components/landing/waitlist-form";
 import { Features } from "@/components/landing/features";
 import type { WaitlistRole } from "@/lib/waitlist";
 import { APP_STORE_URL } from "@/lib/launch";
+import { sceneEnergy } from "@/lib/scene/energy";
 
 /** After zero, with a listing to point at, the page offers the app instead of the waitlist. */
 function AppStoreButton() {
@@ -34,7 +35,8 @@ function AppStoreButton() {
   );
 }
 
-const MINUS_TINTS = ["#FFFFFF", "#E6F6FE", "#BFEAFD"];
+/** MINUS reads as a white word perforated by the glyph field: white ground, brand-purple marks. */
+const MINUS_TINTS = ["#613DC1", "#4E148C", "#7C5BD6"];
 
 export function LandingPage() {
   const clock = useLaunchClock();
@@ -181,31 +183,31 @@ export function LandingPage() {
     write("dc-o", dialClockRef.current, "opacity", f.dialClock.toFixed(3));
     write("dc-v", dialClockRef.current, "visibility", f.dialClock < 0.02 ? "hidden" : "visible");
 
-    // Through the features the hole sits behind the pinned demo (wide screens).
+    // Through the features the hole sits behind the pinned demo (wide screens),
+    // and both leave together as the list ends.
     const panel = featPanelRef.current;
     const list = featListRef.current;
     if (panel && list && f.exitPx > 0 && f.closing < 0.001) {
       const pr = panel.getBoundingClientRect();
       const lr = list.getBoundingClientRect();
       const cy = pr.top + pr.height / 2;
-      const on = smooth(h * 1.0, h * 0.62, cy) * smooth(-h * 0.12, h * 0.2, cy);
+      const leaving = smooth(h * 0.5, h * 0.82, lr.bottom);
+      write("fp-o", panel, "opacity", leaving.toFixed(3));
+      const on = smooth(h * 1.0, h * 0.62, cy) * leaving;
+      // The ring shows as a crescent either side of the demo, never over the copy.
+      const r = Math.min(190, (Math.min(pr.width, 620) / 2 + 36) / 2.1);
       inputsRef.current.feat = {
         x: pr.left + pr.width / 2,
         y: cy,
-        r: Math.min(pr.width, 440) * 0.36,
+        r,
         on,
         turn: Math.min(1, Math.max(0, (h * 0.5 - lr.top) / Math.max(1, lr.height))),
       };
+      inputsRef.current.energy = sceneEnergy.value;
     } else {
       inputsRef.current.feat = undefined;
+      inputsRef.current.energy = 0;
     }
-    write("pr-o", premiseRef.current, "opacity", smooth(0.7, 0.95, f.polar).toFixed(3));
-    write(
-      "pr-y",
-      premiseRef.current,
-      "--rise",
-      `${((1 - smooth(0.7, 0.95, f.polar)) * 14).toFixed(1)}px`
-    );
 
     // Header extras appear once the scene's own clocks are out of view.
     const showClock = f.settled && f.horizonClock < 0.04 && f.dialClock < 0.04;
@@ -308,7 +310,7 @@ export function LandingPage() {
           <button
             type="button"
             onClick={() => goToForm()}
-            className="h-11 cursor-pointer rounded-[8px] bg-ink px-4 text-[13.5px] font-semibold uppercase tracking-[0.03em] text-accent transition-opacity duration-100 ease-out active:opacity-70"
+            className="h-11 cursor-pointer rounded-[8px] border border-ink/70 bg-ground/50 px-4 text-[13.5px] font-semibold uppercase tracking-[0.03em] text-ink backdrop-blur-sm transition-colors duration-150 ease-out active:opacity-70 [@media(hover:hover)]:hover:bg-ink [@media(hover:hover)]:hover:text-accent"
           >
             Join the waitlist
           </button>
@@ -371,8 +373,10 @@ export function LandingPage() {
                   label="minus"
                   cell={6}
                   tints={MINUS_TINTS}
-                  threshold={0.62}
-                  silhouetteOpacity={0.34}
+                  signal="#2C0735"
+                  silhouette="#FFFFFF"
+                  silhouetteOpacity={0.96}
+                  threshold={0.74}
                   revealSource={minusReveal}
                   className="my-1.5 h-[min(62px,8dvh)] w-[min(300px,38.5dvh)] sm:my-2 sm:h-[min(92px,10.2dvh)] sm:w-[min(444px,49.2dvh)]"
                 />
@@ -415,12 +419,9 @@ export function LandingPage() {
                   The best clothes in the world rarely have the loudest voice.
                 </p>
                 <p className="mt-4 text-[15.5px] leading-[1.55] text-soft sm:mt-5 sm:text-[17px]">
-                  <span className="hidden sm:inline">
-                    Small brands put months into fabric, cut and finish, then
-                    get one post to launch it.{" "}
-                  </span>
-                  T^minus gives every release a countdown, a place to get
-                  ready, and one moment to open.
+                  Small brands put months into fabric, cut and finish, then get
+                  one post to launch it. T^minus gives every release a
+                  countdown, a place to get ready, and one moment to open.
                 </p>
               </div>
             </div>

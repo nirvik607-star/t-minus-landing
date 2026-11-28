@@ -1,6 +1,7 @@
 "use client";
 
 import { GarmentGlyph } from "@/components/demos/garment-glyph";
+import { setSceneEnergy } from "@/lib/scene/energy";
 
 import React, { useEffect, useId, useRef, useState } from "react";
 import {
@@ -242,6 +243,13 @@ function HoldView({ active }: { active: boolean }) {
   const [handoffNote, setHandoffNote] = useState(false);
   const expired = remaining <= 0;
   const nearEnd = remaining <= LAST_SECONDS;
+
+  // The disk behind the demo quickens as the hold runs out, and settles after.
+  useEffect(() => {
+    if (!active) return;
+    setSceneEnergy(expired ? 0 : nearEnd ? 1 : 0.15);
+    return () => setSceneEnergy(0);
+  }, [active, expired, nearEnd]);
 
   function setClock(seconds: number) {
     setRemaining(seconds);

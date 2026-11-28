@@ -67,7 +67,7 @@ export function DropsHomeDemo({ active }: { active: boolean }) {
             </span>
           </button>
           <span className="app-label absolute bottom-[9px] left-[9px] text-[color:var(--secondary)]">
-            Independent studio / Your city
+            Example studio / Portland, OR
           </span>
         </div>
       </div>

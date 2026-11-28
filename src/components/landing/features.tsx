@@ -30,8 +30,8 @@ const FEATURES: Feature[] = [
   {
     id: "clock",
     name: "The clock",
-    line: "A clock that tightens as zero gets close.",
-    body: "It changes at one hour, at fifteen minutes and in the final minute. At zero it doesn't stop. It becomes T-plus and keeps counting.",
+    line: "It tightens as zero gets close.",
+    body: "The clock changes at one hour, at fifteen minutes and in the final minute. At zero it flips to T-plus and counts up, so you always know how long a drop has been open.",
     tryIt: "Pick a moment and watch the field change.",
     Demo: ClockDemo,
   },
@@ -94,12 +94,12 @@ function useInView<T extends Element>(margin = "-20% 0px -20% 0px") {
 function Copy({ feature }: { feature: Feature }) {
   return (
     <>
-      <p className="text-[15px] font-medium text-peri">{feature.name}</p>
-      <h3 className="mt-3 max-w-[15ch] text-[clamp(2rem,3.5vw,3rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-ink">
+      <h3 className="headline text-[clamp(2.5rem,4.4vw,4rem)] text-ink">{feature.name}</h3>
+      <p className="mt-4 max-w-[24ch] text-[clamp(1.25rem,1.7vw,1.5rem)] font-medium leading-[1.25] tracking-[-0.01em] text-ink">
         {feature.line}
-      </h3>
+      </p>
       <p className="mt-4 max-w-[40ch] text-[17px] leading-[1.55] text-soft">{feature.body}</p>
-      <p className="mt-5 text-[14.5px] leading-[1.4] text-mute">
+      <p className="mt-5 max-w-[40ch] text-[14.5px] leading-[1.45] text-mute">
         <span className="text-ink">Try it.</span>{" "}
         {feature.tryItTouch ? (
           <>
@@ -108,7 +108,8 @@ function Copy({ feature }: { feature: Feature }) {
           </>
         ) : (
           feature.tryIt
-        )}
+        )}{" "}
+        The demo runs on example data.
       </p>
     </>
   );
@@ -120,9 +121,8 @@ function InlineFeature({ feature }: { feature: Feature }) {
   return (
     <li data-feature={feature.id} className="py-10">
       <Copy feature={feature} />
-      <div ref={ref} className="mt-7 flex flex-col items-center">
+      <div ref={ref} className="mt-7 flex justify-center">
         <Demo active={inView} />
-        <p className="mt-3 text-[13px] text-mute">Live demo, example data</p>
       </div>
     </li>
   );
@@ -165,7 +165,7 @@ export function Features({ panelRef, listRef }: FeaturesProps) {
       data-section="features"
       className="mx-auto w-full max-w-[1360px] px-5 pb-10 pt-24 sm:px-10 sm:pt-36 lg:px-20"
     >
-      <h2 className="max-w-[18ch] text-[clamp(2.2rem,4.4vw,3.8rem)] font-semibold leading-[1.02] tracking-[-0.035em] text-ink">
+      <h2 className="headline max-w-[16ch] text-[clamp(2.6rem,5.2vw,4.6rem)] text-ink">
         Everything a drop needs, before it opens.
       </h2>
       <p className="mt-5 max-w-[46ch] text-[17px] leading-[1.55] text-soft sm:text-[18px]">
@@ -214,10 +214,7 @@ export function Features({ panelRef, listRef }: FeaturesProps) {
                         : "pointer-events-none translate-y-2 opacity-0"
                     }`}
                   >
-                    <div className="flex w-full flex-col items-center">
-                      <Demo active={on && sectionInView} />
-                      <p className="mt-3 text-[13px] text-mute">Live demo, example data</p>
-                    </div>
+                    <Demo active={on && sectionInView} />
                   </div>
                 );
               })}
@@ -232,25 +229,10 @@ export function Features({ panelRef, listRef }: FeaturesProps) {
         </ol>
       )}
 
-      <div className="mt-12 grid grid-cols-1 gap-x-16 gap-y-8 border-t border-line pt-10 sm:mt-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:pt-14">
-        <h3 className="text-[clamp(1.7rem,2.6vw,2.3rem)] font-semibold leading-[1.08] tracking-[-0.03em] text-ink">
-          And after the drop.
-        </h3>
-        <dl className="grid grid-cols-1 gap-y-7 sm:grid-cols-2 sm:gap-x-10">
-          <div>
-            <dt className="text-[17px] font-semibold text-ink">Closet</dt>
-            <dd className="mt-2 max-w-[34ch] text-[16.5px] leading-[1.5] text-soft">
-              Every purchase lands here as a verified record of what you own.
-            </dd>
-          </div>
-          <div>
-            <dt className="text-[17px] font-semibold text-ink">Membership</dt>
-            <dd className="mt-2 max-w-[34ch] text-[16.5px] leading-[1.5] text-soft">
-              One identity across the app. Each brand keeps its own tiers.
-            </dd>
-          </div>
-        </dl>
-      </div>
+      <p className="mt-12 max-w-[30ch] border-t border-line pt-10 text-[clamp(1.4rem,2.2vw,1.9rem)] font-medium leading-[1.25] tracking-[-0.015em] text-ink sm:mt-6 lg:pt-14">
+        After the drop, what you bought lands in your Closet, and each brand
+        keeps its own membership.
+      </p>
     </section>
   );
 }

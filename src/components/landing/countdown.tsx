@@ -98,7 +98,7 @@ function Unit({ value, unit, numeralClass, unitClass }: UnitProps) {
 export function HorizonClock({ parts, joined = false }: { parts: ClockParts; joined?: boolean }) {
   const numeral =
     "text-[34px] leading-[0.9] tracking-[-0.03em] text-ink sm:text-[46px]";
-  const unit = "ml-[3px] mt-[2px] text-[14px] leading-none text-peri sm:text-[17px]";
+  const unit = "ml-[3px] mt-[2px] text-[14px] leading-none text-ice sm:text-[17px]";
   return (
     <div
       role="timer"
@@ -121,7 +121,7 @@ export function HorizonClock({ parts, joined = false }: { parts: ClockParts; joi
         ) : parts.plus ? (
           "Live on the App Store"
         ) : (
-          `On the App Store ${LAUNCH_DATE_LONG}`
+          `Launches midnight ET, ${LAUNCH_DATE_LONG}`
         )}
       </p>
     </div>
@@ -135,7 +135,7 @@ export function HorizonClock({ parts, joined = false }: { parts: ClockParts; joi
  */
 export function DialClock({ parts }: { parts: ClockParts }) {
   const small = "text-[max(12px,0.82em)]";
-  const unit = `ml-[0.12em] mt-[0.05em] font-mono font-medium leading-none text-peri text-[max(12px,0.95em)]`;
+  const unit = `ml-[0.12em] mt-[0.05em] font-mono font-medium leading-none text-ice text-[max(12px,0.95em)]`;
   const numeral = "value font-sans text-[2.15em] font-semibold leading-[0.9] tracking-[-0.03em] text-ink";
   return (
     <div
