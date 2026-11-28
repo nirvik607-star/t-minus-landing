@@ -166,7 +166,7 @@ function Veil() {
 function PoolCell({ value, label, accent = false }: { value: number; label: string; accent?: boolean }) {
   return (
     <div className="flex flex-col-reverse gap-[0.1875em] bg-[color:var(--void)] px-[0.5625em] py-[0.625em]">
-      <dt className="font-mono text-[0.5625em] font-medium uppercase leading-[1.2] tracking-[0.04em] text-white/[0.52]">
+      <dt className="font-mono text-[0.75em] font-medium uppercase leading-[1.2] tracking-[0em] text-white/[0.6]">
         {label}
       </dt>
       <dd
@@ -201,13 +201,13 @@ function HoldBand({ remaining }: { remaining: number }) {
         <div aria-live="polite" className="relative min-w-0">
           <Veil />
           <p
-            className={`relative font-mono text-[0.625em] font-medium uppercase leading-[1.25] tracking-[0.045em] ${
+            className={`relative font-mono text-[0.75em] font-medium uppercase leading-[1.25] tracking-[0.045em] ${
               expired ? EXPIRED_RED : "text-white"
             }`}
           >
             {expired ? "Hold expired" : "Allocation held"}
           </p>
-          <p className="relative mt-[0.4em] font-mono text-[0.625em] font-medium leading-[1.25] tracking-[0.045em] text-white/[0.62]">
+          <p className="relative mt-[0.4em] font-mono text-[0.75em] font-medium leading-[1.25] tracking-[0.045em] text-white/[0.62]">
             {expired ? "Units returned to the pool." : "Complete checkout before zero."}
           </p>
         </div>
@@ -317,10 +317,10 @@ function HoldView({ active }: { active: boolean }) {
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-[0.375em]">
             <p className="font-semibold leading-[1.25] text-white">{ITEM.name}</p>
-            <p className="font-mono text-[0.625em] font-semibold uppercase leading-[1.2] tracking-[0.045em] text-[color:var(--secondary)]">
+            <p className="font-mono text-[0.75em] font-semibold uppercase leading-[1.2] tracking-[0.045em] text-[color:var(--secondary)]">
               Size {ITEM.size}&nbsp;&nbsp;/&nbsp;&nbsp;Qty 1
             </p>
-            <p className="text-[0.6875em] leading-[1.3] text-[color:var(--secondary)]">
+            <p className="text-[0.75em] leading-[1.3] text-[color:var(--secondary)]">
               Payment and delivery by the brand
             </p>
           </div>

@@ -288,7 +288,8 @@ export function LandingPage() {
             e.preventDefault();
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
-          className="pointer-events-auto text-ink"
+          aria-label="T-minus, back to top"
+          className="pointer-events-auto -mx-2 inline-flex h-11 items-center px-2 text-ink"
         >
           <TMinusWordmark className="[--wm-scale:1.05] sm:[--wm-scale:1.3]" />
         </a>

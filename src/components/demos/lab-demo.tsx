@@ -670,7 +670,7 @@ const ConceptCard = memo(function ConceptCard({
         <p className="text-[length:clamp(0.8125em,4.3cqi,0.9375em)] leading-[1.35] text-[color:var(--secondary)]">
           {concept.byline}
         </p>
-        <div className="flex items-center justify-between gap-3 text-[0.6875em] font-medium leading-[1.35]">
+        <div className="flex items-center justify-between gap-3 text-[0.75em] font-medium leading-[1.35]">
           <span className="flex items-center gap-[0.36em] text-[#8f6cf0]">
             <IconHeart filled className="h-[1.1em] w-[1.1em]" />
             <span className="value">{concept.supporters} supporters</span>

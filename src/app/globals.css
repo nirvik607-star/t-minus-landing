@@ -137,8 +137,9 @@
 .app-label {
   font-family: var(--font-mono);
   font-weight: 500;
-  font-size: 0.6875em;
-  letter-spacing: 0.06em;
+  /* 12px at the demo's base size: the page's floor for any text. */
+  font-size: 0.75em;
+  letter-spacing: 0.045em;
   text-transform: uppercase;
   line-height: 1.2;
 }

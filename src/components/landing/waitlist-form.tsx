@@ -352,11 +352,11 @@ export function WaitlistForm({
           Text me {SMS_PROGRAM.brand} launch and drop alerts. Up to{" "}
           {SMS_PROGRAM.maxMessagesPerMonth} msgs/month. Msg &amp; data rates may
           apply. Reply STOP to cancel, HELP for help.{" "}
-          <Link href="/privacy" className="text-ink underline decoration-peri/70 underline-offset-2">
+          <Link href="/privacy" className="py-3.5 text-ink underline decoration-peri/70 underline-offset-2">
             Privacy
           </Link>{" "}
           and{" "}
-          <Link href="/terms" className="text-ink underline decoration-peri/70 underline-offset-2">
+          <Link href="/terms" className="py-3.5 text-ink underline decoration-peri/70 underline-offset-2">
             Terms
           </Link>
           .
