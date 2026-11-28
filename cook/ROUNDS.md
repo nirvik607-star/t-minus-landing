@@ -70,3 +70,48 @@ Changes so far:
 - Intro: a wide-silhouette beat before the sweep.
 - Hero sized against viewport height; perk moved above the form as one line; consent shortened; Join button in the header once the hero form is out of reach; fewer serif italics planned (hero, premise, closing only).
 - Feature demos started: two builders on Size Assist + Hold/Standby and Lab; clock and Drops Home built here.
+
+Round 02 closed 06:35 UTC | total elapsed 2.5h
+
+Further changes in round 2:
+- All five demos live: Drops Home and the clock ported here from the prototype's own formulas and checked against its clock frames; Size Assist, Hold and Standby, and Lab built by two builders from the Swift-source spec.
+- Features section: pinned demo beside scrolling copy on wide screens, inline on phones.
+- Closing given its own two-column layout; app-style form controls; legal pages; social image and icons; static layout without WebGL2; robots and sitemap; production build passes.
+- Intro: flash travels as a band (no full-white frame); headline arrives after the hole settles.
+
+Stills: `cook/stills/r02/` | Pairs: `cook/compare/r02/`
+
+Scores, eyeballed, raw (one walkthrough critic on a stronger model; pairs critic still running):
+
+| Section | Design | Usability | Creativity | Content |
+|---|---|---|---|---|
+| Whole page | 6.4 | 6.0 | 7.0 | 5.6 |
+| Intro (desktop) | 7.0 | 5.0 | 7.5 | n/a |
+| Hero (desktop / phone) | 6.8 / 6.0 | 7.0 / 6.5 | 7.0 / 6.0 | 6.5 |
+| Dial (desktop / phone) | 7.6 / 7.2 | 7.0 | 7.8 / 7.5 | 7.5 |
+| Features | 5.8 | 6.5 | 5.5 | 5.0 |
+| Audiences | 5.0 | 6.5 | 3.5 | 6.0 |
+| Closing | 7.0 | 7.5 | 6.5 | 7.0 |
+
+Own score (logged, never decides): design 7.5, usability 7, creativity 7.5, content 6.5.
+
+Measured: production build passes (14 routes). `tsc --noEmit` clean.
+Not checked: real-device frame rate, static export build, screen reader pass.
+
+Top gaps from the critic:
+1. No clothes anywhere: product areas are glyph noise with placeholder captions.
+2. The black hole stops once the features start; the lower page reads as a dark-purple template.
+3. Phone hero: the form fills the screen and the hole is a sliver. Cut the perk pill and tabs from the first screen.
+4. Countdown ghost at about 5% contrast mid-rise.
+5. MINUS weaker than the lines around it; caught mid-reveal as "MINU".
+6. Feature layout: content edge does not match the header edge; audiences block is flat and templated.
+7. Copy: developer captions in the clock demo, invented-looking numbers, "demo confidence", UK "programme".
+
+Decisions:
+- 06:35 Intro length stays at about five seconds against the critics' advice (they want 2.5s), because the user chose it at intake. Any scroll, tap or key still ends it.
+- 06:35 Clock demo stays a faithful port (glyph-filled digits, unit marks top-right) against the critic's preference for solid digits, because the user asked for accuracy to the prototype.
+- 06:35 Lab cards and the Drops Home stage will show garments drawn in glyphs instead of the prototype's placeholder field and space scenes, because a fashion page with no clothes on it fails its own subject. Flagged for the user.
+- 06:35 Audiences section folded into the closing: the role choice swaps the statement and pitch.
+
+Stop check: bar no | stills approved no -> next round
+Next focus (round 3): scene carried through the features, garments in glyphs, simpler hero form, layout grid, copy.

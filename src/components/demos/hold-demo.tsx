@@ -185,7 +185,7 @@ function HoldBand({ remaining }: { remaining: number }) {
       <div className="relative flex min-h-[5.125em] items-center justify-between gap-[0.75em] bg-[color:var(--void)] px-[1em] py-[0.75em]">
         <div
           aria-hidden="true"
-          className="absolute inset-y-0 -inset-x-[4.5px] [mask-image:linear-gradient(90deg,transparent_1%,#000_7%,#000_93%,transparent_99%)]"
+          className="absolute inset-y-0 -inset-x-[4.5px] [mask-composite:intersect] [mask-image:linear-gradient(90deg,transparent_1%,#000_7%,#000_93%,transparent_99%),linear-gradient(180deg,#000_72%,transparent_98%)]"
         >
           <GlyphPatch
             cell={9}
@@ -308,7 +308,9 @@ function HoldView({ active }: { active: boolean }) {
             aria-hidden="true"
             className="relative h-[5em] w-[4.25em] shrink-0 overflow-hidden rounded-[8px] border border-white/[0.12] bg-[color:var(--galaxy-deep)]"
           >
-            <GlyphPatch cell={4} />
+            <div className="absolute inset-0 [mask-composite:intersect] [mask-image:linear-gradient(90deg,transparent,#000_16%,#000_84%,transparent),linear-gradient(180deg,transparent,#000_14%,#000_86%,transparent)]">
+              <GlyphPatch cell={4} />
+            </div>
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-[0.375em]">
             <p className="font-semibold leading-[1.25] text-white">{ITEM.name}</p>

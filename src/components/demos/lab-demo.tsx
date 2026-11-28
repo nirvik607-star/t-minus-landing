@@ -13,17 +13,12 @@ import {
  * buttons, or focus the stack and press the arrow keys.
  */
 
-type SceneKind = "galaxy" | "satellite" | "package";
-
 interface Concept {
   id: string;
   title: string;
   category: string;
   byline: string;
   supporters: number;
-  scene: SceneKind;
-  /** Second use of a scene stands on a different frame. */
-  variant: 0 | 1;
 }
 
 const CONCEPTS: Concept[] = [
@@ -33,8 +28,6 @@ const CONCEPTS: Concept[] = [
     category: "Outerwear",
     byline: "Studio 01, $120 to $160 provisional",
     supporters: 284,
-    scene: "galaxy",
-    variant: 0,
   },
   {
     id: "CONCEPT_02",
@@ -42,8 +35,6 @@ const CONCEPTS: Concept[] = [
     category: "Layers",
     byline: "Studio 02, $90 to $120 provisional",
     supporters: 173,
-    scene: "satellite",
-    variant: 0,
   },
   {
     id: "CONCEPT_03",
@@ -51,8 +42,6 @@ const CONCEPTS: Concept[] = [
     category: "Bottoms",
     byline: "Studio 03, $110 to $140 provisional",
     supporters: 96,
-    scene: "package",
-    variant: 0,
   },
   {
     id: "CONCEPT_04",
@@ -60,8 +49,6 @@ const CONCEPTS: Concept[] = [
     category: "Accessories",
     byline: "Studio 04, $60 to $85 provisional",
     supporters: 211,
-    scene: "galaxy",
-    variant: 1,
   },
   {
     id: "CONCEPT_05",
@@ -69,8 +56,6 @@ const CONCEPTS: Concept[] = [
     category: "Outerwear",
     byline: "Studio 05, $140 to $180 provisional",
     supporters: 152,
-    scene: "satellite",
-    variant: 1,
   },
   {
     id: "CONCEPT_06",
@@ -78,8 +63,6 @@ const CONCEPTS: Concept[] = [
     category: "Shirting",
     byline: "Studio 06, $95 to $125 provisional",
     supporters: 68,
-    scene: "package",
-    variant: 1,
   },
 ];
 
@@ -559,9 +542,20 @@ const GlyphScene = memo(function GlyphScene({ marks }: { marks: Mark[] }) {
   );
 });
 
-function Artwork({ scene, variant }: { scene: SceneKind; variant: 0 | 1 }) {
-  if (scene === "galaxy") return <GalaxyArt variant={variant} />;
-  if (scene === "satellite") return <GlyphScene marks={SATELLITE_MARKS[variant]} />;
+/**
+ * The artwork for one card: card index in (0 to 5), art out.
+ *
+ * This is the only thing the card knows about its artwork. Whatever is
+ * returned should fill the panel (absolute, inset 0), ignore pointer events
+ * and be hidden from assistive technology; the panel supplies the ground
+ * colour, the rounded clip and the caption. The scenes alternate galaxy,
+ * satellite, package, and the second use of each stands on a different frame.
+ */
+function ConceptArtwork({ index }: { index: number }) {
+  const scene = index % 3;
+  const variant = index < 3 ? 0 : 1;
+  if (scene === 0) return <GalaxyArt variant={variant} />;
+  if (scene === 1) return <GlyphScene marks={SATELLITE_MARKS[variant]} />;
   return <GlyphScene marks={PACKAGE_MARKS[variant]} />;
 }
 
@@ -641,11 +635,17 @@ function IconArrowUpRight() {
 /* Card                                                                */
 /* ------------------------------------------------------------------ */
 
-const ConceptCard = memo(function ConceptCard({ concept }: { concept: Concept }) {
+const ConceptCard = memo(function ConceptCard({
+  concept,
+  index,
+}: {
+  concept: Concept;
+  index: number;
+}) {
   return (
     <div className="@container flex h-full flex-col overflow-hidden rounded-[12px] border border-[color:var(--aline)] bg-[color:var(--paper)]">
       <div className="relative -mx-px -mt-px min-h-0 flex-1 overflow-hidden rounded-[12px] border border-white/[0.13] bg-[color:var(--galaxy-deep)]">
-        <Artwork scene={concept.scene} variant={concept.variant} />
+        <ConceptArtwork index={index} />
         <div className="absolute bottom-0 left-0 flex flex-col gap-[0.1875em] p-[0.875em]">
           <span className="app-label text-ice/[0.72]">Illustrative artwork</span>
           <span className="app-label text-white/[0.52]">{concept.id}</span>
@@ -653,12 +653,12 @@ const ConceptCard = memo(function ConceptCard({ concept }: { concept: Concept })
       </div>
       <div className="flex flex-col gap-[0.625em] p-[1em]">
         <AppRail>
-          {concept.category} / Feedback
+          <span className="whitespace-nowrap">{concept.category} / Feedback</span>
         </AppRail>
         <p className="truncate text-[length:clamp(1.14em,6.9cqi,1.5em)] font-medium leading-[1.2] tracking-[-0.027em] text-white">
           {concept.title}
         </p>
-        <p className="truncate text-[length:clamp(0.8125em,4.3cqi,0.9375em)] leading-[1.35] text-[color:var(--secondary)]">
+        <p className="text-[length:clamp(0.8125em,4.3cqi,0.9375em)] leading-[1.35] text-[color:var(--secondary)]">
           {concept.byline}
         </p>
         <div className="flex items-center justify-between gap-3 text-[0.6875em] font-medium leading-[1.35]">
@@ -709,6 +709,8 @@ const FLY_X = 520;
 const FLY_Y = 18;
 const LEAVE_MS = 160;
 const SETTLE_MS = 300;
+/** On the last card a drag only leans; there is nothing behind it to reach. */
+const END_RESISTANCE = 0.3;
 
 /* Close to a spring with response .30 and damping .82. */
 const SETTLE_TRANSITION = `transform ${SETTLE_MS}ms cubic-bezier(0.2, 0.9, 0.3, 1.1)`;
@@ -994,18 +996,21 @@ export function LabDemo({ active }: { active: boolean }) {
   return (
     <AppFrame label="Lab demo: swipe to support or pass on unreleased concepts">
       <div className="flex flex-col gap-[0.75em] px-[1.25em] pb-[1.125em] pt-[1.25em]">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-col gap-[0.1875em]">
-            <AppLabel tone="accent">Lab / Private taste signal</AppLabel>
-            <p className="text-[1.25em] font-medium leading-[1.2] tracking-[-0.0175em] text-white">
-              What should exist next?
-            </p>
+        <div className="flex flex-col gap-[0.1875em]">
+          {/* The counter shares the eyebrow's line, so the title keeps the full width. */}
+          <div className="flex items-baseline justify-between gap-[0.5em]">
+            <AppLabel tone="accent" className="min-w-0 truncate">
+              Lab / Private taste signal
+            </AppLabel>
+            <AppLabel className="value shrink-0 whitespace-nowrap">
+              <span className="sr-only">Card </span>
+              {pad2(index + 1)} <span aria-hidden="true">/</span>
+              <span className="sr-only">of</span> {pad2(COUNT)}
+            </AppLabel>
           </div>
-          <AppLabel className="value shrink-0 whitespace-nowrap">
-            <span className="sr-only">Card </span>
-            {pad2(index + 1)} <span aria-hidden="true">/</span>
-            <span className="sr-only">of</span> {pad2(COUNT)}
-          </AppLabel>
+          <p className="text-[1.25em] font-medium leading-[1.2] tracking-[-0.0175em] text-white">
+            What should exist next?
+          </p>
         </div>
 
         <div
@@ -1032,7 +1037,7 @@ export function LabDemo({ active }: { active: boolean }) {
                     phase === "dragging" ? "cursor-grabbing" : "cursor-grab"
                   }`}
                 >
-                  <ConceptCard concept={item} />
+                  <ConceptCard concept={item} index={index + depth} />
                   {badge ? (
                     <span
                       aria-hidden="true"
@@ -1054,7 +1059,7 @@ export function LabDemo({ active }: { active: boolean }) {
                   style={BACK_CARDS[depth - 1].style}
                   className="pointer-events-none absolute inset-x-0 top-0 h-[25.75em]"
                 >
-                  <ConceptCard concept={item} />
+                  <ConceptCard concept={item} index={index + depth} />
                   <span
                     style={{ opacity: BACK_CARDS[depth - 1].veil }}
                     className="absolute inset-0 rounded-[12px] bg-black"
@@ -1093,11 +1098,9 @@ export function LabDemo({ active }: { active: boolean }) {
           )}
         </div>
 
-        <div aria-hidden="true" className="grid grid-cols-[1fr_auto_1fr] items-center">
-          <AppLabel>Pass</AppLabel>
+        <p className="flex justify-center">
           <AppLabel>{atEnd ? "That's the round" : "Swipe or tap"}</AppLabel>
-          <AppLabel className="text-right">Support</AppLabel>
-        </div>
+        </p>
 
         <p aria-live="polite" className="sr-only">
           {status}
@@ -1106,6 +1109,3 @@ export function LabDemo({ active }: { active: boolean }) {
     </AppFrame>
   );
 }
-
-/** On the last card a drag only leans; there is nothing behind it to reach. */
-const END_RESISTANCE = 0.3;

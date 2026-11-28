@@ -140,7 +140,7 @@ function ChipRow<T extends string>({
 }) {
   const labelId = useId();
   return (
-    <div>
+    <div className="@container">
       <AppLabel className="block" tone="secondary">
         <span id={labelId}>{question}</span>
       </AppLabel>
@@ -166,7 +166,11 @@ function ChipRow<T extends string>({
                   : "border-[color:var(--aline)] bg-[rgb(28_28_30/0.62)] text-[color:var(--secondary)] [@media(hover:hover)]:hover:border-white/30 [@media(hover:hover)]:hover:text-white"
               }`}
             >
-              <span className={`text-[0.875em] ${checked ? "font-semibold" : "font-medium"}`}>
+              <span
+                className={`text-[0.8125em] @[330px]:text-[0.875em] ${
+                  checked ? "font-semibold" : "font-medium"
+                }`}
+              >
                 {option}
               </span>
             </button>
