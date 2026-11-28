@@ -10,6 +10,8 @@ Best so far: round 11, `cook/stills/r11/`
 
 Correction, 05:20: the times first written for rounds 1 and 2 were estimates, not clock readings, and ran about 90 minutes ahead. They are replaced below with times taken from the commit log.
 
+Correction, 07:01: the same mistake again for rounds 9 to 11, which I timed by guess and put up to 35 minutes ahead. Replaced with times from the commit log. Round times are now read from the clock when the entry is written.
+
 ## Decisions
 
 Made without asking, one line each.
@@ -29,12 +31,12 @@ Made without asking, one line each.
 - 06:00 Desktop features are mirrored to demo left, copy right, so the dial only has to grow in place to become the ring around the demo.
 - 06:00 Header button is filled white again from the dial onward, because two critics said the demos' white buttons out-shouted an outlined call to action. Reverses the 05:10 decision.
 - 06:00 The per-demo "Live demo, example data" tab and the "Try it." prefix are gone; the section says once that every demo runs on example data. One critic read the repeated tab as a template tell.
-- 06:50 Closet is now a port of the app's own Closet screen (filters, Public Showcase count, piece states), read from the prototype source like the other five, instead of four loose tiles. Piece names are example data.
-- 06:50 The membership line moved from Closet to the brand pitch in the closing, where it belongs to the audience it is for. Flagged for the user.
-- 06:50 The intro's hole has a clean black shadow, with nothing drawn across its front. Five critics over six rounds read the band across it as a seam or a render fault at every angle tried.
-- 06:50 The demos keep the app's white primary buttons, against three critics who wanted them outlined so they do not compete with the page's own button. The user asked for accuracy to the prototype. Flagged for the user.
-- 06:50 Ice blue: the seconds of the page's countdown are the one ice-blue value in the hero and the dial; in the closing the word "zero." takes it and the seconds go white. Unit marks are periwinkle throughout.
-- 07:20 On phones each demo is scaled to fit between the arcs of the rim (never below nine tenths) and rests there for a third of a screen. Its controls then measure 40 to 43px instead of 44. Seeing the demo whole was judged worth four pixels; flagged for the user.
+- 06:45 Closet is now a port of the app's own Closet screen (filters, Public Showcase count, piece states), read from the prototype source like the other five, instead of four loose tiles. Piece names are example data.
+- 06:45 The membership line moved from Closet to the brand pitch in the closing, where it belongs to the audience it is for. Flagged for the user.
+- 06:45 The intro's hole has a clean black shadow, with nothing drawn across its front. Five critics over six rounds read the band across it as a seam or a render fault at every angle tried.
+- 06:45 The demos keep the app's white primary buttons, against three critics who wanted them outlined so they do not compete with the page's own button. The user asked for accuracy to the prototype. Flagged for the user.
+- 06:45 Ice blue: the seconds of the page's countdown are the one ice-blue value in the hero and the dial; in the closing the word "zero." takes it and the seconds go white. Unit marks are periwinkle throughout.
+- 06:58 On phones each demo is scaled to fit between the arcs of the rim (never below nine tenths) and rests there for a third of a screen. Its controls then measure 40 to 43px instead of 44. Seeing the demo whole was judged worth four pixels; flagged for the user.
 - 05:10 "Example studio / Portland, OR" replaces "Independent studio / Your city" on the Drops Home stage; other demo data keeps the prototype's own placeholder style (Studio 01, CONCEPT_01) and each demo is labelled as running on example data.
 
 ## User feedback inbox
@@ -252,7 +254,7 @@ Stop check: bar no -> next round
 
 ## Round 09
 
-Time: 06:25 to 06:45 UTC | total elapsed 2.7h
+Time: 06:24 to 06:35 UTC | total elapsed 2.5h
 Focus: the round-8 gaps above, then an automated accessibility audit, which had never been run.
 
 Changes:
@@ -280,7 +282,7 @@ Stop check: bar no -> next round
 
 ## Round 10
 
-Time: 06:46 to 07:10 UTC | total elapsed 3.1h
+Time: 06:36 to 06:49 UTC | total elapsed 2.8h
 Focus: the round-9 gaps above.
 
 Changes:
@@ -309,7 +311,7 @@ Stop check: bar no -> next round
 
 ## Round 11
 
-Time: 07:10 to 07:35 UTC | total elapsed 3.5h
+Time: 06:50 to 06:59 UTC | total elapsed 2.9h
 Focus: phones inside the hole, the weakest shot (5.5 / 5 / 6 / 7).
 
 Changes:
