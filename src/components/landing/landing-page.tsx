@@ -63,6 +63,8 @@ export function LandingPage() {
   const closingPhoneRef = useRef<HTMLInputElement | null>(null);
   const minusReveal = useRef(0);
   const cache = useRef<Record<string, string>>({});
+  const sceneOffRef = useRef(false);
+  sceneOffRef.current = sceneOff;
 
   // Geometry that only changes with the viewport.
   const anchors = useRef({ heroFormBottom: 0, closingFormBottomDoc: 0 });
@@ -83,7 +85,7 @@ export function LandingPage() {
     }
     // Place the premise against the dial.
     const premise = premiseRef.current;
-    if (premise) {
+    if (premise && !sceneOffRef.current) {
       const dial = dialFraming(w, h);
       const ring = dial.r * 2.22;
       if (isWideDial(w, h)) {
@@ -191,6 +193,38 @@ export function LandingPage() {
     write("hx-v", headerExtrasRef.current, "visibility", showJoin ? "visible" : "hidden");
   }, []);
 
+  // Without WebGL2 there is no scene to follow: lay the same content out
+  // statically, with a plain drawn horizon under the hero.
+  useEffect(() => {
+    if (!sceneOff) return;
+    minusReveal.current = 1;
+    const set = (el: HTMLElement | null, styles: Record<string, string>) => {
+      if (!el) return;
+      for (const [k, v] of Object.entries(styles)) el.style.setProperty(k, v);
+    };
+    set(heroRef.current, { opacity: "1", visibility: "visible", "pointer-events": "auto", transform: "none" });
+    set(horizonClockRef.current, {
+      opacity: "1",
+      position: "absolute",
+      top: "calc(100dvh - 86px)",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+    });
+    set(dialClockRef.current, { display: "none" });
+    set(premiseRef.current, {
+      opacity: "1",
+      position: "relative",
+      left: "auto",
+      top: "auto",
+      width: "auto",
+      transform: "none",
+      "text-align": "left",
+      "pointer-events": "auto",
+    });
+    set(headerExtrasRef.current, { opacity: "1", visibility: "visible", "pointer-events": "auto" });
+    set(headerBackRef.current, { opacity: "1" });
+  }, [sceneOff]);
+
   const pulse = useCallback((strength: number) => {
     controlRef.current?.pulse(strength);
   }, []);
@@ -272,13 +306,34 @@ export function LandingPage() {
 
       <main id="top" className="relative z-10">
         {/* Runway: horizon, then the camera rises to look straight down. */}
-        <div ref={runwayRef} data-runway className="relative h-[225dvh]">
-          <div className="sticky top-0 h-[100dvh] overflow-hidden">
+        <div
+          ref={runwayRef}
+          data-runway
+          className={sceneOff ? "relative" : "relative h-[225dvh]"}
+        >
+          {sceneOff ? (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-0 h-[100dvh] overflow-hidden"
+            >
+              {/* The horizon, drawn plainly: a black disc with a lit rim. */}
+              <div className="absolute left-1/2 top-[calc(100dvh-170px)] size-[max(84vw,860px)] -translate-x-1/2 rounded-full border-2 border-peri bg-black shadow-[0_0_0_10px_rgba(133,138,227,0.18),0_0_90px_10px_rgba(97,61,193,0.55)]" />
+            </div>
+          ) : null}
+          <div
+            className={
+              sceneOff
+                ? "relative mx-auto flex min-h-[100dvh] max-w-[1120px] flex-col"
+                : "sticky top-0 h-[100dvh] overflow-hidden"
+            }
+          >
             <section
               ref={heroRef}
               data-section="hero"
               style={{ opacity: sceneOff ? 1 : 0 }}
-              className="absolute inset-x-0 top-0 flex flex-col items-center px-5 pt-[calc(56px+1.6dvh)] will-change-transform sm:pt-[calc(68px+2dvh)]"
+              className={`${
+                sceneOff ? "relative min-h-[100dvh]" : "absolute inset-x-0 top-0"
+              } flex flex-col items-center px-5 pt-[calc(56px+1.6dvh)] will-change-transform sm:pt-[calc(68px+2dvh)]`}
             >
               <h1 className="flex flex-col items-center text-center">
                 <span className="statement text-[clamp(2.25rem,min(4.6vw,6.6dvh),3.9rem)] text-ink">
@@ -313,7 +368,7 @@ export function LandingPage() {
             <div
               ref={premiseRef}
               style={{ opacity: 0, transform: "translateY(-50%)" }}
-              className="pointer-events-none absolute"
+              className={sceneOff ? "max-w-[720px] px-5 pb-6 pt-20 sm:px-9" : "pointer-events-none absolute"}
             >
               <div style={{ transform: "translateY(var(--rise, 0px))" }}>
                 <p className="statement text-[clamp(1.75rem,3.1vw,2.7rem)] leading-[1.04] text-ink">
