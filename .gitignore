@@ -11,3 +11,8 @@ npm-debug.log*
 next-env.d.ts
 .data/
 .api-stash-pages/
+
+# Cook run working files: references and renders stay local
+/cook/refs/
+/cook/stills/
+/cook/compare/
