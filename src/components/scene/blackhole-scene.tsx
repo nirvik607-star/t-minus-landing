@@ -365,7 +365,8 @@ export function BlackholeScene({
       });
 
       const settled = introClock >= INTRO_SECONDS;
-      if (settled && !settledNotified) {
+      // Once the hero has arrived the intro counts as seen, even if the tab closes right then.
+      if ((settled || v.heroReveal > 0.99) && !settledNotified) {
         settledNotified = true;
         try {
           window.sessionStorage.setItem(SEEN_KEY, "1");
@@ -425,6 +426,8 @@ export function BlackholeScene({
       gl.uniform1f(scene.u("uPulse"), pulse);
       gl.uniform1f(scene.u("uPulseR"), pulseR);
       gl.uniform1i(scene.u("uSamples"), samples);
+      // The ring is thinner than a cell at any size; widen it to about 1.4 cells so it survives.
+      gl.uniform1f(scene.u("uRingK"), Math.max(8, v.shadowR / (1.4 * cellCss)));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
       // ---- pass 2: glyphs ----
@@ -469,6 +472,7 @@ export function BlackholeScene({
       gl.uniform1f(glyph.u("uWellDev"), v.wellPx * dpr);
       gl.uniform1f(glyph.u("uSignal"), signalIndex);
       gl.uniform1f(glyph.u("uPolar"), v.polar);
+      gl.uniform1f(glyph.u("uFront"), v.front);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
       canvas.dataset.sceneReady = "true";
@@ -519,13 +523,15 @@ export function BlackholeScene({
     window.addEventListener("wheel", onIntent, { passive: true });
     window.addEventListener("touchstart", onIntent, { passive: true });
     window.addEventListener("keydown", onIntent);
-    const remeasure = window.setInterval(measureAnchors, 1200);
+    // Section positions move when the page's height does (fonts, layout switches).
+    const remeasure = new ResizeObserver(() => measureAnchors());
+    remeasure.observe(document.body);
     void boot();
 
     return () => {
       disposed = true;
       window.cancelAnimationFrame(raf);
-      window.clearInterval(remeasure);
+      remeasure.disconnect();
       window.removeEventListener("resize", onResize);
       window.removeEventListener("load", onLoadSettle);
       window.removeEventListener("pointermove", onPointerMove);

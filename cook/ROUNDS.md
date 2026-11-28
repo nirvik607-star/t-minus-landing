@@ -3,10 +3,12 @@
 Started: 2026-11-28 04:04 UTC
 Time: no floor | no cap (work in rounds until the bar is met or the user stops it)
 Bar: design 9 | usability 9 | creativity 9 | content 9 (each out of 10, fresh reviewers on stills) and wins every blind pair against the baseline
-Calibration offset: none yet
+Calibration offset: none yet (no user estimate received)
 Usage: not readable
 Gate: stills approved no | final render not applicable (the deliverable is the site)
-Best so far: baseline only, `cook/stills/r00/`, commit eb6b31a
+Best so far: round 4, `cook/stills/r04/`, commit 02a2a32
+
+Correction, 05:20: the times first written for rounds 1 and 2 were estimates, not clock readings, and ran about 90 minutes ahead. They are replaced below with times taken from the commit log.
 
 ## Decisions
 
@@ -15,103 +17,110 @@ Made without asking, one line each.
 - 04:04 Drop the docked top dome after the runway; the dial scrolls away with the page and the horizon returns at the closing, because content sliding under the dome left fragments showing either side of it.
 - 04:04 Keep Newsreader for the brand serif (it is already the wordmark's T) and Inter for the functional sans (it is the wordmark's sans); drop Inter Tight.
 - 04:04 Keep the scene inside the purple, periwinkle and white range; no ice blue in the scene, because the design system reserves it for one word or live value.
+- 04:52 Intro length stays at about five seconds against the critics' advice (they want 2.5s), because the user chose it at intake. Any scroll, tap or key still ends it.
+- 04:52 The clock demo stays a faithful port (glyph-filled digits, unit marks top-right) against three critics' preference for solid digits, because the user asked for accuracy to the prototype. Its grey ground is raised a step so the digits hold on desktop screens.
+- 04:52 Lab cards and the Drops Home stage show garments drawn in glyphs instead of the prototype's placeholder field and space scenes, because a fashion page with no clothes on it fails its own subject. Flagged for the user.
+- 04:52 Audiences section folded into the closing: the role choice swaps the statement and pitch.
+- 05:10 Feature names are the headlines and are set in the brand serif italic, because three critics flagged two competing headline voices and the app's own rule is serif for product headlines. The user was wary of italics, so it is one CSS rule (`.headline`) to switch back. Flagged for the user.
+- 05:10 MINUS is a white word perforated by brand-purple glyphs, not ice-blue glyphs on a faint ground, because every critic called the earlier fill muddy.
+- 05:10 Header button is an outline; the form's submit is the only white button on the marketing page.
+- 05:10 "Example studio / Portland, OR" replaces "Independent studio / Your city" on the Drops Home stage; other demo data keeps the prototype's own placeholder style (Studio 01, CONCEPT_01) and each demo is labelled as running on example data.
 
 ## User feedback inbox
 
 Exact words. Close an item only when a still proves it.
-- 03:58 "some of the those prototype screens look a little wrong" | round 0 | open: archived screenshots dropped as references; demos to be checked against fresh captures when the user sends them.
+- 03:58 "some of the those prototype screens look a little wrong" | round 0 | open: archived screenshots dropped as references; demos built from the Swift source and still to be checked against fresh captures when the user sends them.
 
 ---
 
 ## Round 01
 
-Time: 04:04 to 05:20 UTC | total elapsed 1.3h
+Time: 04:04 to 04:30 UTC | total elapsed 0.4h
 Usage: not readable
 Focus: the signature image (black hole, hero, dial, closing), because the page cannot be judged without it.
 
 Changes:
-- New renderer in `src/lib/scene/` and `src/components/scene/`: Schwarzschild ray tracing at cell resolution, glyph pass from an atlas of the brand set, intro timeline (star, collapse, flood, hole, sweep), scroll camera from horizon to top-down dial, closing horizon.
-- New page: tokens from the locked design system, hero lockup with glyph-masked MINUS, new subhead, T-minus clock readouts inside the void, premise beside the dial, audiences, closing with form, footer inside the void.
+- New renderer in `src/lib/scene/` and `src/components/scene/`: Schwarzschild ray tracing at cell resolution, glyph pass from an atlas of the brand set, intro timeline, scroll camera from horizon to top-down dial, closing horizon.
+- New page: tokens from the locked design system, hero lockup with glyph-masked MINUS, new subhead, T-minus clock readouts inside the void, premise beside the dial, audiences, closing with form.
 - New form: compliant consent line, 44px targets, brand name required, plain confirmation.
 
-Stills: `cook/stills/r01/` and `cook/stills/r01-2x/` | Pairs against baseline: `cook/compare/r01/`
+Stills: `cook/stills/r01/` | Pairs against baseline: `cook/compare/r01/`
 
-Scores, eyeballed: one critic so far (second still running), new build, raw, no calibration.
-
-| Shot | Design | Usability | Creativity | Content | Blind pair vs baseline |
-|---|---|---|---|---|---|
-| Hero desktop | 6 | 7 | 5 | 7 | won (medium) |
-| Dial desktop | 6 | 6 | 5 | 7 | won (medium) |
-| Hero phone | 6 | 7 | 5 | 7 | won (high) |
-| Closing desktop | 6 | 7 | 4 | 6 | won (medium) |
-| Dial phone | 6 | 5 | 5 | 7 | won (medium) |
-| Intro frame | 4 | 4 | 4 | 2 | lost (medium) |
+Scores, eyeballed, raw (2 critics, one on a stronger model):
+- Blind pairs won by the new build: 5 of 6 (critic B), 4 of 6 (critic A). Both lost the intro frame; A also preferred the old top-down view.
+- New build per pair, about: design 6 to 6.5, usability 5 to 7.5, creativity 4 to 6.5, content 4 to 7.5.
 
 Own score (logged, never decides): design 7, usability 7, creativity 7, content 7.
+Measured: nothing. Not checked: demos, legal pages, keyboard, real devices.
 
-Measured: nothing this round. Frame rate on real GPUs not measurable here (software rendering).
-
-Not checked this round: feature demos (not built), legal pages (not built), keyboard pass, real-device performance.
-
-Top gaps from the critic:
-1. The scene reads flat: thin, evenly dotted rings on a plain purple field with no depth, light or energy. The old intro frame beat the new one on this.
-2. MINUS is the least legible word in the headline; the consent block outweighs the incentive.
-3. No call to action in the dial view; footer links sat on the glyph field.
-4. Tells: italic serif with sans, a cyan last word, purple on purple.
-
-Progress note sent: 05:12 (six stills).
+Top gaps: the scene had no light or depth; MINUS least legible word; consent outweighed the incentive; no call to action in the dial view.
+Progress note sent: about 04:28 (six stills).
 Stop check: bar no | stills approved no -> next round
-Next focus: light and depth in the scene, then the feature demos.
 
-## Round 02 (in progress)
+## Round 02
 
-Changes so far:
-- Scene: glow from blurred mips of the cell buffer, a darker well around the hole, hotter inner disk, stronger photon rim and beaming, a heavier T for the hottest cells, spiral lanes.
-- Intro: a wide-silhouette beat before the sweep.
-- Hero sized against viewport height; perk moved above the form as one line; consent shortened; Join button in the header once the hero form is out of reach; fewer serif italics planned (hero, premise, closing only).
-- Feature demos started: two builders on Size Assist + Hold/Standby and Lab; clock and Drops Home built here.
+Time: 04:30 to 04:52 UTC | total elapsed 0.8h
+Focus: light and depth in the scene, then the feature demos.
 
-Round 02 closed 06:35 UTC | total elapsed 2.5h
-
-Further changes in round 2:
+Changes:
+- Scene: glow from blurred mips of the cell buffer, a darker well around the hole, hotter inner disk, stronger photon rim, heavier glyph for the hottest cells.
 - All five demos live: Drops Home and the clock ported here from the prototype's own formulas and checked against its clock frames; Size Assist, Hold and Standby, and Lab built by two builders from the Swift-source spec.
-- Features section: pinned demo beside scrolling copy on wide screens, inline on phones.
-- Closing given its own two-column layout; app-style form controls; legal pages; social image and icons; static layout without WebGL2; robots and sitemap; production build passes.
-- Intro: flash travels as a band (no full-white frame); headline arrives after the hole settles.
+- Features section (pinned demo beside scrolling copy; inline on phones), closing layout, app-style form controls, legal pages, social image and icons, static layout without WebGL2, robots and sitemap.
+- Intro: flash travels as a band; headline arrives after the hole settles.
 
 Stills: `cook/stills/r02/` | Pairs: `cook/compare/r02/`
 
-Scores, eyeballed, raw (one walkthrough critic on a stronger model; pairs critic still running):
+Scores, eyeballed, raw:
+- Blind pairs won by the new build: 8 of 8 (critic C).
+- Walkthrough (critic D, stronger model), whole page: design 6.4, usability 6.0, creativity 7.0, content 5.6.
 
-| Section | Design | Usability | Creativity | Content |
-|---|---|---|---|---|
-| Whole page | 6.4 | 6.0 | 7.0 | 5.6 |
-| Intro (desktop) | 7.0 | 5.0 | 7.5 | n/a |
-| Hero (desktop / phone) | 6.8 / 6.0 | 7.0 / 6.5 | 7.0 / 6.0 | 6.5 |
-| Dial (desktop / phone) | 7.6 / 7.2 | 7.0 | 7.8 / 7.5 | 7.5 |
-| Features | 5.8 | 6.5 | 5.5 | 5.0 |
-| Audiences | 5.0 | 6.5 | 3.5 | 6.0 |
-| Closing | 7.0 | 7.5 | 6.5 | 7.0 |
+Own score: design 7.5, usability 7, creativity 7.5, content 6.5.
+Measured: production build passes; `tsc --noEmit` clean.
 
-Own score (logged, never decides): design 7.5, usability 7, creativity 7.5, content 6.5.
+Top gaps: no clothes anywhere; the black hole stops at the features; phone hero hides the hole; countdown ghost mid-rise; MINUS weak; layout edges inconsistent; developer captions and invented-looking numbers in demos.
+Stop check: bar no -> next round
 
-Measured: production build passes (14 routes). `tsc --noEmit` clean.
-Not checked: real-device frame rate, static export build, screen reader pass.
+## Round 03
 
-Top gaps from the critic:
-1. No clothes anywhere: product areas are glyph noise with placeholder captions.
-2. The black hole stops once the features start; the lower page reads as a dark-purple template.
-3. Phone hero: the form fills the screen and the hole is a sliver. Cut the perk pill and tabs from the first screen.
-4. Countdown ghost at about 5% contrast mid-rise.
-5. MINUS weaker than the lines around it; caught mid-reveal as "MINU".
-6. Feature layout: content edge does not match the header edge; audiences block is flat and templated.
-7. Copy: developer captions in the clock demo, invented-looking numbers, "demo confidence", UK "programme".
+Time: 04:52 to 05:06 UTC | total elapsed 1.0h
+Focus: carry the scene through the features, put garments on the page, simplify the hero form.
 
-Decisions:
-- 06:35 Intro length stays at about five seconds against the critics' advice (they want 2.5s), because the user chose it at intake. Any scroll, tap or key still ends it.
-- 06:35 Clock demo stays a faithful port (glyph-filled digits, unit marks top-right) against the critic's preference for solid digits, because the user asked for accuracy to the prototype.
-- 06:35 Lab cards and the Drops Home stage will show garments drawn in glyphs instead of the prototype's placeholder field and space scenes, because a fashion page with no clothes on it fails its own subject. Flagged for the user.
-- 06:35 Audiences section folded into the closing: the role choice swaps the statement and pitch.
+Changes:
+- The glyph disk sits behind the pinned demo and turns with scroll.
+- Garments drawn in glyphs on the Drops Home stage, the Lab cards and the Hold item row.
+- Hero form is number, consent, one button; the audience choice lives in the closing and changes its statement and pitch.
+- One layout grid; copy tightened; clocks hand off without a half-visible state.
 
-Stop check: bar no | stills approved no -> next round
-Next focus (round 3): scene carried through the features, garments in glyphs, simpler hero form, layout grid, copy.
+Stills: `cook/stills/r03/` | Pairs: `cook/compare/r03/`
+
+Scores, eyeballed, raw:
+- Blind pairs won by the new build: 8 of 8 (critic E), including the intro frame for the first time.
+- New build per pair (critic E): design 6.5, usability 7 to 7.5, creativity 6.5 to 7, content 6.5 to 7.
+- Walkthrough (critic F, stronger model), whole page: design 6.3, usability 6.0, creativity 6.6, content 5.8. No real movement on round 2.
+
+Own score: design 7.5, usability 7.5, creativity 7.5, content 7.
+Measured (script, phone viewport): no text under 12px after fixes (was 65 demo labels at 9 to 11px); no tap target under 44px after fixes (was 5); form error, brand and success states behave; keyboard order runs logo, number, button, consent, links; no console errors.
+
+Top gaps: ring low in contrast against a flat ground; MINUS muddy with a stray stroke on the S; phone hero still shows only a sliver; a blank screen mid-rise on phones; the same hoodie drawn three times; two headline voices; after-the-drop strip; caption under the demos unreadable.
+Progress note sent: 05:00 (eight stills).
+Stop check: bar no -> next round
+
+## Round 04
+
+Time: 05:06 to 05:20 UTC | total elapsed 1.3h
+Focus: contrast in the scene, MINUS, garments, one headline voice, phone hero.
+
+Changes:
+- Scene: the ground under the glyph field drops toward black across the whole disk; the inner band runs white-hot; lanes have dark gaps; wider tonal range in the glyphs; softer front edge where the disk crosses the shadow.
+- Phones: the hole is smaller and higher so its upper half shows with the clock inside; the strip clock stays through the rise and swaps to the dial readout at the centre.
+- The disk quickens with the clock demo's stage and the hold's last seconds.
+- MINUS: white, perforated by brand-purple glyphs, fitted to the flat cap height.
+- Garments redrawn as seven distinct flat lays with shaded sleeves and seams.
+- Feature names as headlines in the statement voice; after-the-drop is one line; captions moved into the copy; pinned demo fades out with its list; outline header button.
+- Static export build passes; waitlist endpoint is a setting.
+
+Stills: `cook/stills/r04/` | Pairs: `cook/compare/r04/`
+Scores: two critics running (pairs, and walkthrough on a stronger model).
+Measured: static export build passes (17 routes); functional script passes as in round 3.
+Not checked: real-device frame rate; screen reader pass; the demos against fresh prototype captures.
+Progress note sent: 05:19 (seven stills).

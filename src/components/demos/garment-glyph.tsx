@@ -37,38 +37,46 @@ const TORSO =
   "M44,12 L76,12 L90,18 L112,70 L100,76 L86,44 L86,108 L34,108 L34,44 L20,76 L8,70 L30,18 Z";
 
 const GARMENTS: Record<GarmentKind, GarmentSpec> = {
-  // Hooded rain shell: hood, long zip, storm flap, slanted hand pockets, hem cord.
+  // Hooded rain shell: big hood, long A-line body to mid-thigh, storm flap, hem cord.
   shell: {
-    fills: [TORSO, "M43,14 C36,-6 84,-6 77,14 C70,5 50,5 43,14 Z"],
-    shade: [SLEEVE_L, SLEEVE_R],
+    fills: [
+      "M44,16 L76,16 L90,22 L110,72 L98,78 L86,48 L92,116 L28,116 L34,48 L22,78 L10,72 L30,22 Z",
+      "M41,18 C30,-8 90,-8 79,18 C72,8 48,8 41,18 Z",
+    ],
+    shade: ["M30,22 L10,72 L22,78 L34,48 Z", "M90,22 L110,72 L98,78 L86,48 Z"],
     seams: [
-      "M60,10 L60,108",
-      "M56,10 L56,108",
-      "M43,14 C50,22 70,22 77,14",
-      "M40,68 L50,90",
-      "M80,68 L70,90",
-      "M34,101 L86,101",
-      "M36,30 L84,30",
-      ...CUFFS,
+      "M60,12 L60,116",
+      "M55.5,12 L55.5,116",
+      "M41,18 C50,27 70,27 79,18",
+      "M40,74 L50,96",
+      "M80,74 L70,96",
+      "M29,108 L91,108",
+      "M36,34 L84,34",
+      "M13.5,65 L25.5,71",
+      "M106.5,65 L94.5,71",
     ],
   },
-  // Field jacket: stand collar, four flap pockets, waist cord.
+  // Field jacket: boxy and cropped, pointed collar, four flap pockets, waist cord.
   jacket: {
-    fills: [TORSO, "M45,12 L75,12 L72,4 L48,4 Z"],
-    shade: [SLEEVE_L, SLEEVE_R],
+    fills: [
+      "M42,14 L78,14 L94,20 L114,66 L102,73 L90,46 L90,100 L30,100 L30,46 L18,73 L6,66 L26,20 Z",
+      "M42,14 L52,27 L60,17 L68,27 L78,14 L72,6 L48,6 Z",
+    ],
+    shade: ["M26,20 L6,66 L18,73 L30,46 Z", "M94,20 L114,66 L102,73 L90,46 Z"],
     seams: [
-      "M60,6 L60,108",
-      "M45,12 L60,20 L75,12",
-      "M39,30 L55,30 L55,46 L39,46 Z",
-      "M39,34 L55,34",
-      "M65,30 L81,30 L81,46 L65,46 Z",
-      "M65,34 L81,34",
-      "M38,72 L56,72 L56,98 L38,98 Z",
-      "M38,77 L56,77",
-      "M64,72 L82,72 L82,98 L64,98 Z",
-      "M64,77 L82,77",
-      "M34,62 L86,62",
-      ...CUFFS,
+      "M60,17 L60,100",
+      "M42,14 L52,27 L60,17 L68,27 L78,14",
+      "M36,32 L54,32 L54,48 L36,48 Z",
+      "M36,36.5 L54,36.5",
+      "M66,32 L84,32 L84,48 L66,48 Z",
+      "M66,36.5 L84,36.5",
+      "M35,68 L55,68 L55,92 L35,92 Z",
+      "M35,73 L55,73",
+      "M65,68 L85,68 L85,92 L65,92 Z",
+      "M65,73 L85,73",
+      "M30,59 L90,59",
+      "M9.5,59 L21.5,66",
+      "M110.5,59 L98.5,66",
     ],
   },
   // Work vest: deep V, armholes, two patch pockets.

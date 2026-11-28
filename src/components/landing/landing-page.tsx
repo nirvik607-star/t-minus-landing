@@ -36,7 +36,7 @@ function AppStoreButton() {
 }
 
 /** MINUS reads as a white word perforated by the glyph field: white ground, brand-purple marks. */
-const MINUS_TINTS = ["#613DC1", "#4E148C", "#7C5BD6"];
+const MINUS_TINTS = ["#8A6BEA", "#613DC1", "#9B8AE8"];
 
 export function LandingPage() {
   const clock = useLaunchClock();
@@ -64,6 +64,7 @@ export function LandingPage() {
   const headerExtrasRef = useRef<HTMLDivElement | null>(null);
   const headerClockRef = useRef<HTMLSpanElement | null>(null);
   const headerBackRef = useRef<HTMLDivElement | null>(null);
+  const skipRef = useRef<HTMLButtonElement | null>(null);
   const closingPhoneRef = useRef<HTMLInputElement | null>(null);
   const featPanelRef = useRef<HTMLDivElement | null>(null);
   const featListRef = useRef<HTMLOListElement | null>(null);
@@ -117,12 +118,13 @@ export function LandingPage() {
   useEffect(() => {
     measure();
     const id = window.setTimeout(measure, 300);
-    const iv = window.setInterval(measure, 1500);
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(document.body);
     window.addEventListener("resize", measure, { passive: true });
     document.fonts.ready.then(measure);
     return () => {
       window.clearTimeout(id);
-      window.clearInterval(iv);
+      ro.disconnect();
       window.removeEventListener("resize", measure);
     };
   }, [measure]);
@@ -183,6 +185,11 @@ export function LandingPage() {
     write("dc-o", dialClockRef.current, "opacity", f.dialClock.toFixed(3));
     write("dc-v", dialClockRef.current, "visibility", f.dialClock < 0.02 ? "hidden" : "visible");
 
+    // The premise arrives once the camera is nearly overhead.
+    const premiseIn = smooth(0.7, 0.95, f.polar) * (f.closing > 0.001 ? 0 : 1);
+    write("pr-o", premiseRef.current, "opacity", premiseIn.toFixed(3));
+    write("pr-y", premiseRef.current, "--rise", `${((1 - premiseIn) * 14).toFixed(1)}px`);
+
     // Through the features the hole sits behind the pinned demo (wide screens),
     // and both leave together as the list ends.
     const panel = featPanelRef.current;
@@ -191,13 +198,14 @@ export function LandingPage() {
       const pr = panel.getBoundingClientRect();
       const lr = list.getBoundingClientRect();
       const cy = pr.top + pr.height / 2;
-      const leaving = smooth(h * 0.5, h * 0.82, lr.bottom);
-      write("fp-o", panel, "opacity", leaving.toFixed(3));
+      // The scene steps back just before the demo releases and scrolls away.
+      const leaving = smooth(h * 0.8, h * 0.98, lr.bottom);
       const on = smooth(h * 1.0, h * 0.62, cy) * leaving;
       // The ring shows as a crescent either side of the demo, never over the copy.
-      const r = Math.min(190, (Math.min(pr.width, 620) / 2 + 36) / 2.1);
+      const card = Math.min(pr.width, 400);
+      const r = Math.min(190, (card / 2 + 44) / 2.1);
       inputsRef.current.feat = {
-        x: pr.left + pr.width / 2,
+        x: pr.left + card / 2,
         y: cy,
         r,
         on,
@@ -208,6 +216,11 @@ export function LandingPage() {
       inputsRef.current.feat = undefined;
       inputsRef.current.energy = 0;
     }
+
+    // A visible way past the intro, for as long as it is running.
+    const showSkip = !f.settled && f.heroReveal < 0.15;
+    write("sk-o", skipRef.current, "opacity", showSkip ? "1" : "0");
+    write("sk-v", skipRef.current, "visibility", showSkip ? "visible" : "hidden");
 
     // Header extras appear once the scene's own clocks are out of view.
     const showClock = f.settled && f.horizonClock < 0.04 && f.dialClock < 0.04;
@@ -276,7 +289,7 @@ export function LandingPage() {
         />
       )}
 
-      <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between px-5 sm:h-[68px] sm:px-9">
+      <header className="pointer-events-none fixed inset-x-0 top-0 z-40 h-14 sm:h-[68px]">
         {/* A plain backing once page content scrolls beneath the header. */}
         <div
           ref={headerBackRef}
@@ -284,6 +297,8 @@ export function LandingPage() {
           style={{ opacity: 0 }}
           className="absolute inset-0 -z-10 border-b border-line bg-ground/90 backdrop-blur-md transition-opacity duration-200 ease-out"
         />
+        {/* Same grid as the sections below: logo over the copy edge, button over the form edge. */}
+        <div className="relative mx-auto flex h-full w-full max-w-[1360px] items-center justify-between px-5 sm:px-10 lg:px-20">
         <a
           href="#top"
           onClick={(e) => {
@@ -291,10 +306,19 @@ export function LandingPage() {
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
           aria-label="T-minus, back to top"
-          className="pointer-events-auto -mx-2 inline-flex h-11 items-center px-2 text-ink"
+          className="pointer-events-auto -mx-2 inline-flex h-11 items-center px-2 text-ink [filter:drop-shadow(0_0_10px_rgb(19_2_29/0.85))]"
         >
           <TMinusWordmark className="[--wm-scale:1.05] sm:[--wm-scale:1.3]" />
         </a>
+        <button
+          ref={skipRef}
+          type="button"
+          onClick={() => controlRef.current?.skipIntro()}
+          style={{ opacity: 0, visibility: "hidden" }}
+          className="pointer-events-auto absolute right-5 top-1/2 h-11 -translate-y-1/2 cursor-pointer rounded-[8px] border border-ink/50 bg-ground/50 px-4 text-[13.5px] font-semibold uppercase tracking-[0.03em] text-ink backdrop-blur-sm transition-opacity duration-200 ease-out sm:right-10 lg:right-20"
+        >
+          Skip intro
+        </button>
         <div
           ref={headerExtrasRef}
           style={{ opacity: 0, pointerEvents: "none", visibility: "hidden" }}
@@ -314,6 +338,7 @@ export function LandingPage() {
           >
             Join the waitlist
           </button>
+        </div>
         </div>
       </header>
 
@@ -371,9 +396,9 @@ export function LandingPage() {
                 <GlyphMask
                   text="MINUS"
                   label="minus"
-                  cell={6}
+                  rows={9}
                   tints={MINUS_TINTS}
-                  signal="#2C0735"
+                  signal="#4E148C"
                   silhouette="#FFFFFF"
                   silhouetteOpacity={0.96}
                   threshold={0.74}
@@ -402,7 +427,7 @@ export function LandingPage() {
                       onClick={() => goToForm("BRAND")}
                       className="mt-1 inline-flex h-11 cursor-pointer items-center text-[14px] text-mute underline decoration-peri/60 underline-offset-[3px] [@media(hover:hover)]:hover:text-ink"
                     >
-                      Run a brand? Apply here
+                      Run a brand? Apply to launch a drop
                     </button>
                   </>
                 )}
@@ -434,9 +459,9 @@ export function LandingPage() {
         <section
           ref={closingRef}
           data-section="closing"
-          className="relative flex min-h-[100dvh] flex-col items-center px-5 pt-[12dvh] sm:px-10 lg:px-20 lg:pt-[14dvh]"
+          className="relative mx-auto flex min-h-[100dvh] w-full max-w-[1360px] flex-col items-center px-5 pt-[12dvh] sm:px-10 lg:px-20 lg:pt-[14dvh]"
         >
-          <div className="grid w-full max-w-[1200px] grid-cols-1 items-start gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,1fr)_460px]">
+          <div className="grid w-full grid-cols-1 items-start gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,1fr)_460px]">
             <div className="text-center lg:text-left">
               <h2 className="statement text-[clamp(2.9rem,7.2vw,6rem)] leading-[0.94] text-ink">
                 {closingRole === "BRAND" ? (
@@ -459,7 +484,7 @@ export function LandingPage() {
                     : "Follow independent releases on a live clock and be there when they open. Leave your number and we\u2019ll text you the moment T^minus is live."}
               </p>
             </div>
-            <div className="flex flex-col items-center lg:items-start lg:pt-2">
+            <div className="flex flex-col items-center lg:items-start lg:pt-[0.9rem]">
               <PerkLine className="mb-3 text-center lg:text-left" />
               <div ref={closingFormRef} className="flex w-full justify-center lg:justify-start">
                 <WaitlistForm

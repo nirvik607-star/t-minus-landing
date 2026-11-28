@@ -83,6 +83,8 @@ export interface SceneValues {
   glow: number;
   well: number;
   wellPx: number;
+  /** 0..1: draw the disk where it crosses in front of the shadow (the intro's full silhouette only). */
+  front: number;
 }
 
 interface Framing {
@@ -144,7 +146,8 @@ export function horizonFraming(w: number, h: number, lift = 0, clearY = 0): Fram
 /** The full silhouette, held mid-screen during the intro. */
 function silhouetteFraming(w: number, h: number): Framing {
   return {
-    elev: 12,
+    // Nearly edge-on: the disk crosses the front of the hole as one thin band.
+    elev: 6,
     cx: w / 2,
     cy: h * 0.5,
     r: w < 700 ? 0.24 * w : 0.15 * Math.min(w, h * 1.25),
@@ -234,6 +237,8 @@ export function direct(input: DirectorInput): SceneValues {
   let heroReveal = 1;
   let clockReveal = 1;
   let spin = 1;
+  let front = 0;
+  let glow = 0.95;
 
   if (intro < INTRO_SECONDS) {
     const t = Math.max(0, intro);
@@ -253,13 +258,16 @@ export function direct(input: DirectorInput): SceneValues {
 
     // The hole: horizon opens from a point; the disk gathers from infall.
     mass = smooth(2.2, 3.0, t);
-    disk = smooth(2.45, 3.5, t);
+    disk = smooth(2.25, 3.3, t);
     voidAlpha = smooth(2.25, 2.7, t);
     spin = 1 + 2.4 * (1 - smooth(2.5, 4.4, t));
 
     // Camera: hold on the star, let the full silhouette open, then sweep down
     // to the horizon while the disk draws in.
     const sweep = smoother(3.2, 4.4, t);
+    front = 1 - smooth(0.15, 0.6, sweep);
+    // The star is made of glyphs first and light second.
+    glow = lerp(0.45, 0.95, smooth(2.2, 3.0, t));
     const starFrame: Framing = { ...sil, r: sil.r * 1.02 };
     f = mixFraming(starFrame, horizon, sweep);
     const open = smooth(2.5, 3.3, t);
@@ -344,7 +352,8 @@ export function direct(input: DirectorInput): SceneValues {
     dialClock,
     polar,
     fadeGuard: (1 - smooth(0.05, 0.3, polar)) * smooth(3.4, 4.1, intro),
-    glow: 0.95,
+    glow,
+    front,
     // The ground under the glyph field drops toward black across the whole
     // disk, so the light has real dark to stand against.
     well: 0.9 * mass,

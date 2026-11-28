@@ -30,8 +30,8 @@ const FEATURES: Feature[] = [
   {
     id: "clock",
     name: "The clock",
-    line: "It tightens as zero gets close.",
-    body: "The clock changes at one hour, at fifteen minutes and in the final minute. At zero it flips to T-plus and counts up, so you always know how long a drop has been open.",
+    line: "One hour. Fifteen minutes. One minute. Zero.",
+    body: "The clock changes at each mark, so you can read how close a drop is at a glance. At zero it flips to T-plus and counts up, so you always know how long it has been open.",
     tryIt: "Pick a moment and watch the field change.",
     Demo: ClockDemo,
   },
@@ -39,7 +39,7 @@ const FEATURES: Feature[] = [
     id: "size-assist",
     name: "Size Assist",
     line: "Start from a size you already wear.",
-    body: "Name a garment you own. Size Assist compares it with the brand's measurements and gives you a size, how confident it is, and a roomier option.",
+    body: "Say what size you usually wear and how it fits. Size Assist compares that with the brand's measurements and gives you a size, how confident it is, and a roomier option.",
     tryIt: "Change an answer and the size follows.",
     Demo: SizeAssistDemo,
   },
@@ -91,14 +91,26 @@ function useInView<T extends Element>(margin = "-20% 0px -20% 0px") {
   return [ref, inView] as const;
 }
 
+/** Marks a demo as a demo: a small tab on the frame's top edge. */
+function Framed({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative w-full max-w-[400px]">
+      {children}
+      <span className="absolute -top-3 right-6 rounded-[6px] border border-line bg-ground px-2 py-[3px] text-[12px] font-medium leading-none text-mute">
+        Live demo, example data
+      </span>
+    </div>
+  );
+}
+
 function Copy({ feature }: { feature: Feature }) {
   return (
     <>
-      <h3 className="headline text-[clamp(2.5rem,4.4vw,4rem)] text-ink">{feature.name}</h3>
-      <p className="mt-4 max-w-[24ch] text-[clamp(1.25rem,1.7vw,1.5rem)] font-medium leading-[1.25] tracking-[-0.01em] text-ink">
+      <h3 className="headline text-[clamp(2.75rem,5.4vw,5rem)] text-ink">{feature.name}</h3>
+      <p className="mt-5 max-w-[26ch] text-[clamp(1.3rem,1.9vw,1.7rem)] font-medium leading-[1.22] tracking-[-0.012em] text-ink">
         {feature.line}
       </p>
-      <p className="mt-4 max-w-[40ch] text-[17px] leading-[1.55] text-soft">{feature.body}</p>
+      <p className="mt-4 max-w-[44ch] text-[17px] leading-[1.55] text-soft lg:text-[18px]">{feature.body}</p>
       <p className="mt-5 max-w-[40ch] text-[14.5px] leading-[1.45] text-mute">
         <span className="text-ink">Try it.</span>{" "}
         {feature.tryItTouch ? (
@@ -108,8 +120,7 @@ function Copy({ feature }: { feature: Feature }) {
           </>
         ) : (
           feature.tryIt
-        )}{" "}
-        The demo runs on example data.
+        )}
       </p>
     </>
   );
@@ -121,8 +132,10 @@ function InlineFeature({ feature }: { feature: Feature }) {
   return (
     <li data-feature={feature.id} className="py-10">
       <Copy feature={feature} />
-      <div ref={ref} className="mt-7 flex justify-center">
-        <Demo active={inView} />
+      <div ref={ref} className="mt-9 flex justify-center">
+        <Framed>
+          <Demo active={inView} />
+        </Framed>
       </div>
     </li>
   );
@@ -174,7 +187,7 @@ export function Features({ panelRef, listRef }: FeaturesProps) {
       </p>
 
       {wide ? (
-        <div className="mt-6 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-16">
+        <div className="mt-6 grid grid-cols-[minmax(0,1fr)_460px] gap-x-16">
           <ol ref={listRef}>
             {FEATURES.map((f, i) => (
               <li
@@ -208,13 +221,15 @@ export function Features({ panelRef, listRef }: FeaturesProps) {
                     key={f.id}
                     aria-hidden={!on}
                     inert={!on}
-                    className={`absolute inset-0 flex items-center justify-center transition-[opacity,transform] duration-300 ease-out ${
+                    className={`absolute inset-0 flex items-center justify-start transition-[opacity,transform] duration-300 ease-out ${
                       on
                         ? "translate-y-0 opacity-100"
                         : "pointer-events-none translate-y-2 opacity-0"
                     }`}
                   >
-                    <Demo active={on && sectionInView} />
+                    <Framed>
+                      <Demo active={on && sectionInView} />
+                    </Framed>
                   </div>
                 );
               })}
@@ -229,8 +244,8 @@ export function Features({ panelRef, listRef }: FeaturesProps) {
         </ol>
       )}
 
-      <p className="mt-12 max-w-[30ch] border-t border-line pt-10 text-[clamp(1.4rem,2.2vw,1.9rem)] font-medium leading-[1.25] tracking-[-0.015em] text-ink sm:mt-6 lg:pt-14">
-        After the drop, what you bought lands in your Closet, and each brand
+      <p className="mt-10 max-w-[44ch] text-[17px] leading-[1.55] text-soft sm:mt-2">
+        After a drop, what you bought lands in your Closet, and each brand
         keeps its own membership.
       </p>
     </section>

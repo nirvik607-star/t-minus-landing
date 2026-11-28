@@ -182,7 +182,6 @@ export function WaitlistForm({
       : align === "split"
         ? "items-center text-center lg:items-start lg:text-left"
         : "items-center text-center";
-  const consentAlign = align === "start" ? "" : align === "split" ? "sm:mx-auto lg:mx-0" : "sm:mx-auto";
 
   if (joined) {
     return (
@@ -248,7 +247,7 @@ export function WaitlistForm({
                 {opt.label}
                 <span
                   aria-hidden="true"
-                  className={`absolute bottom-[5px] left-0.5 h-[2px] w-[22px] bg-ink transition-opacity duration-150 ease-out ${
+                  className={`absolute inset-x-0.5 bottom-[5px] h-[2px] bg-ink transition-opacity duration-150 ease-out ${
                     on ? "opacity-100" : "opacity-0"
                   }`}
                 />
@@ -318,7 +317,7 @@ export function WaitlistForm({
         </div>
       </div>
 
-      <div className={`mt-3 flex w-full max-w-[440px] items-start gap-3 text-left ${consentAlign}`}>
+      <div className="mt-3 flex w-full items-start gap-3 text-left">
         <span className="relative mt-[1px] inline-flex size-6 shrink-0">
           <input
             id={consentId}

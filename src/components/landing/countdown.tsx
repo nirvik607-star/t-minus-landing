@@ -167,7 +167,7 @@ export function DialClock({ parts }: { parts: ClockParts }) {
         </span>
       </div>
       <p className={`mt-[1em] font-sans leading-none text-mute ${small}`}>
-        {parts.plus ? "Live on the App Store" : `On the App Store ${LAUNCH_DATE_LONG}`}
+        {parts.plus ? "Live on the App Store" : `Launches midnight ET, ${LAUNCH_DATE_LONG}`}
       </p>
     </div>
   );

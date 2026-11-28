@@ -49,6 +49,7 @@ uniform float uHandAngle;   // radians, disk azimuth of the second hand
 uniform float uPulse;       // 0..1 travelling brightening (typing, submit)
 uniform float uPulseR;      // radius of the travelling pulse (scene units)
 uniform int   uSamples;     // rays per cell (1..4)
+uniform float uRingK;       // sharpness of the photon ring, set so it spans about one cell
 
 const float TAU = 6.28318530718;
 const float B_CRIT = 2.59807621135; // 3*sqrt(3)/2
@@ -255,7 +256,7 @@ vec3 trace(vec3 ro, vec3 rd) {
         vec3 foot = ro + rd * (-dot(ro, rd));
         float ang = atan(dot(foot, uCamUp), dot(foot, uCamRight));
         float grain = 0.72 + 0.28 * vnoiseP(vec2(ang / TAU * 48.0, uTime * 0.6), 48.0);
-        float ring = exp(-xr * 30.0) * grain;
+        float ring = exp(-xr * uRingK) * grain;
         I += transmit * ring * 3.6 * uDisk;
         heat = max(heat, transmit * ring * uDisk);
       }
@@ -334,6 +335,7 @@ uniform float uWell;        // 0..1 darkening of the ground around the hole
 uniform float uWellDev;     // falloff length of the well, device px
 uniform float uSignal;      // atlas index (1-based) of the large signal T
 uniform float uPolar;       // 0 = seen at an angle, 1 = seen from above
+uniform float uFront;       // 0..1: show the disk where it crosses in front of the shadow
 
 const vec3 C_DEEP  = vec3(0.306, 0.078, 0.549); // #4E148C
 const vec3 C_ACC   = vec3(0.380, 0.239, 0.757); // #613DC1
@@ -408,7 +410,9 @@ void main() {
   // crosses in front of it: below centre, and only when seen at an angle.
   // Everywhere else the rim is kept clean.
   float inside = 1.0 - smoothstep(uShadowDev - 0.6 * uCellDev.x, uShadowDev + 0.3 * uCellDev.x, distHole);
-  float legit = (1.0 - uPolar) * smoothstep(0.0, 0.42, (uHoleDev.y - gl_FragCoord.y) / max(uShadowDev, 1.0));
+  float legit = (1.0 - uPolar) * smoothstep(-0.02, 0.05, (uHoleDev.y - gl_FragCoord.y) / max(uShadowDev, 1.0));
+  // Only the bright band survives there; its dim outskirts would read as stripes.
+  legit *= uFront * smoothstep(0.2, 0.5, ink);
   a *= 1.0 - inside * (1.0 - legit) * uVoid;
 
   // Keep the field clear of the form above the horizon.
@@ -423,8 +427,9 @@ void main() {
   float glowInk = g1 * 0.5 + g2 * 0.34 + g3 * 0.3;
   vec3 glowCol = mix(C_DEEP, C_ACC, smoothstep(0.02, 0.3, glowInk));
   glowCol = mix(glowCol, C_PERI, smoothstep(0.25, 0.7, glowInk));
-  glowCol = mix(glowCol, C_WHITE, smoothstep(0.62, 1.0, glowInk));
-  float glowAmt = uGlow * smoothstep(0.0, 0.5, glowInk) * (0.3 + 0.7 * glowInk);
+  // The glow tops out at periwinkle and partial strength, so the characters
+  // on top of it stay readable even where the scene is brightest.
+  float glowAmt = uGlow * min(0.62, smoothstep(0.0, 0.5, glowInk) * (0.3 + 0.7 * glowInk));
   glowAmt *= 1.0 - smoothstep(uFadeLineDev - uFadeSoftDev * 1.6, uFadeLineDev + uFadeSoftDev * 0.5, gl_FragCoord.y);
 
   // The well: space darkens toward the hole, so the light has something to

@@ -17,8 +17,10 @@ export interface GlyphMaskProps {
   maskItalic?: boolean;
   /** CSS variable holding the mask font family. */
   maskFamilyVar?: string;
-  /** Cell pitch in CSS px. */
+  /** Cell pitch in CSS px. Ignored when `rows` is set. */
   cell?: number;
+  /** Number of glyph rows across the cap height; the cell pitch follows the box. */
+  rows?: number;
   /** Tints, cycled across the field. */
   tints?: string[];
   /** Colour of the brightest cells. */
@@ -55,7 +57,8 @@ export function GlyphMask({
   maskWeight = 700,
   maskItalic = false,
   maskFamilyVar = "--font-inter",
-  cell = 6,
+  cell: cellProp = 6,
+  rows: rowsProp,
   tints = ["#97DFFC", "#858AE3", "#D3E9F2"],
   signal = "#FFFFFF",
   silhouette = "#97DFFC",
@@ -96,6 +99,7 @@ export function GlyphMask({
 
     let disposed = false;
     let raf = 0;
+    let cell = cellProp;
     let cols = 0;
     let rows = 0;
     let coverage = new Float32Array(0);
@@ -116,6 +120,7 @@ export function GlyphMask({
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
+      if (rowsProp) cell = h / rowsProp;
       cols = Math.max(1, Math.floor(w / cell));
       rows = Math.max(1, Math.floor(h / cell));
 
@@ -282,7 +287,8 @@ export function GlyphMask({
     maskWeight,
     maskItalic,
     maskFamilyVar,
-    cell,
+    cellProp,
+    rowsProp,
     tints,
     signal,
     silhouette,
