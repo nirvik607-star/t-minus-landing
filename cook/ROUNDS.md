@@ -6,7 +6,7 @@ Bar: design 9 | usability 9 | creativity 9 | content 9 (each out of 10, fresh re
 Calibration offset: none yet (no user estimate received)
 Usage: not readable
 Gate: stills approved no | final render not applicable (the deliverable is the site)
-Best so far: round 4, `cook/stills/r04/`, commit 02a2a32
+Best so far: round 5, `cook/stills/r05/`, commit 08588fc
 
 Correction, 05:20: the times first written for rounds 1 and 2 were estimates, not clock readings, and ran about 90 minutes ahead. They are replaced below with times taken from the commit log.
 
@@ -120,7 +120,36 @@ Changes:
 - Static export build passes; waitlist endpoint is a setting.
 
 Stills: `cook/stills/r04/` | Pairs: `cook/compare/r04/`
-Scores: two critics running (pairs, and walkthrough on a stronger model).
-Measured: static export build passes (17 routes); functional script passes as in round 3.
+Scores, eyeballed, raw:
+- Blind pairs won by the new build: 7 of 8 (critic G). The loss was the desktop dial: a block replacement of mine had deleted the two lines that show the premise, so half that screen was empty. Fixed in round 5.
+- New build per pair (critic G): design 6.5 to 7.5, usability 6.5 to 7, creativity 6.5 to 7.5, content 5.5 to 7. Up about half a point on design from round 3.
+- Walkthrough (critic H, stronger model), whole page: design 6.3, usability 6.0, creativity 7.0, content 6.0. Dial scored 4.5 for the same missing premise.
+
+Own score: design 7.5, usability 7.5, creativity 8, content 7.
+Measured: static export build passes (17 routes); functional script passes as in round 3; live intro timing by script: hero fully visible 4.3s after the scene starts, 1.7s after pressing Skip at 0.5s, 0.1s with reduced motion.
 Not checked: real-device frame rate; screen reader pass; the demos against fresh prototype captures.
+
+Top gaps: the missing premise; a see-through demo card as it faded out; demo buttons looking like the real call to action; unit marks crowding digits in the demo clock; closing form off the grid; tab underline stub; glow washing out glyphs at the intro's peak; a hard seam across the hole in the intro (fourth mention); shell and jacket too alike.
 Progress note sent: 05:19 (seven stills).
+Stop check: bar no -> next round
+
+## Round 05
+
+Time: 05:20 to 05:33 UTC | total elapsed 1.5h
+Focus: the round-4 gaps above.
+
+Changes:
+- Premise restored beside the dial.
+- Header, features and closing on one container; the demo card and the closing form share a left edge; closing form column flush with the header button.
+- Demos carry a small "Live demo, example data" tab; the sentence repeated under each feature is gone; the pinned demo stays solid as it leaves.
+- Photon ring widened to about 1.4 cells so it survives as a crisp rim at any size; glow capped below white.
+- Intro: nearly edge-on silhouette, so the disk crosses the hole as one bright band with clean black below; visible Skip intro button; the star shows more glyph and less bloom.
+- MINUS on larger cells (nine rows) with a softer perforation; feature names larger.
+- Shell is long with a big hood; field jacket is boxy and cropped with a pointed collar.
+- Copy: Size Assist and clock leads rewritten to match what the demos do; brand link says what it applies for; one caption wording under both clocks.
+- Layout measured on resize instead of on a timer.
+
+Stills: `cook/stills/r05/` | Pairs: `cook/compare/r05/`
+Scores: two critics running.
+Measured: `tsc --noEmit` clean; functional script passes (no text under 12px, no target under 44px, form states, keyboard order, no console errors).
+Progress note sent: 05:34 (seven stills).
