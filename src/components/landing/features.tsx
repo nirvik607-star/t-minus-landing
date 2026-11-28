@@ -25,10 +25,10 @@ interface Feature {
 }
 
 const CLOSET: Array<{ kind: GarmentKind; name: string; meta: string }> = [
-  { kind: "jacket", name: "Field Jacket", meta: "Size M / Studio 01" },
-  { kind: "trouser", name: "Zip-off Trouser", meta: "Size 32 / Studio 03" },
-  { kind: "liner", name: "Quilted Liner", meta: "Size M / Studio 05" },
-  { kind: "tote", name: "Modular Tote", meta: "One size / Studio 04" },
+  { kind: "jacket", name: "Field Jacket", meta: "M / Studio 01" },
+  { kind: "trouser", name: "Zip-off Trouser", meta: "32 / Studio 03" },
+  { kind: "liner", name: "Quilted Liner", meta: "M / Studio 05" },
+  { kind: "tote", name: "Modular Tote", meta: "OS / Studio 04" },
 ];
 
 /** Not an app screen: four pieces as they would sit in a closet, drawn in glyphs. */
@@ -41,7 +41,7 @@ function ClosetPieces() {
             <GarmentGlyph kind={item.kind} label={`${item.name}, drawn in glyphs`} />
           </div>
           <p className="mt-2 text-[15px] font-medium leading-tight text-ink">{item.name}</p>
-          <p className="app-label mt-1 text-[12px] text-mute">{item.meta}</p>
+          <p className="app-label mt-1 whitespace-nowrap text-[12px] text-mute">{item.meta}</p>
         </li>
       ))}
     </ul>
@@ -78,7 +78,7 @@ const FEATURES: Feature[] = [
     name: "Holds and Standby",
     lead: "A hold that tells you when it ends.",
     body: "At checkout your piece is held on a timer you can see. If your size sells out, Standby gives you a numbered place for that exact size.",
-    hint: "Skip to the last five seconds.",
+    hint: "Let the hold run down, or skip ahead.",
     Demo: HoldDemo,
   },
   {
@@ -161,6 +161,8 @@ interface FeaturesProps {
   outerRef?: React.RefObject<HTMLElement | null>;
   /** False when the page is laid out statically, without the black hole. */
   scene: boolean;
+  /** Wide screens: called when the pinned demo changes to another part. */
+  onPart?: () => void;
 }
 
 interface Layout {
@@ -179,7 +181,7 @@ const CARD_W = 400;
  * the demo, which stays put while the copy scrolls beside it. On small screens
  * copy and demo scroll together behind the rim.
  */
-export function Features({ outerRef, scene }: FeaturesProps) {
+export function Features({ outerRef, scene, onPart }: FeaturesProps) {
   const [wide, setWide] = useState(false);
   const [active, setActive] = useState(0);
   const [layout, setLayout] = useState<Layout | null>(null);
@@ -210,13 +212,17 @@ export function Features({ outerRef, scene }: FeaturesProps) {
       const h = window.innerHeight;
       const s = stageLayout(w, h);
       if (reset) cardHeights.current = [];
-      const zooms = FEATURES.map((_, i) => {
-        const el = cardRefs.current[i];
-        // A demo may grow as it is used; it is never scaled back up afterwards.
-        const seen = Math.max(cardHeights.current[i] ?? 0, el?.offsetHeight ?? 0);
+      // One scale for every demo, set by the tallest, so the frame keeps its
+      // width from part to part. A demo may grow as it is used; the scale is
+      // never raised again afterwards.
+      let tallest = 0;
+      FEATURES.forEach((_, i) => {
+        const seen = Math.max(cardHeights.current[i] ?? 0, cardRefs.current[i]?.offsetHeight ?? 0);
         cardHeights.current[i] = seen;
-        return stageZoom(s.r, CARD_W, seen || 640);
+        tallest = Math.max(tallest, seen);
       });
+      const zoom = stageZoom(s.r, CARD_W, tallest || 688);
+      const zooms = FEATURES.map(() => zoom);
       const colLeft = stageColRef.current?.getBoundingClientRect().left ?? 0;
       sceneStage.on = true;
       sceneStage.cx = s.cx;
@@ -289,14 +295,27 @@ export function Features({ outerRef, scene }: FeaturesProps) {
     };
   }, [wide]);
 
+  // The ring answers each change of part with one beat of light.
+  const onPartRef = useRef(onPart);
+  onPartRef.current = onPart;
+  const firstPart = useRef(true);
+  useEffect(() => {
+    if (firstPart.current) {
+      firstPart.current = false;
+      return;
+    }
+    if (wide) onPartRef.current?.();
+  }, [active, wide]);
+
   const intro = (
     <>
       <h2 className="headline max-w-[14ch] text-[clamp(2.6rem,4.7vw,4.4rem)] text-ink">
         Inside the app.
       </h2>
       <p className="mt-5 max-w-[40ch] text-[18px] leading-[1.5] text-soft lg:text-[19px]">
-        Six parts of it, working. Every demo is live and runs on example data.
+        Six parts of it, ready to try.
       </p>
+      <p className="mt-2 text-[13.5px] leading-[1.4] text-mute">The demos run on example data.</p>
     </>
   );
 
@@ -363,7 +382,7 @@ export function Features({ outerRef, scene }: FeaturesProps) {
                     itemRefs.current[i] = el;
                   }}
                   data-feature={f.id}
-                  className="flex min-h-[86vh] flex-col justify-center"
+                  className="flex min-h-[86vh] flex-col justify-start pt-[27vh]"
                 >
                   <div
                     ref={(el) => {

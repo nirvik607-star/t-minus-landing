@@ -428,7 +428,7 @@ void main() {
   float inside = 1.0 - smoothstep(uShadowDev - 0.6 * uCellDev.x, uShadowDev + 0.3 * uCellDev.x, distHole);
   float legit = (1.0 - uPolar) * smoothstep(-0.02, 0.05, (uHoleDev.y - gl_FragCoord.y) / max(uShadowDev, 1.0));
   // Only the bright band survives there; its dim outskirts would read as stripes.
-  legit *= uFront * smoothstep(0.2, 0.5, ink);
+  legit *= uFront * smoothstep(0.07, 0.3, ink);
   a *= 1.0 - inside * (1.0 - legit) * uVoid;
 
   // Keep the field clear of the form above the horizon.
@@ -468,8 +468,11 @@ void main() {
   // so the page beneath shows through the hole and is hidden everywhere else.
   if (uCut > 0.5) {
     vec3 solid = outC + C_GROUND * (1.0 - outA);
+    // Content dims as it nears the rim, so text fades out instead of being sliced.
+    float edge = smoothstep(uShadowDev - 52.0 * uDpr, uShadowDev - 3.0 * uDpr, distHole) * 0.94;
+    float holeA = a + (1.0 - a) * edge;
     outC = mix(solid, col * a, voidA);
-    outA = mix(1.0, a, voidA);
+    outA = mix(1.0, holeA, voidA);
   }
   o = vec4(outC, outA) * uAlpha;
 }`;

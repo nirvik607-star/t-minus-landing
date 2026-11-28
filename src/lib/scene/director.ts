@@ -153,8 +153,8 @@ export function horizonFraming(w: number, h: number, lift = 0, clearY = 0): Fram
 /** The full silhouette, held mid-screen during the intro. */
 function silhouetteFraming(w: number, h: number): Framing {
   return {
-    // Nearly edge-on: the disk crosses the front of the hole as one thin band.
-    elev: 6,
+    // Low, but open enough that the disk crossing the front of the hole is a band, not a line.
+    elev: 13,
     cx: w / 2,
     cy: h * 0.5,
     r: w < 700 ? 0.24 * w : 0.15 * Math.min(w, h * 1.25),
@@ -231,7 +231,7 @@ export function insideFraming(
   }
   const pad = w < 640 ? 20 : 40;
   // Never so small that it cuts into a line of text in the middle of the screen.
-  const r = Math.max(0.5 * h - 44, Math.hypot(w / 2 - pad, h / 2 - 150));
+  const r = Math.max(0.5 * h - 30, Math.hypot(w / 2 - pad, h / 2 - 150));
   return { elev: 90, cx: w / 2, cy: h / 2, r, diskOut: 4.3, exposure: 2.3 };
 }
 
@@ -272,6 +272,8 @@ export function direct(input: DirectorInput): SceneValues {
     const k = smoother(0, 1, closing);
     const end = horizonFraming(w, h, 78, clearY);
     f = mixFraming(inside, end, k);
+    // The hole is back on the centre line before the clock returns to it.
+    f.cx = lerp(inside.cx, end.cx, smoother(0, 0.5, closing));
     polar = 1 - k;
     orbit *= 1 - k;
   }
@@ -421,8 +423,16 @@ export function direct(input: DirectorInput): SceneValues {
     cut: intro >= INTRO_SECONDS && pin > 0.5 ? 1 : 0,
     // The guard slides in from the right edge as the ring grows, and back out as it leaves.
     fadeX:
-      input.stage && input.stage.guardX && exitPx > 0
-        ? lerp(w + 120, input.stage.guardX, closing > 0.001 ? 1 - smoother(0, 0.5, closing) : dive)
+      input.stage && input.stage.guardX && intro >= INTRO_SECONDS
+        ? lerp(
+            w + 120,
+            input.stage.guardX,
+            closing > 0.001
+              ? 1 - smoother(0, 0.5, closing)
+              : exitPx > 0
+                ? 1
+                : smooth(0.5, 0.86, polar)
+          )
         : 0,
   };
 }

@@ -425,8 +425,8 @@ export function HeroClock({ secondsLeft, active = true, className = "" }: HeroCl
       // 1. silhouette
       // The app sets this ground at 30 to 40%; it sits a step higher here so
       // the digits hold on ordinary desktop screens as well as on a phone.
-      ctx.globalAlpha = Math.min(0.62, spec.ground + 0.2);
-      ctx.fillStyle = "#8C8F96";
+      ctx.globalAlpha = Math.min(0.74, spec.ground + 0.3);
+      ctx.fillStyle = "#9A9DA6";
       drawGlyphs(ctx, "all");
       ctx.globalAlpha = 1;
 

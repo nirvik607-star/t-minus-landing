@@ -8,7 +8,7 @@ import {
   type SceneFrame,
   type SceneInputs,
 } from "@/components/scene/blackhole-scene";
-import { dialFraming, isWideDial, smooth } from "@/lib/scene/director";
+import { dialFraming, isWideDial, isWideStage, smooth, stageLayout } from "@/lib/scene/director";
 import { GlyphMask } from "@/components/glyph/glyph-mask";
 import { TMinusWordmark } from "@/components/landing/t-minus-wordmark";
 import {
@@ -86,7 +86,7 @@ export function LandingPage() {
   sceneOffRef.current = sceneOff;
 
   // Geometry that only changes with the viewport.
-  const anchors = useRef({ heroFormBottom: 0, closingFormBottomDoc: 0 });
+  const anchors = useRef({ heroFormBottom: 0, closingFormBottomDoc: 0, stripHalf: 160 });
   const measure = useCallback(() => {
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -102,17 +102,22 @@ export function LandingPage() {
       anchors.current.closingFormBottomDoc =
         closing.getBoundingClientRect().bottom + window.scrollY;
     }
+    const strip = horizonClockRef.current;
+    if (strip && strip.offsetWidth > 0) anchors.current.stripHalf = strip.offsetWidth / 2;
     // Place the premise against the dial.
     const premise = premiseRef.current;
     if (premise && !sceneOffRef.current) {
       const dial = dialFraming(w, h);
       const ring = dial.r * 2.22;
       if (isWideDial(w, h)) {
-        const left = dial.cx + ring + 56;
+        // Same column the feature copy takes beside the ring, so the text
+        // edge does not move between the dial and what follows.
+        const col = isWideStage(w, h) ? stageLayout(w, h) : null;
+        const left = col ? col.copyLeft : dial.cx + ring + 56;
         premise.style.left = `${left}px`;
         premise.style.right = "auto";
         premise.style.top = "50%";
-        premise.style.width = `${Math.max(260, Math.min(440, w - left - 80))}px`;
+        premise.style.width = `${col ? col.copyW : Math.max(260, Math.min(440, w - left - 80))}px`;
         premise.style.transform = "translateY(-50%)";
         premise.style.textAlign = "left";
       } else {
@@ -176,7 +181,11 @@ export function LandingPage() {
     const crestY = f.holeY - f.shadowR;
     const room = h - crestY;
     const low = crestY + Math.max(50, Math.min(room * 0.36, 96));
-    const stripY = low + (Math.min(f.holeY, h * 0.5) - low) * smooth(0.12, 0.6, f.polar);
+    // Never closer to the rim than a line's height, whichever way the camera is moving.
+    const stripY = Math.max(
+      crestY + 46,
+      low + (Math.min(f.holeY, h * 0.5) - low) * smooth(0.12, 0.6, f.polar)
+    );
     write(
       "hc-t",
       horizonClockRef.current,
@@ -188,8 +197,11 @@ export function LandingPage() {
     const closingIn = f.closing > 0.001 ? smooth(0.7, 0.94, f.closing) : 0;
     const line = inputsRef.current.fadeLine;
     const roomGate = smooth(line - 10, line + 34, crestY);
+    // On the way out the clock waits until the void is wide enough to hold it.
+    const voidHalf = Math.sqrt(Math.max(0, f.shadowR * f.shadowR - (f.holeY - stripY) ** 2));
+    const fits = smooth(anchors.current.stripHalf + 14, anchors.current.stripHalf + 60, voidHalf);
     const stripOpacity =
-      f.horizonClock * (f.closing > 0.001 ? 1 + (roomGate - 1) * closingIn : 1);
+      f.horizonClock * (f.closing > 0.001 ? fits * (1 + (roomGate - 1) * closingIn) : 1);
     write("hc-o", horizonClockRef.current, "opacity", stripOpacity.toFixed(3));
     write("hc-v", horizonClockRef.current, "visibility", stripOpacity < 0.02 ? "hidden" : "visible");
 
@@ -414,22 +426,22 @@ export function LandingPage() {
               } flex flex-col items-center px-5 pt-[calc(56px+1.6dvh)] will-change-transform sm:pt-[calc(68px+2dvh)]`}
             >
               <h1 className="flex flex-col items-center text-center">
-                <span className="statement text-[clamp(2.25rem,min(4.6vw,6.6dvh),3.9rem)] text-ink">
+                <span className="statement text-[clamp(2.25rem,min(5.4vw,7.5dvh),4.6rem)] text-ink">
                   Fashion.
                 </span>
                 <GlyphMask
                   text="MINUS"
                   label="minus"
-                  rows={9}
+                  rows={7}
                   tints={MINUS_TINTS}
                   signal="#4E148C"
                   silhouette="#FFFFFF"
                   silhouetteOpacity={0.96}
                   threshold={0.74}
                   revealSource={minusReveal}
-                  className="my-1.5 h-[min(62px,8dvh)] w-[min(300px,38.5dvh)] sm:my-2 sm:h-[min(92px,10.2dvh)] sm:w-[min(444px,49.2dvh)]"
+                  className="my-1.5 h-[min(62px,8dvh)] w-[min(300px,38.5dvh)] sm:my-2 sm:h-[min(112px,12.4dvh)] sm:w-[min(540px,59.8dvh)]"
                 />
-                <span className="statement text-[clamp(2.25rem,min(4.6vw,6.6dvh),3.9rem)] text-ink">
+                <span className="statement text-[clamp(2.25rem,min(5.4vw,7.5dvh),4.6rem)] text-ink">
                   the Noise.
                 </span>
               </h1>
@@ -446,7 +458,7 @@ export function LandingPage() {
                     <button
                       type="button"
                       onClick={() => goToForm("BRAND")}
-                      className="mt-1 inline-flex h-11 cursor-pointer items-center text-[13.5px] text-mute underline decoration-peri/60 underline-offset-[3px] [@media(max-height:719px)]:hidden [@media(hover:hover)]:hover:text-ink"
+                      className="mt-1 inline-flex h-11 cursor-pointer items-center text-[13.5px] text-mute underline decoration-peri/60 underline-offset-[3px] [@media(max-height:799px)]:hidden [@media(hover:hover)]:hover:text-ink"
                     >
                       Run a brand? Apply to launch a drop
                     </button>
@@ -486,13 +498,13 @@ export function LandingPage() {
           </div>
         </div>
 
-        <Features outerRef={featSectionRef} scene={!sceneOff} />
+        <Features outerRef={featSectionRef} scene={!sceneOff} onPart={() => pulse(0.45)} />
 
         {/* Closing: the horizon returns. The audience choice changes the pitch. */}
         <section
           ref={closingRef}
           data-section="closing"
-          className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1360px] flex-col items-center px-5 pb-[236px] pt-[12dvh] sm:px-10 lg:px-20 lg:pt-[14dvh]"
+          className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1360px] flex-col items-center px-5 pb-[236px] pt-[12dvh] sm:px-10 lg:px-20 lg:pt-[18dvh]"
         >
           <div className="grid w-full grid-cols-1 items-start gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,1fr)_460px]">
             <div className="text-center lg:text-left">
@@ -508,7 +520,7 @@ export function LandingPage() {
                   </>
                 )}
               </h2>
-              <p className="mx-auto mt-4 max-w-[34ch] text-[16.5px] leading-[1.5] text-soft sm:text-[18px] lg:mx-0 lg:mt-6">
+              <p className="mx-auto mt-4 max-w-[34ch] text-[16.5px] leading-[1.5] text-soft sm:text-[18px] lg:mx-0 lg:mt-6 lg:max-w-[46ch]">
                 {closingRole === "BRAND"
                   ? "Keep your identity, your pricing and your checkout. Turn each collection into a scheduled release. Leave a number and we\u2019ll text you about setting up your first drop."
                   : live
@@ -516,7 +528,7 @@ export function LandingPage() {
                     : "Follow independent releases on a live clock and be there when they open. Leave your number and we\u2019ll text you the moment T^minus is live."}
               </p>
             </div>
-            <div className="flex flex-col items-center lg:items-start lg:pt-[0.55rem]">
+            <div className="flex flex-col items-center lg:items-start">
               <div ref={closingFormRef} className="flex w-full flex-col items-center lg:items-start">
                 <WaitlistForm
                   inputRef={closingPhoneRef}

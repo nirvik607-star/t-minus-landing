@@ -97,8 +97,8 @@ function Unit({ value, unit, numeralClass, unitClass }: UnitProps) {
 /** The strip that sits inside the event horizon under the form. */
 export function HorizonClock({ parts, joined = false }: { parts: ClockParts; joined?: boolean }) {
   const numeral =
-    "text-[34px] leading-[0.9] tracking-[-0.03em] text-ink sm:text-[46px]";
-  const unit = "ml-[3px] mt-[2px] text-[14px] leading-none text-ice sm:text-[17px]";
+    "text-[31px] leading-[0.9] tracking-[-0.03em] text-ink sm:text-[46px]";
+  const unit = "ml-[3px] mt-[2px] text-[14px] leading-none text-[#A9ACF0] sm:text-[17px]";
   return (
     <div
       role="timer"
@@ -108,7 +108,7 @@ export function HorizonClock({ parts, joined = false }: { parts: ClockParts; joi
       <div aria-hidden="true" className="flex items-start gap-2.5 sm:gap-4">
         <Prefix
           plus={parts.plus}
-          className="text-[34px] leading-[0.9] text-ink sm:text-[46px]"
+          className="text-[31px] leading-[0.9] text-ink sm:text-[46px]"
         />
         <Unit value={parts.days} unit="d" numeralClass={numeral} unitClass={unit} />
         <Unit value={parts.hours} unit="h" numeralClass={numeral} unitClass={unit} />
@@ -135,7 +135,7 @@ export function HorizonClock({ parts, joined = false }: { parts: ClockParts; joi
  */
 export function DialClock({ parts }: { parts: ClockParts }) {
   const small = "text-[max(12px,0.82em)]";
-  const unit = `ml-[0.12em] mt-[0.05em] font-mono font-medium leading-none text-ice text-[max(12px,0.95em)]`;
+  const unit = `ml-[0.12em] mt-[0.05em] font-mono font-medium leading-none text-[#A9ACF0] text-[max(12px,0.95em)]`;
   const numeral = "value font-sans text-[2.15em] font-semibold leading-[0.9] tracking-[-0.03em] text-ink";
   return (
     <div
@@ -148,7 +148,7 @@ export function DialClock({ parts }: { parts: ClockParts }) {
         <span className="value font-sans text-[7.4em] font-semibold leading-[0.8] tracking-[-0.045em] text-ink">
           {parts.days}
         </span>
-        <span className="ml-[0.2em] mt-[0.2em] font-mono text-[max(15px,1.6em)] font-medium leading-none text-ice">
+        <span className="ml-[0.2em] mt-[0.2em] font-mono text-[max(15px,1.6em)] font-medium leading-none text-[#A9ACF0]">
           d
         </span>
       </div>
@@ -181,6 +181,10 @@ export function HeaderClock({ parts }: { parts: ClockParts }) {
       aria-label={spoken(parts)}
       className="value inline-flex items-baseline gap-[0.45em] whitespace-nowrap font-mono text-[12px] font-medium text-soft sm:text-[13px]"
     >
+      {/* Says which clock this is, now that the demos beside it run their own. */}
+      <span aria-hidden="true" className="hidden font-sans font-medium text-mute lg:inline">
+        {parts.plus ? "Live for" : "Launch in"}
+      </span>
       <span aria-hidden="true">
         {parts.plus ? "T+" : "T−"}
         {parts.days}

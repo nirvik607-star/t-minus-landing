@@ -261,10 +261,14 @@ export function WaitlistForm({
       ) : null}
 
       {perk && role === "SHOPPER" ? (
-        <PerkLine className={`${roleSwitch ? "mt-3" : ""} w-full ${align === "split" ? "text-center lg:text-left" : "text-center"}`} />
+        <PerkLine
+          className={`${roleSwitch ? "mt-3" : "[@media(max-height:799px)]:hidden"} w-full ${
+            align === "split" ? "text-center lg:text-left" : "text-center"
+          }`}
+        />
       ) : null}
 
-      <div className={`${roleSwitch || (perk && role === "SHOPPER") ? "mt-2.5" : ""} flex w-full items-center gap-1.5 rounded-[12px] border border-line bg-ground-deep/80 p-1.5 transition-colors duration-150 focus-within:border-peri`}>
+      <div className={`${roleSwitch ? "mt-2.5" : perk && role === "SHOPPER" ? "mt-2.5 [@media(max-height:799px)]:mt-0" : ""} flex w-full items-center gap-1.5 rounded-[12px] border border-line bg-ground-deep/80 p-1.5 transition-colors duration-150 focus-within:border-peri`}>
         <label htmlFor={phoneId} className="sr-only">
           Mobile number
         </label>
