@@ -20,7 +20,7 @@ export function LegalShell({
         </Link>
         <Link
           href="/"
-          className="inline-flex h-11 items-center rounded-[8px] bg-ink px-4 text-[13.5px] font-semibold uppercase tracking-[0.03em] text-accent"
+          className="inline-flex h-11 items-center rounded-[8px] border border-ink/70 px-4 text-[13.5px] font-semibold uppercase tracking-[0.03em] text-ink [@media(hover:hover)]:hover:bg-ink [@media(hover:hover)]:hover:text-accent"
         >
           Join the waitlist
         </Link>

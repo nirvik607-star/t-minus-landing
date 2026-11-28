@@ -180,14 +180,16 @@ export function dialFraming(w: number, h: number): Framing {
  * as a black stage and the lit rim shows around its edge.
  */
 export function insideFraming(w: number, h: number): Framing {
+  // Wide screens: a round stage just large enough to hold the copy, so the
+  // rim shows down both sides (and more of it the wider the screen). Tall
+  // screens: the rim sits just past the edges and shows only in the corners.
+  const content = Math.min(w, 1360) - 160;
+  const r = w >= 1024 ? Math.hypot(content / 2, 170) + 8 : 0.5 * h + 6;
   return {
     elev: 90,
     cx: w / 2,
     cy: h / 2,
-    // Wide screens: a round stage with the rim down both sides. Tall screens:
-    // the rim sits just past the edges and shows only in the corners, clear
-    // of the copy.
-    r: Math.max(0.47 * w, 0.5 * h + 6),
+    r: Math.max(r, 0.5 * h + 6),
     diskOut: 4.3,
     exposure: 2.3,
   };
@@ -206,6 +208,7 @@ export function direct(input: DirectorInput): SceneValues {
   const rise = smoother(0.04, 0.62, pin);
   let f = mixFraming(horizon, dial, rise);
   // Travel on an arc: the hole lifts before it shrinks, so it never dips.
+  f.cx = lerp(horizon.cx, dial.cx, smoother(0.36, 0.72, pin));
   f.cy = lerp(horizon.cy, dial.cy, smoother(0.02, 0.5, pin));
   f.r = lerp(horizon.r, dial.r, smoother(0.08, 0.6, pin));
   let polar = rise;
@@ -216,10 +219,11 @@ export function direct(input: DirectorInput): SceneValues {
   let orbit = 0;
   let dive = 0;
   if (exitPx > 0) {
-    dive = smoother(0, h * 0.85, exitPx);
+    dive = smoother(0, h * (w < 700 ? 0.5 : 0.8), exitPx);
     f = mixFraming(dial, inside, dive);
     polar = 1;
-    orbit = (input.turn ?? 0) * 3.2;
+    // About a quarter turn for each feature.
+    orbit = (input.turn ?? 0) * 8.6;
   }
 
   // At the end it pulls back out, and the hole settles as the horizon under
@@ -326,7 +330,7 @@ export function direct(input: DirectorInput): SceneValues {
   const insideNow = exitPx > 0 && closing <= 0.001;
   const horizonClock = insideNow ? 0 : clockReveal * (1 - smooth(0.62, 0.76, polar));
   const dialClock =
-    closing > 0.001 ? 0 : smooth(0.68, 0.86, polar) * (1 - smooth(0, h * 0.2, exitPx));
+    closing > 0.001 ? 0 : smooth(0.68, 0.86, polar) * (1 - smooth(h * 0.04, h * 0.36, exitPx));
 
   return {
     camPos,

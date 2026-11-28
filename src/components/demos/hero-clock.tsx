@@ -245,10 +245,10 @@ export function HeroClock({ secondsLeft, active = true, className = "" }: HeroCl
         const tW = ctx.measureText("T").width * 0.94;
         ctx.font = opFont;
         const opW = ctx.measureText(plus ? "+" : "−").width;
-        const markW = markPt * k * 1.3;
+        const markW = markPt * k * 1.2;
         const gapT = 2 * k;
         const gapOp = 7 * k;
-        const pairGap = 3 * k;
+        const pairGap = 9 * k;
         const total =
           tW + gapT + opW + gapOp + pairs.length * (slot * 2 + markW) + (pairs.length - 1) * pairGap;
         return { digitFont, tFont, opFont, slot, cap, tW, opW, markW, gapT, gapOp, pairGap, total };

@@ -278,12 +278,12 @@ export function WaitlistForm({
             if (error) setError(null);
             typingPulse();
           }}
-          className="h-11 w-0 min-w-0 flex-1 bg-transparent px-3 text-[16px] text-ink outline-none placeholder:text-mute/80 sm:h-12 sm:text-[17px]"
+          className="h-11 w-0 min-w-0 flex-1 bg-transparent px-3 text-[16px] max-[379px]:px-2.5 text-ink outline-none placeholder:text-mute/80 sm:h-12 sm:text-[17px]"
         />
         <button
           type="submit"
           disabled={busy}
-          className="h-11 shrink-0 cursor-pointer whitespace-nowrap rounded-[8px] bg-ink px-4 text-[13.5px] font-semibold uppercase tracking-[0.03em] text-accent transition-opacity duration-100 ease-out active:opacity-70 disabled:cursor-default disabled:opacity-60 sm:h-12 sm:px-6 sm:text-[14.5px]"
+          className="h-11 shrink-0 cursor-pointer whitespace-nowrap rounded-[8px] bg-ink px-4 text-[13.5px] font-semibold uppercase tracking-[0.03em] text-accent transition-opacity duration-100 ease-out active:opacity-70 disabled:cursor-default disabled:opacity-60 max-[379px]:px-3 max-[379px]:text-[12.5px] sm:h-12 sm:px-6 sm:text-[14.5px]"
         >
           {busy ? "Joining" : "Join the waitlist"}
         </button>
@@ -347,7 +347,7 @@ export function WaitlistForm({
             </svg>
           </span>
         </span>
-        <label htmlFor={consentId} className="cursor-pointer text-[13px] leading-[1.45] text-soft/85">
+        <label htmlFor={consentId} className="cursor-pointer text-[13.5px] leading-[1.45] text-soft/90">
           Text me {SMS_PROGRAM.brand} launch and drop alerts. Up to{" "}
           {SMS_PROGRAM.maxMessagesPerMonth} msgs/month. Msg &amp; data rates may
           apply. Reply STOP to cancel, HELP for help.{" "}

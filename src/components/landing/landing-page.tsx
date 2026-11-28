@@ -43,6 +43,17 @@ export function LandingPage() {
   const live = clock.ready && clock.plus;
   const offerApp = live && APP_STORE_URL !== "";
   const [sceneOff, setSceneOff] = useState(false);
+
+  // The pinned hero needs height. On a very short screen (a phone on its side)
+  // the page lays out statically instead, as it does without WebGL.
+  useEffect(() => {
+    const check = () => {
+      if (window.innerHeight < 540) setSceneOff(true);
+    };
+    check();
+    window.addEventListener("resize", check, { passive: true });
+    return () => window.removeEventListener("resize", check);
+  }, []);
   const [requestedRole, setRequestedRole] = useState<{
     role: WaitlistRole;
     seq: number;
@@ -65,6 +76,7 @@ export function LandingPage() {
   const headerClockRef = useRef<HTMLSpanElement | null>(null);
   const headerBackRef = useRef<HTMLDivElement | null>(null);
   const skipRef = useRef<HTMLButtonElement | null>(null);
+  const headerScrimRef = useRef<HTMLDivElement | null>(null);
   const closingPhoneRef = useRef<HTMLInputElement | null>(null);
   const featSectionRef = useRef<HTMLElement | null>(null);
   const minusReveal = useRef(0);
@@ -177,7 +189,7 @@ export function LandingPage() {
     write("hc-v", horizonClockRef.current, "visibility", stripOpacity < 0.02 ? "hidden" : "visible");
 
     // Dial clock: centred in the void, sized to it.
-    const dialEm = Math.min(20, ((f.shadowR * 2 * 0.8) / 300) * 16);
+    const dialEm = Math.min(20 + 46 * f.dive, ((f.shadowR * 2 * 0.8) / 300) * 16);
     write("dc-f", dialClockRef.current, "font-size", `${dialEm.toFixed(2)}px`);
     write(
       "dc-t",
@@ -190,7 +202,10 @@ export function LandingPage() {
 
     // The premise arrives once the camera is nearly overhead.
     const premiseIn =
-      smooth(0.7, 0.95, f.polar) * (1 - smooth(0, h * 0.16, f.exitPx)) * (f.closing > 0.001 ? 0 : 1);
+      smooth(0.7, 0.95, f.polar) *
+      smooth(0.6, 0.74, pin) *
+      (1 - smooth(0, h * 0.16, f.exitPx)) *
+      (f.closing > 0.001 ? 0 : 1);
     write("pr-o", premiseRef.current, "opacity", premiseIn.toFixed(3));
     write("pr-y", premiseRef.current, "--rise", `${((1 - premiseIn) * 14).toFixed(1)}px`);
 
@@ -213,7 +228,8 @@ export function LandingPage() {
     // Header extras appear once the scene's own clocks are out of view.
     const showClock = f.settled && f.horizonClock < 0.04 && f.dialClock < 0.04;
     write("hk-o", headerClockRef.current, "opacity", showClock ? "1" : "0");
-    const overContent = f.exitPx > f.h * 0.12 && f.closing < 0.3;
+    const overContent = f.exitPx > f.h * 0.12 && f.closing < 0.9;
+    write("hs-o", headerScrimRef.current, "opacity", !f.settled && f.heroReveal < 0.6 ? "1" : "0");
     write("hb-o", headerBackRef.current, "opacity", overContent ? "1" : "0");
     const showJoin = f.settled && pin > 0.24 && f.closing < 0.35;
     write("hx-o", headerExtrasRef.current, "opacity", showJoin ? "1" : "0");
@@ -232,14 +248,6 @@ export function LandingPage() {
       for (const [k, v] of Object.entries(styles)) el.style.setProperty(k, v);
     };
     set(heroRef.current, { opacity: "1", visibility: "visible", "pointer-events": "auto", transform: "none" });
-    set(horizonClockRef.current, {
-      opacity: "1",
-      position: "absolute",
-      top: "calc(100dvh - 86px)",
-      left: "50%",
-      transform: "translate(-50%, -50%)",
-    });
-    set(dialClockRef.current, { display: "none" });
     set(premiseRef.current, {
       opacity: "1",
       position: "relative",
@@ -284,6 +292,13 @@ export function LandingPage() {
           aria-hidden="true"
           style={{ opacity: 0 }}
           className="absolute inset-0 -z-10 border-b border-white/10 bg-black/90 backdrop-blur-md transition-opacity duration-200 ease-out"
+        />
+        {/* During the intro, a soft shade so the logo and Skip hold against the flash. */}
+        <div
+          ref={headerScrimRef}
+          aria-hidden="true"
+          style={{ opacity: 0 }}
+          className="absolute inset-x-0 top-0 -z-10 h-28 bg-gradient-to-b from-[#13021D]/90 to-transparent transition-opacity duration-300 ease-out"
         />
         {/* Same grid as the sections below: logo over the copy edge, button over the form edge. */}
         <div className="relative mx-auto flex h-full w-full max-w-[1360px] items-center justify-between px-5 sm:px-10 lg:px-20">
@@ -331,20 +346,24 @@ export function LandingPage() {
       </header>
 
       {/* Clocks that live inside the event horizon. */}
-      <div
-        ref={horizonClockRef}
-        style={{ opacity: 0 }}
-        className="pointer-events-none fixed left-0 top-0 z-20 will-change-transform"
-      >
-        <HorizonClock parts={clock} joined={joined} />
-      </div>
-      <div
-        ref={dialClockRef}
-        style={{ opacity: 0 }}
-        className="pointer-events-none fixed left-0 top-0 z-20 will-change-transform"
-      >
-        <DialClock parts={clock} />
-      </div>
+      {sceneOff ? null : (
+        <>
+          <div
+            ref={horizonClockRef}
+            style={{ opacity: 0 }}
+            className="pointer-events-none fixed left-0 top-0 z-20 will-change-transform"
+          >
+            <HorizonClock parts={clock} joined={joined} />
+          </div>
+          <div
+            ref={dialClockRef}
+            style={{ opacity: 0 }}
+            className="pointer-events-none fixed left-0 top-0 z-20 will-change-transform"
+          >
+            <DialClock parts={clock} />
+          </div>
+        </>
+      )}
 
       <main id="top" className="relative z-10">
         {/* Runway: horizon, then the camera rises to look straight down. */}
@@ -353,19 +372,10 @@ export function LandingPage() {
           data-runway
           className={sceneOff ? "relative" : "relative h-[225dvh]"}
         >
-          {sceneOff ? (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 top-0 h-[100dvh] overflow-hidden"
-            >
-              {/* The horizon, drawn plainly: a black disc with a lit rim. */}
-              <div className="absolute left-1/2 top-[calc(100dvh-170px)] size-[max(84vw,860px)] -translate-x-1/2 rounded-full border-2 border-peri bg-black shadow-[0_0_0_10px_rgba(133,138,227,0.18),0_0_90px_10px_rgba(97,61,193,0.55)]" />
-            </div>
-          ) : null}
           <div
             className={
               sceneOff
-                ? "relative mx-auto flex min-h-[100dvh] max-w-[1120px] flex-col"
+                ? "relative flex flex-col"
                 : "sticky top-0 h-[100dvh] overflow-hidden"
             }
           >
@@ -374,7 +384,7 @@ export function LandingPage() {
               data-section="hero"
               style={{ opacity: sceneOff ? 1 : 0 }}
               className={`${
-                sceneOff ? "relative min-h-[100dvh]" : "absolute inset-x-0 top-0"
+                sceneOff ? "relative" : "absolute inset-x-0 top-0"
               } flex flex-col items-center px-5 pt-[calc(56px+1.6dvh)] will-change-transform sm:pt-[calc(68px+2dvh)]`}
             >
               <h1 className="flex flex-col items-center text-center">
@@ -402,7 +412,7 @@ export function LandingPage() {
                 {live ? "On the App Store now." : "On the App Store January 1."}
               </p>
               {offerApp ? null : (
-                <PerkLine className="mt-3 text-center [@media(max-height:680px)]:hidden" />
+                <PerkLine className="mt-3 text-center [@media(max-height:719px)]:hidden" />
               )}
               <div ref={heroFormRef} className="mt-3.5 flex w-full flex-col items-center sm:mt-4">
                 {offerApp ? (
@@ -413,19 +423,31 @@ export function LandingPage() {
                     <button
                       type="button"
                       onClick={() => goToForm("BRAND")}
-                      className="mt-1 inline-flex h-11 cursor-pointer items-center text-[14px] text-mute underline decoration-peri/60 underline-offset-[3px] [@media(hover:hover)]:hover:text-ink"
+                      className="mt-1 inline-flex h-11 cursor-pointer items-center text-[14px] text-mute underline decoration-peri/60 underline-offset-[3px] [@media(max-height:719px)]:hidden [@media(hover:hover)]:hover:text-ink"
                     >
                       Run a brand? Apply to launch a drop
                     </button>
                   </>
                 )}
               </div>
+              {sceneOff ? (
+                <div className="relative -mx-5 mt-10 flex w-[calc(100%+2.5rem)] justify-center overflow-hidden pb-9 pt-14">
+                  {/* The horizon, drawn plainly: a black disc with a lit rim. */}
+                  <div
+                    aria-hidden="true"
+                    className="absolute left-1/2 top-2 size-[max(130vw,900px)] -translate-x-1/2 rounded-full border-2 border-peri bg-black shadow-[0_0_0_10px_rgba(133,138,227,0.18),0_0_90px_10px_rgba(97,61,193,0.55)]"
+                  />
+                  <div className="relative">
+                    <HorizonClock parts={clock} joined={joined} />
+                  </div>
+                </div>
+              ) : null}
             </section>
 
             <div
               ref={premiseRef}
               style={{ opacity: 0, transform: "translateY(-50%)" }}
-              className={sceneOff ? "max-w-[720px] px-5 pb-6 pt-20 sm:px-9" : "pointer-events-none absolute"}
+              className={sceneOff ? "mx-auto w-full max-w-[1360px] px-5 pb-6 pt-16 sm:px-10 lg:px-20" : "pointer-events-none absolute"}
             >
               <div style={{ transform: "translateY(var(--rise, 0px))" }}>
                 <p className="statement text-[clamp(1.75rem,3.1vw,2.7rem)] leading-[1.04] text-ink">
@@ -447,7 +469,7 @@ export function LandingPage() {
         <section
           ref={closingRef}
           data-section="closing"
-          className="relative mx-auto flex min-h-[100dvh] w-full max-w-[1360px] flex-col items-center px-5 pt-[12dvh] sm:px-10 lg:px-20 lg:pt-[14dvh]"
+          className="relative mx-auto flex min-h-[100dvh] w-full max-w-[1360px] flex-col items-center px-5 pb-[236px] pt-[12dvh] sm:px-10 lg:px-20 lg:pt-[14dvh]"
         >
           <div className="grid w-full grid-cols-1 items-start gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,1fr)_460px]">
             <div className="text-center lg:text-left">
@@ -472,9 +494,8 @@ export function LandingPage() {
                     : "Follow independent releases on a live clock and be there when they open. Leave your number and we\u2019ll text you the moment T^minus is live."}
               </p>
             </div>
-            <div className="flex flex-col items-center lg:items-start lg:pt-[0.9rem]">
-              <PerkLine className="mb-3 text-center lg:text-left" />
-              <div ref={closingFormRef} className="flex w-full justify-center lg:justify-start">
+            <div className="flex flex-col items-center lg:items-start lg:pt-[0.55rem]">
+              <div ref={closingFormRef} className="flex w-full flex-col items-center lg:items-start">
                 <WaitlistForm
                   inputRef={closingPhoneRef}
                   requestedRole={requestedRole}
@@ -483,6 +504,7 @@ export function LandingPage() {
                   onJoined={() => setJoined(true)}
                   align="split"
                 />
+                <PerkLine className="mt-3 text-center lg:text-left" />
               </div>
             </div>
           </div>
@@ -497,13 +519,14 @@ export function LandingPage() {
               </Link>
               <button
                 type="button"
+                aria-label="Replay intro"
                 onClick={() => {
                   window.scrollTo({ top: 0, behavior: "auto" });
                   controlRef.current?.replayIntro();
                 }}
                 className="inline-flex h-11 cursor-pointer items-center px-2 [@media(hover:hover)]:hover:text-ink"
               >
-                Replay intro
+                Replay<span className="hidden sm:inline">&nbsp;intro</span>
               </button>
             </nav>
           </footer>

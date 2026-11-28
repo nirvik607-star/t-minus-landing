@@ -34,7 +34,7 @@ const FEATURES: Feature[] = [
     id: "clock",
     name: "The clock",
     lead: "It changes as zero gets close.",
-    body: "At one hour, fifteen minutes and one minute the clock tightens, so you can read how near a drop is at a glance. At zero it flips to T-plus and counts up, so you always know how long a drop has been open.",
+    body: "At one hour, fifteen minutes and one minute the clock tightens, so you can read how near a drop is at a glance. At zero it flips to T\u2011plus and counts up, so you always know how long a drop has been open.",
     tryIt: "Pick a moment and watch it change.",
     Demo: ClockDemo,
   },
@@ -65,7 +65,12 @@ const FEATURES: Feature[] = [
   },
 ];
 
-const CLOSET: GarmentKind[] = ["jacket", "trouser", "liner", "tote"];
+const CLOSET: Array<{ kind: GarmentKind; name: string; meta: string }> = [
+  { kind: "jacket", name: "Field Jacket", meta: "Size M / Studio 01" },
+  { kind: "trouser", name: "Zip-off Trouser", meta: "Size 32 / Studio 03" },
+  { kind: "liner", name: "Quilted Liner", meta: "Size M / Studio 05" },
+  { kind: "tote", name: "Modular Tote", meta: "One size / Studio 04" },
+];
 
 function useWide(query: string) {
   const [wide, setWide] = useState(false);
@@ -100,7 +105,7 @@ function useInView<T extends Element>(margin = "-20% 0px -20% 0px") {
 function Framed({ children }: { children: React.ReactNode }) {
   return (
     <div className="w-full max-w-[400px]">
-      <p className="mb-2 pr-1 text-right text-[12px] leading-none text-mute">Live demo, example data</p>
+      <p className="mb-2 pl-1 text-[12px] leading-none text-mute">Live demo, example data</p>
       {children}
     </div>
   );
@@ -155,6 +160,15 @@ interface FeaturesProps {
 export function Features({ outerRef }: FeaturesProps) {
   const wide = useWide("(min-width: 1024px)");
   const [active, setActive] = useState(0);
+  const [fit, setFit] = useState(1);
+
+  // On a short window the pinned demo is scaled to fit rather than clipped.
+  useEffect(() => {
+    const update = () => setFit(Math.min(1, Math.max(0.7, (window.innerHeight - 104) / 650)));
+    update();
+    window.addEventListener("resize", update, { passive: true });
+    return () => window.removeEventListener("resize", update);
+  }, []);
   const [sectionRef, sectionInView] = useInView<HTMLElement>("0px");
   const itemRefs = useRef<Array<HTMLLIElement | null>>([]);
 
@@ -198,14 +212,13 @@ export function Features({ outerRef }: FeaturesProps) {
         if (outerRef) outerRef.current = el;
       }}
       data-section="features"
-      className="mx-auto w-full max-w-[1360px] px-5 pb-16 pt-[42dvh] sm:px-10 lg:px-20"
+      className="mx-auto w-full max-w-[1360px] px-5 pb-16 pt-[16dvh] sm:px-10 lg:px-20 lg:pt-[42dvh]"
     >
       <h2 className="headline max-w-[14ch] text-[clamp(2.6rem,5.2vw,4.6rem)] text-ink">
-        Inside: everything a drop needs.
+        Inside the app.
       </h2>
       <p className="mt-5 max-w-[44ch] text-[18px] leading-[1.5] text-soft lg:text-[20px]">
-        Five parts of the app, running here. They are small on purpose: this is
-        how they look on your phone.
+        Here it is, part by part. The demos are live, so try them.
       </p>
 
       {wide ? (
@@ -246,9 +259,11 @@ export function Features({ outerRef }: FeaturesProps) {
                         : "pointer-events-none translate-y-2 opacity-0"
                     }`}
                   >
-                    <Framed>
-                      <Demo active={on && sectionInView} />
-                    </Framed>
+                    <div style={fit < 1 ? { zoom: fit } : undefined} className="w-full">
+                      <Framed>
+                        <Demo active={on && sectionInView} />
+                      </Framed>
+                    </div>
                   </div>
                 );
               })}
@@ -264,28 +279,32 @@ export function Features({ outerRef }: FeaturesProps) {
       )}
 
       {/* After the drop: what you bought, kept. */}
-      <div className="mt-10 grid grid-cols-1 items-center gap-x-16 gap-y-8 lg:mt-0 lg:grid-cols-[minmax(0,1fr)_460px]">
+      <div className="mt-10 grid grid-cols-1 items-center gap-x-16 gap-y-8 lg:mt-[26vh] lg:grid-cols-[minmax(0,1fr)_460px]">
         <div>
           <h3 className="headline text-[clamp(2.75rem,5.4vw,5rem)] text-ink">Closet</h3>
           <p className="mt-5 max-w-[40ch] text-[18px] leading-[1.5] text-soft lg:text-[20px]">
             <span className="font-medium text-ink">What you bought, kept.</span> After a drop,
-            each piece lands in your Closet with its size and the brand it came from, and each
-            brand keeps its own membership.
+            each piece lands in your Closet with its size and the brand it came from. Brands
+            can run their own membership inside the app.
           </p>
         </div>
-        <ul
-          aria-label="Four pieces in a closet"
-          className="grid w-full max-w-[400px] grid-cols-2 gap-2 justify-self-center lg:justify-self-start"
-        >
-          {CLOSET.map((kind) => (
-            <li
-              key={kind}
-              className="aspect-square rounded-[12px] border border-white/15 bg-[#13021D] p-3"
-            >
-              <GarmentGlyph kind={kind} label="" />
-            </li>
-          ))}
-        </ul>
+        <div className="w-full max-w-[400px] justify-self-center lg:justify-self-start">
+          <p className="mb-2 pl-1 text-[12px] leading-none text-mute">Example closet</p>
+          <ul aria-label="Four pieces in a closet" className="grid grid-cols-2 gap-2">
+            {CLOSET.map((item) => (
+              <li
+                key={item.kind}
+                className="rounded-[12px] border border-white/15 bg-[#13021D] p-3"
+              >
+                <div className="aspect-[5/4]">
+                  <GarmentGlyph kind={item.kind} label={`${item.name}, drawn in glyphs`} />
+                </div>
+                <p className="mt-2 text-[14px] font-medium leading-tight text-ink">{item.name}</p>
+                <p className="app-label mt-1 text-[12px] text-mute">{item.meta}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   );
