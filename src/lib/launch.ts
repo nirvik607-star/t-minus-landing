@@ -27,6 +27,13 @@ export const SMS_PROGRAM = {
 /** App Store listing. Empty until the listing exists; the page shows a button at zero when set. */
 export const APP_STORE_URL = "";
 
+/**
+ * Where the form posts. The built-in endpoint only exists on a Node server;
+ * a static deployment sets NEXT_PUBLIC_WAITLIST_ENDPOINT to its own.
+ */
+export const WAITLIST_ENDPOINT =
+  process.env.NEXT_PUBLIC_WAITLIST_ENDPOINT ?? "/api/waitlist";
+
 /** Base path the site is served under ("" at a domain root, "/t-minus-landing" on GitHub Pages). */
 export const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 

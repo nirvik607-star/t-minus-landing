@@ -8,7 +8,7 @@ import {
   normalizePhoneToE164,
   type WaitlistRole,
 } from "@/lib/waitlist";
-import { SMS_PROGRAM, WAITLIST_PERK, siteUrl } from "@/lib/launch";
+import { SMS_PROGRAM, WAITLIST_ENDPOINT, WAITLIST_PERK, siteUrl } from "@/lib/launch";
 
 /** The waitlist incentive, as one plain line. Renders nothing when no perk is set. */
 export function PerkLine({ className = "" }: { className?: string }) {
@@ -114,7 +114,7 @@ export function WaitlistForm({
     }
     setBusy(true);
     try {
-      const res = await fetch("/api/waitlist", {
+      const res = await fetch(WAITLIST_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
