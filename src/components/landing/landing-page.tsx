@@ -146,12 +146,13 @@ export function LandingPage() {
     write("hc-o", horizonClockRef.current, "opacity", f.horizonClock.toFixed(3));
 
     // Dial clock: centred in the void, sized to it.
-    const scale = Math.min(1.25, (f.shadowR * 2 * 0.8) / 300);
+    const dialEm = Math.min(20, ((f.shadowR * 2 * 0.8) / 300) * 16);
+    write("dc-f", dialClockRef.current, "font-size", `${dialEm.toFixed(2)}px`);
     write(
       "dc-t",
       dialClockRef.current,
       "transform",
-      `translate3d(${f.holeX.toFixed(1)}px, ${f.holeY.toFixed(1)}px, 0) translate(-50%, -50%) scale(${scale.toFixed(4)})`
+      `translate3d(${f.holeX.toFixed(1)}px, ${f.holeY.toFixed(1)}px, 0) translate(-50%, -50%)`
     );
     write("dc-o", dialClockRef.current, "opacity", f.dialClock.toFixed(3));
     write("pr-o", premiseRef.current, "opacity", smooth(0.7, 0.95, f.polar).toFixed(3));
@@ -168,6 +169,8 @@ export function LandingPage() {
     const showJoin = f.settled && pin > 0.24 && f.closing < 0.35;
     write("hx-o", headerExtrasRef.current, "opacity", showJoin ? "1" : "0");
     write("hx-p", headerExtrasRef.current, "pointer-events", showJoin ? "auto" : "none");
+    // Hidden controls must not take keyboard focus.
+    write("hx-v", headerExtrasRef.current, "visibility", showJoin ? "visible" : "hidden");
   }, []);
 
   const pulse = useCallback((strength: number) => {
@@ -206,7 +209,7 @@ export function LandingPage() {
         </a>
         <div
           ref={headerExtrasRef}
-          style={{ opacity: 0, pointerEvents: "none" }}
+          style={{ opacity: 0, pointerEvents: "none", visibility: "hidden" }}
           className="flex items-center gap-4 transition-opacity duration-300 ease-out"
         >
           <span
@@ -219,7 +222,7 @@ export function LandingPage() {
           <button
             type="button"
             onClick={() => goToForm()}
-            className="h-10 cursor-pointer rounded-[8px] bg-ink px-4 text-[14px] font-semibold text-ground transition-opacity duration-150 active:opacity-70"
+            className="h-11 cursor-pointer rounded-[8px] bg-ink px-4 text-[13.5px] font-semibold uppercase tracking-[0.03em] text-accent transition-opacity duration-100 ease-out active:opacity-70"
           >
             Join
           </button>
@@ -307,7 +310,7 @@ export function LandingPage() {
           <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:gap-0">
             <div className="md:border-r md:border-line md:pr-14">
               <p className="text-[14px] font-medium text-mute">For shoppers</p>
-              <h2 className="statement mt-3 text-[clamp(2rem,3.4vw,2.9rem)] text-ink">
+              <h2 className="mt-3 text-[clamp(1.9rem,3.2vw,2.7rem)] font-semibold leading-[1.05] tracking-[-0.03em] text-ink">
                 Find drops worth waiting for.
               </h2>
               <p className="mt-4 max-w-[40ch] text-[16.5px] leading-[1.55] text-soft">
@@ -317,14 +320,14 @@ export function LandingPage() {
               <button
                 type="button"
                 onClick={() => goToForm("SHOPPER")}
-                className="mt-6 h-12 cursor-pointer rounded-[8px] bg-ink px-5 text-[15px] font-semibold text-ground transition-opacity duration-150 active:opacity-70"
+                className="mt-6 h-12 cursor-pointer rounded-[8px] bg-ink px-5 text-[14px] font-semibold uppercase tracking-[0.03em] text-accent transition-opacity duration-100 ease-out active:opacity-70"
               >
                 Join as a shopper
               </button>
             </div>
             <div className="md:pl-14">
               <p className="text-[14px] font-medium text-mute">For brands</p>
-              <h2 className="statement mt-3 text-[clamp(2rem,3.4vw,2.9rem)] text-ink">
+              <h2 className="mt-3 text-[clamp(1.9rem,3.2vw,2.7rem)] font-semibold leading-[1.05] tracking-[-0.03em] text-ink">
                 Launch on your own clock.
               </h2>
               <p className="mt-4 max-w-[40ch] text-[16.5px] leading-[1.55] text-soft">
@@ -335,7 +338,7 @@ export function LandingPage() {
               <button
                 type="button"
                 onClick={() => goToForm("BRAND")}
-                className="mt-6 h-12 cursor-pointer rounded-[8px] border border-line px-5 text-[15px] font-semibold text-ink transition-colors duration-150 [@media(hover:hover)]:hover:border-peri"
+                className="mt-6 h-12 cursor-pointer rounded-[8px] border border-peri/60 px-5 text-[14px] font-semibold uppercase tracking-[0.03em] text-ink transition-colors duration-150 [@media(hover:hover)]:hover:border-ink"
               >
                 Apply as a brand
               </button>
@@ -347,22 +350,31 @@ export function LandingPage() {
         <section
           ref={closingRef}
           data-section="closing"
-          className="relative flex min-h-[100dvh] flex-col items-center px-5 pt-[13dvh] sm:pt-[15dvh]"
+          className="relative flex min-h-[100dvh] flex-col items-center px-5 pt-[12dvh] sm:px-9 lg:pt-[15dvh]"
         >
-          <h2 className="statement text-center text-[clamp(2.7rem,6vw,5rem)] text-ink">
-            Be ready at <span className="text-ice">zero.</span>
-          </h2>
-          <p className="mt-4 max-w-[34ch] text-center text-[16.5px] leading-[1.45] text-soft sm:text-[18px]">
-            Leave your number. We&rsquo;ll text you the moment T^minus is live.
-          </p>
-          <div ref={closingFormRef} className="mt-6 flex w-full justify-center">
-            <WaitlistForm
-              inputRef={closingPhoneRef}
-              requestedRole={requestedRole}
-              onPulse={pulse}
-            />
+          <div className="grid w-full max-w-[1120px] grid-cols-1 items-start gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,1fr)_460px]">
+            <div className="text-center lg:text-left">
+              <h2 className="statement text-[clamp(2.9rem,7.4vw,6.2rem)] leading-[0.94] text-ink">
+                Be ready <br className="hidden lg:block" />
+                at <span className="text-ice">zero.</span>
+              </h2>
+              <p className="mx-auto mt-4 max-w-[30ch] text-[16.5px] leading-[1.45] text-soft sm:text-[18px] lg:mx-0 lg:mt-6">
+                Leave your number. We&rsquo;ll text you the moment T^minus is
+                live.
+              </p>
+            </div>
+            <div className="flex flex-col items-center lg:items-start lg:pt-3">
+              <div ref={closingFormRef} className="flex w-full justify-center lg:justify-start">
+                <WaitlistForm
+                  inputRef={closingPhoneRef}
+                  requestedRole={requestedRole}
+                  onPulse={pulse}
+                  align="split"
+                />
+              </div>
+              <PerkLine className="mt-4" />
+            </div>
           </div>
-          <PerkLine className="mt-4" />
           <footer className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-center gap-x-1 px-5 pb-2 text-[13px] text-mute sm:pb-3">
             <span className="px-2">&copy; 2026 T^minus</span>
             <nav className="flex items-center gap-1">

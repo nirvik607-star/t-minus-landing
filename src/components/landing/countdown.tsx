@@ -122,47 +122,45 @@ export function HorizonClock({ parts }: { parts: ClockParts }) {
   );
 }
 
-/** The large readout in the void when the hole is seen from above. */
+/**
+ * The large readout in the void when the hole is seen from above.
+ * Sized in em: the page sets the font size from the radius of the void, and
+ * the small type keeps a 12px floor however small the void gets.
+ */
 export function DialClock({ parts }: { parts: ClockParts }) {
+  const small = "text-[max(12px,0.82em)]";
+  const unit = `ml-[0.12em] mt-[0.05em] font-mono font-medium leading-none text-peri text-[max(12px,0.95em)]`;
+  const numeral = "value font-sans text-[2.15em] font-semibold leading-[0.9] tracking-[-0.03em] text-ink";
   return (
     <div
       role="timer"
       aria-label={spoken(parts)}
-      className="flex w-[300px] select-none flex-col items-center whitespace-nowrap"
+      className="flex w-[18.75em] select-none flex-col items-center whitespace-nowrap"
     >
       <div aria-hidden="true" className="flex items-start">
-        <Prefix
-          plus={parts.plus}
-          className="mr-1 text-[84px] leading-[0.8] text-ink"
-        />
-        <span className="value font-sans text-[118px] font-semibold leading-[0.8] tracking-[-0.045em] text-ink">
+        <Prefix plus={parts.plus} className="mr-[0.05em] text-[5.25em] leading-[0.8] text-ink" />
+        <span className="value font-sans text-[7.4em] font-semibold leading-[0.8] tracking-[-0.045em] text-ink">
           {parts.days}
         </span>
-        <span className="ml-1 mt-1 font-mono text-[20px] font-medium leading-none text-ice">
+        <span className="ml-[0.2em] mt-[0.2em] font-mono text-[max(14px,1.25em)] font-medium leading-none text-ice">
           d
         </span>
       </div>
-      <div aria-hidden="true" className="mt-5 flex items-start gap-4">
-        <Unit
-          value={parts.hours}
-          unit="h"
-          numeralClass="text-[34px] leading-[0.9] tracking-[-0.03em] text-ink"
-          unitClass="ml-[3px] mt-[1px] text-[15px] leading-none text-peri"
-        />
-        <Unit
-          value={parts.minutes}
-          unit="m"
-          numeralClass="text-[34px] leading-[0.9] tracking-[-0.03em] text-ink"
-          unitClass="ml-[3px] mt-[1px] text-[15px] leading-none text-peri"
-        />
-        <Unit
-          value={parts.seconds}
-          unit="s"
-          numeralClass="text-[34px] leading-[0.9] tracking-[-0.03em] text-ink"
-          unitClass="ml-[3px] mt-[1px] text-[15px] leading-none text-peri"
-        />
+      <div aria-hidden="true" className="mt-[1.25em] flex items-start gap-[1em]">
+        <span className="inline-flex items-start">
+          <span className={numeral}>{parts.hours}</span>
+          <span className={unit}>h</span>
+        </span>
+        <span className="inline-flex items-start">
+          <span className={numeral}>{parts.minutes}</span>
+          <span className={unit}>m</span>
+        </span>
+        <span className="inline-flex items-start">
+          <span className={numeral}>{parts.seconds}</span>
+          <span className={unit}>s</span>
+        </span>
       </div>
-      <p className="mt-4 font-sans text-[13px] leading-none text-mute">
+      <p className={`mt-[1em] font-sans leading-none text-mute ${small}`}>
         {parts.plus ? "Live on the App Store" : `On the App Store ${LAUNCH_DATE_LONG}`}
       </p>
     </div>

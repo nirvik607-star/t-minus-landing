@@ -34,7 +34,15 @@ const SHOTS = [
   { id: "S04b-sweep", vps: ["d"], qs: "introAt=4.05&still=1" },
   { id: "S05-rising", vps: ["d", "m"], qs: "skipIntro=1&still=1", pin: 0.3 },
   { id: "S06-dial", vps: ["d", "m"], qs: "skipIntro=1&still=1", pin: 0.78 },
+  { id: "S07a-drops", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "drops-home" },
+  { id: "S07b-clock", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "clock" },
+  { id: "S07c-size", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "size-assist" },
+  { id: "S07d-hold", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "hold" },
+  { id: "S07e-lab", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "lab" },
+  { id: "S08-audiences", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[data-section='audiences']", block: "center" },
   { id: "S09-closing", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[data-section='closing']" },
+  { id: "S11a-privacy", vps: ["m"], path: "/privacy", qs: "" },
+  { id: "S11b-terms", vps: ["m"], path: "/terms", qs: "" },
 ];
 
 (async () => {
@@ -51,10 +59,12 @@ const SHOTS = [
       page.on("console", (m) => {
         if (m.type() === "error") problems.push(`${shot.id}-${vk} console: ${m.text().slice(0, 240)}`);
       });
-      await page.goto(`${base}${pagePath}?${shot.qs}`, { waitUntil: "load" });
-      await page.waitForSelector("canvas[data-scene-ready='true']", { timeout: 20000 }).catch(() => {
-        problems.push(`${shot.id}-${vk}: scene never became ready`);
-      });
+      await page.goto(`${base}${shot.path || pagePath}?${shot.qs}`, { waitUntil: "load" });
+      if (!shot.path) {
+        await page.waitForSelector("canvas[data-scene-ready='true']", { timeout: 20000 }).catch(() => {
+          problems.push(`${shot.id}-${vk}: scene never became ready`);
+        });
+      }
       if (shot.pin !== undefined) {
         await page.evaluate((f) => {
           const run = document.querySelector("[data-runway]");
@@ -62,11 +72,16 @@ const SHOTS = [
           const top = r.top + window.scrollY;
           window.scrollTo(0, top + (r.height - window.innerHeight) * f);
         }, shot.pin);
+      } else if (shot.feature) {
+        await page.evaluate((id) => {
+          const el = document.querySelector(`[data-feature='${id}']`);
+          el.scrollIntoView({ block: "center" });
+        }, shot.feature);
       } else if (shot.sel) {
-        await page.evaluate((s) => {
+        await page.evaluate(([s, block]) => {
           const el = document.querySelector(s);
-          el.scrollIntoView({ block: "end" });
-        }, shot.sel);
+          el.scrollIntoView({ block: block || "end" });
+        }, [shot.sel, shot.block]);
       }
       await page.waitForTimeout(1600);
       await page.screenshot({ path: path.join(outDir, `${shot.id}-${vk}.png`) });

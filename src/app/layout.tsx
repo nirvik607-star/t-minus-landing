@@ -56,7 +56,10 @@ export const metadata: Metadata = {
       "Limited drops from independent brands, on one live clock. On the App Store January 1, 2027.",
     images: [`${basePath}/og.png`],
   },
-  icons: { icon: `${basePath}/icon.svg` },
+  icons: {
+    icon: `${basePath}/icon.png`,
+    apple: `${basePath}/apple-touch-icon.png`,
+  },
 };
 
 export const viewport: Viewport = {

@@ -330,6 +330,7 @@ uniform float uGlow;        // 0..1 soft light under the glyphs
 uniform float uWell;        // 0..1 darkening of the ground around the hole
 uniform float uWellDev;     // falloff length of the well, device px
 uniform float uSignal;      // atlas index (1-based) of the large signal T
+uniform float uPolar;       // 0 = seen at an angle, 1 = seen from above
 
 const vec3 C_DEEP  = vec3(0.306, 0.078, 0.549); // #4E148C
 const vec3 C_ACC   = vec3(0.380, 0.239, 0.757); // #613DC1
@@ -399,6 +400,13 @@ void main() {
       a = cov * uStars * (0.35 + 0.5 * tw) * (tw < 0.12 ? 0.0 : 1.0);
     }
   }
+
+  // Inside the shadow, light is only real where the near side of the disk
+  // crosses in front of it: below centre, and only when seen at an angle.
+  // Everywhere else the rim is kept clean.
+  float inside = 1.0 - smoothstep(uShadowDev - 0.6 * uCellDev.x, uShadowDev + 0.3 * uCellDev.x, distHole);
+  float legit = (1.0 - uPolar) * smoothstep(-0.04, 0.16, (uHoleDev.y - gl_FragCoord.y) / max(uShadowDev, 1.0));
+  a *= 1.0 - inside * (1.0 - legit) * uVoid;
 
   // Keep the field clear of the form above the horizon.
   a *= 1.0 - smoothstep(uFadeLineDev - uFadeSoftDev, uFadeLineDev, gl_FragCoord.y);

@@ -159,14 +159,15 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  // The export holds phone numbers. Without a configured token it stays shut.
   const configuredToken = process.env.WAITLIST_EXPORT_TOKEN;
-  if (configuredToken) {
-    const provided =
-      req.nextUrl.searchParams.get("token") ??
-      req.headers.get("x-waitlist-token");
-    if (provided !== configuredToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!configuredToken) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  const provided =
+    req.headers.get("x-waitlist-token") ?? req.nextUrl.searchParams.get("token");
+  if (provided !== configuredToken) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const format = req.nextUrl.searchParams.get("format");

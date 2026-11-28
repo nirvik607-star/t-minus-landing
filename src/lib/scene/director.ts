@@ -177,7 +177,7 @@ export function direct(input: DirectorInput): SceneValues {
   // The horizon returns behind the closing form.
   if (closing > 0.001) {
     const k = easeOutCubic(clamp01(closing));
-    const end = horizonFraming(w, h, 56);
+    const end = horizonFraming(w, h, 78);
     f = { ...end, cy: end.cy + (1 - k) * (end.r * 0.5 + 120) };
     polar = 0;
     alpha = smooth(0.0, 0.25, closing);
@@ -291,7 +291,7 @@ export function direct(input: DirectorInput): SceneValues {
     flood,
     floodR,
     drainR,
-    hand: smooth(0.5, 0.9, polar),
+    hand: 0,
     handAngle,
     voidAlpha,
     shimmer: 1,

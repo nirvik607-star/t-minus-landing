@@ -154,14 +154,15 @@ export function BlackholeScene({
     const layout = () => {
       w = window.innerWidth;
       h = window.innerHeight;
-      dpr = Math.min(Math.max(window.devicePixelRatio || 1, 1), 2);
+      // Phones get their full density: the glyph pass is cheap and small type needs it.
+      dpr = Math.min(Math.max(window.devicePixelRatio || 1, 1), w < 700 ? 3 : 2);
       const W = Math.round(w * dpr);
       const H = Math.round(h * dpr);
       if (canvas.width !== W || canvas.height !== H) {
         canvas.width = W;
         canvas.height = H;
       }
-      const cellCss = Math.min(10, Math.max(7, Math.round(w / 175)));
+      const cellCss = w < 700 ? 6 : Math.min(10, Math.max(7, Math.round(w / 175)));
       const nextCell = Math.max(6, Math.round(cellCss * dpr));
       const cellChanged = nextCell !== cellDev;
       cellDev = nextCell;
@@ -230,7 +231,7 @@ export function BlackholeScene({
     };
 
     // ---- scroll anchors (measured off-frame, never during render) ----
-    const anchors = { runwayTop: 0, runwayTravel: 1, closingTop: 1e9 };
+    const anchors = { runwayTop: 0, runwayTravel: 1, closingTop: 1e9, docMax: 1e9 };
     const measureAnchors = () => {
       const sy = window.scrollY;
       const run = runwayRef.current;
@@ -242,6 +243,9 @@ export function BlackholeScene({
       const closing = closingRef.current;
       anchors.closingTop = closing
         ? closing.getBoundingClientRect().top + sy
+        : 1e9;
+      anchors.docMax = closing
+        ? Math.max(1, document.documentElement.scrollHeight - h)
         : 1e9;
     };
 
@@ -330,7 +334,10 @@ export function BlackholeScene({
         0,
         sy - (anchors.runwayTop + anchors.runwayTravel)
       );
-      const closing = clamp01((sy + h - anchors.closingTop) / (h * 0.85));
+      // The horizon returns over the last third of a screen of scrolling, once
+      // the closing form has cleared the space it rises into.
+      const closingSpan = h * 0.34;
+      const closing = clamp01((sy - (anchors.docMax - closingSpan)) / closingSpan);
       const secondsLeft = Math.floor(
         Math.max(0, LAUNCH_TARGET_MS - Date.now()) / 1000
       );
@@ -447,11 +454,12 @@ export function BlackholeScene({
         glyph.u("uFadeLineDev"),
         guard > 0.001 ? (h - fadeLine) * dpr + (1 - guard) * H : H * 4
       );
-      gl.uniform1f(glyph.u("uFadeSoftDev"), 46 * dpr);
+      gl.uniform1f(glyph.u("uFadeSoftDev"), 72 * dpr);
       gl.uniform1f(glyph.u("uGlow"), v.glow);
       gl.uniform1f(glyph.u("uWell"), v.well);
       gl.uniform1f(glyph.u("uWellDev"), v.wellPx * dpr);
       gl.uniform1f(glyph.u("uSignal"), signalIndex);
+      gl.uniform1f(glyph.u("uPolar"), v.polar);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
       canvas.dataset.sceneReady = "true";

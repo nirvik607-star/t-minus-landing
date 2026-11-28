@@ -29,7 +29,8 @@ interface WaitlistFormProps {
   /** Set from outside to switch the audience (the "Apply as a brand" links). */
   requestedRole?: { role: WaitlistRole; seq: number } | null;
   inputRef?: React.RefObject<HTMLInputElement | null>;
-  align?: "center" | "start";
+  /** "split" centres on small screens and starts from the left on large ones. */
+  align?: "center" | "start" | "split";
   /** Light pulse through the scene while typing, a stronger one on success. */
   onPulse?: (strength: number) => void;
 }
@@ -165,8 +166,13 @@ export function WaitlistForm({
     }
   }
 
-  const alignCls = align === "start" ? "items-start text-left" : "items-center text-center";
-  const consentAlign = align === "start" ? "" : "sm:mx-auto";
+  const alignCls =
+    align === "start"
+      ? "items-start text-left"
+      : align === "split"
+        ? "items-center text-center lg:items-start lg:text-left"
+        : "items-center text-center";
+  const consentAlign = align === "start" ? "" : align === "split" ? "sm:mx-auto lg:mx-0" : "sm:mx-auto";
 
   if (joined) {
     return (
@@ -209,35 +215,38 @@ export function WaitlistForm({
       <div
         role="radiogroup"
         aria-label="Who is joining"
-        className="relative grid h-11 w-full max-w-[300px] grid-cols-2 rounded-[10px] border border-line bg-ground-deep/70 p-[3px]"
+        className="flex h-11 items-stretch gap-7"
       >
-        <span
-          aria-hidden="true"
-          className={`pointer-events-none absolute bottom-[3px] left-[3px] top-[3px] w-[calc(50%-3px)] rounded-[7px] bg-accent transition-transform duration-200 ease-out ${
-            role === "BRAND" ? "translate-x-full" : "translate-x-0"
-          }`}
-        />
-        {ROLES.map((opt) => (
-          <button
-            key={opt.id}
-            type="button"
-            role="radio"
-            aria-checked={role === opt.id}
-            onClick={() => {
-              setRole(opt.id);
-              setError(null);
-              onPulse?.(0.3);
-            }}
-            className={`relative z-10 cursor-pointer rounded-[7px] text-[14px] font-medium transition-colors duration-150 ${
-              role === opt.id ? "text-ink" : "text-mute [@media(hover:hover)]:hover:text-ink"
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
+        {ROLES.map((opt) => {
+          const on = role === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => {
+                setRole(opt.id);
+                setError(null);
+                onPulse?.(0.3);
+              }}
+              className={`relative flex cursor-pointer items-center px-0.5 text-[15px] transition-colors duration-150 ease-out ${
+                on ? "font-semibold text-ink" : "font-medium text-mute [@media(hover:hover)]:hover:text-ink"
+              }`}
+            >
+              {opt.label}
+              <span
+                aria-hidden="true"
+                className={`absolute bottom-[5px] left-0.5 h-[2px] w-[22px] bg-ink transition-opacity duration-150 ease-out ${
+                  on ? "opacity-100" : "opacity-0"
+                }`}
+              />
+            </button>
+          );
+        })}
       </div>
 
-      <div className="mt-3 flex w-full items-center gap-1.5 rounded-[12px] border border-line bg-ground-deep/80 p-1.5 transition-colors duration-150 focus-within:border-peri">
+      <div className="mt-2 flex w-full items-center gap-1.5 rounded-[12px] border border-line bg-ground-deep/80 p-1.5 transition-colors duration-150 focus-within:border-peri">
         <label htmlFor={phoneId} className="sr-only">
           Mobile number
         </label>
@@ -263,7 +272,7 @@ export function WaitlistForm({
         <button
           type="submit"
           disabled={busy}
-          className="h-11 shrink-0 cursor-pointer whitespace-nowrap rounded-[8px] bg-ink px-4 text-[15px] font-semibold text-ground transition-opacity duration-150 active:opacity-70 disabled:cursor-default disabled:opacity-60 sm:px-5"
+          className="h-11 shrink-0 cursor-pointer whitespace-nowrap rounded-[8px] bg-ink px-4 text-[13.5px] font-semibold uppercase tracking-[0.03em] text-accent transition-opacity duration-100 ease-out active:opacity-70 disabled:cursor-default disabled:opacity-60 sm:px-5 sm:text-[14px]"
         >
           {busy ? "Joining" : "Join the waitlist"}
         </button>
