@@ -418,7 +418,10 @@ export function LandingPage() {
         <div
           ref={runwayRef}
           data-runway
-          className={sceneOff ? "relative" : "relative z-10 h-[225dvh]"}
+          // The runway sits above the scene, and the features rise beneath its
+          // tail: it must not take the taps meant for them. The hero turns its
+          // own pointer events on while it is showing.
+          className={sceneOff ? "relative" : "pointer-events-none relative z-10 h-[225dvh]"}
         >
           <div
             className={
