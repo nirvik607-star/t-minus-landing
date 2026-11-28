@@ -1,30 +1,106 @@
 @import "tailwindcss";
 
+/*
+ * Tokens follow the app's locked design system:
+ * one purple family, ice blue for a single word or live value, black only
+ * inside the event horizon.
+ */
 @theme inline {
-  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: var(--font-ibm-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-heading: var(--font-inter-tight), var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display: var(--font-inter-tight), var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-serif: var(--font-newsreader), Georgia, serif;
-}
+  --color-ground: #2c0735;
+  --color-ground-deep: #13021d;
+  --color-accent: #613dc1;
+  --color-deep: #4e148c;
+  --color-peri: #858ae3;
+  --color-ice: #97dffc;
+  --color-ink: #ffffff;
+  --color-soft: #e9e3f7;
+  --color-mute: #bcb2da;
+  --color-line: rgb(133 138 227 / 0.28);
 
-.landing-typography {
-  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: var(--font-ibm-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-heading: var(--font-inter-tight), var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display: var(--font-inter-tight), var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
-  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: var(--font-newsreader), "New York", ui-serif, Georgia, serif;
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  /* Kept for the previous page at /v1 while both exist. */
+  --font-heading: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif: var(--font-newsreader), Georgia, serif;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 @layer base {
   html {
-    background-color: #040206;
+    background-color: var(--color-ground);
     color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
+
   body {
-    background-color: #040206;
-    color: #ffffff;
+    background-color: var(--color-ground);
+    color: var(--color-ink);
     font-family: var(--font-sans);
+    font-optical-sizing: auto;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: rgb(97 61 193 / 0.7);
+    color: #fff;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ice);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  button,
+  [role="radio"],
+  a {
+    touch-action: manipulation;
+  }
+}
+
+/* Statements: the brand serif, italic, set tight. Used sparingly. */
+.statement {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-variation-settings: "opsz" 28;
+  letter-spacing: -0.022em;
+  line-height: 1;
+}
+
+/* Live values: tabular so digits never shift their neighbours. */
+.value {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1, "zero" 0;
+}
+
+.landing-typography {
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
   }
 }
