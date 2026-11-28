@@ -156,7 +156,7 @@ function Veil() {
   return (
     <span
       aria-hidden="true"
-      className="pointer-events-none absolute -inset-x-[0.75em] -inset-y-[0.5em] rounded-[1em] bg-[color:var(--void)] opacity-80 blur-[7px]"
+      className="pointer-events-none absolute -inset-x-[0.875em] -inset-y-[0.6875em] rounded-[0.75em] bg-[color:var(--void)] blur-[6px]"
     />
   );
 }
@@ -183,7 +183,10 @@ function HoldBand({ remaining }: { remaining: number }) {
   return (
     <div className="overflow-hidden rounded-[12px] border border-white/[0.13]">
       <div className="relative flex min-h-[5.125em] items-center justify-between gap-[0.75em] bg-[color:var(--void)] px-[1em] py-[0.75em]">
-        <div aria-hidden="true" className="absolute inset-0">
+        <div
+          aria-hidden="true"
+          className="absolute inset-y-0 -inset-x-[4.5px] [mask-image:linear-gradient(90deg,transparent_1%,#000_7%,#000_93%,transparent_99%)]"
+        >
           <GlyphPatch
             cell={9}
             glyphColor={expired ? "#FF453A" : "#4E148C"}
@@ -243,13 +246,14 @@ function HoldView({ active }: { active: boolean }) {
     setRun((n) => n + 1);
   }
 
-  // A fresh five minutes each time this view comes on screen.
+  // Off screen the clock is put back, so every visit opens on a full five minutes.
   useEffect(() => {
-    if (!active) return;
+    if (active) return;
     setRemaining(HOLD_SECONDS);
-    setRun((n) => n + 1);
+    setHandoffNote(false);
   }, [active]);
 
+  // One tick a second, only while this view is the one on screen.
   useEffect(() => {
     if (!active || expired) return;
     const id = window.setInterval(() => setRemaining((r) => Math.max(0, r - 1)), 1000);
@@ -257,18 +261,14 @@ function HoldView({ active }: { active: boolean }) {
   }, [active, expired, run]);
 
   useEffect(() => {
-    if (!handoffNote) return;
-    if (!active || expired) {
-      setHandoffNote(false);
-      return;
-    }
+    if (!handoffNote || !active) return;
     const id = window.setTimeout(() => setHandoffNote(false), NOTE_MS);
     return () => window.clearTimeout(id);
-  }, [handoffNote, active, expired]);
+  }, [handoffNote, active]);
 
   return (
     <>
-      <div className="mt-[1.125em] flex flex-col gap-[0.5em]">
+      <div className="mt-[1em] flex flex-col gap-[0.5em]">
         <AppLabel tone="accent">Checkout</AppLabel>
         <p className="app-serif text-[2.125em] text-white">
           <span className="text-ice">Review</span> your order.
@@ -306,9 +306,9 @@ function HoldView({ active }: { active: boolean }) {
         <div className="flex items-center gap-[0.875em] border-b border-[color:var(--aline)] py-[0.875em]">
           <div
             aria-hidden="true"
-            className="relative h-[4.75em] w-[4em] shrink-0 overflow-hidden rounded-[8px] border border-white/[0.12] bg-[color:var(--galaxy-deep)]"
+            className="relative h-[5em] w-[4.25em] shrink-0 overflow-hidden rounded-[8px] border border-white/[0.12] bg-[color:var(--galaxy-deep)]"
           >
-            <GlyphPatch />
+            <GlyphPatch cell={4} />
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-[0.375em]">
             <p className="font-semibold leading-[1.25] text-white">{ITEM.name}</p>
@@ -341,15 +341,35 @@ function HoldView({ active }: { active: boolean }) {
   );
 }
 
-function StandbyView({ animate }: { animate: boolean }) {
+function StandbyPanel({ size }: { size: StandbySize }) {
+  return (
+    <AppCard selected className="flex flex-col gap-[0.5em] p-[1em]">
+      <p className="font-mono text-[1.0625em] font-bold uppercase leading-[1.2] text-[#8f6cf0]">
+        Standby / position {STANDBY_POSITION}
+      </p>
+      <p className="text-[0.9375em] leading-[1.4] text-[color:var(--secondary)]">
+        Exact variant: {size}. If inventory returns, you get a private ten-minute purchase window.
+      </p>
+    </AppCard>
+  );
+}
+
+function StandbyView({ shown, animate }: { shown: boolean; animate: boolean }) {
   const [size, setSize] = useState<StandbySize | null>(null);
   const [joined, setJoined] = useState<readonly StandbySize[]>([]);
   const labelId = useId();
   const isJoined = size !== null && joined.includes(size);
 
+  // Leaving the view clears the choice, so it opens fresh next time.
+  useEffect(() => {
+    if (shown) return;
+    setSize(null);
+    setJoined([]);
+  }, [shown]);
+
   return (
     <>
-      <div className="mt-[1.125em] flex items-start justify-between gap-[1em]">
+      <div className="mt-[1em] flex items-start justify-between gap-[1em]">
         <div className="flex min-w-0 flex-col gap-[0.375em]">
           <p className="app-serif text-[1.75em] text-white">{ITEM.name}</p>
           <AppLabel>0 / 18 remain</AppLabel>
@@ -357,19 +377,19 @@ function StandbyView({ animate }: { animate: boolean }) {
         <p className="shrink-0 pt-[0.2em] text-[1.125em] font-medium text-white">{ITEM.price}</p>
       </div>
 
-      <AppCard selected className="mt-[0.875em] flex flex-col gap-[0.5625em] border-accent/28! p-[1em]">
+      <AppCard selected className="mt-[0.8125em] flex flex-col gap-[0.5625em] border-accent/28! p-[1em]">
         <AppLabel tone="accent">Allocation exhausted</AppLabel>
         <p className="text-[0.9375em] font-medium leading-[1.35] text-white">
           Every unit in this drop&rsquo;s allocation was claimed before you reached this page.
         </p>
-        <p className="text-[0.875em] leading-[1.45] text-[color:var(--secondary)]">
+        <p className="text-[0.875em] leading-[1.42] text-[color:var(--secondary)]">
           Standby holds your place for this exact size if a unit is returned or another holder lets
           theirs go. It does not reserve inventory, it does not guarantee an order, and no payment is
           taken.
         </p>
       </AppCard>
 
-      <div className="mt-[1.125em]">
+      <div className="mt-[1em]">
         <div className="flex items-baseline justify-between">
           <AppLabel>
             <span id={labelId}>Select size</span>
@@ -425,18 +445,14 @@ function StandbyView({ animate }: { animate: boolean }) {
         </AppPrimaryButton>
       </div>
 
-      <div role="status">
-        {isJoined && (
-          <Reveal key={size} animate={animate} className="mt-[0.625em]">
-            <AppCard selected className="flex flex-col gap-[0.5em] p-[1em]">
-              <p className="font-mono text-[1.0625em] font-bold uppercase leading-[1.2] text-[#8f6cf0]">
-                Standby / position {STANDBY_POSITION}
-              </p>
-              <p className="text-[0.9375em] leading-[1.4] text-[color:var(--secondary)]">
-                Exact variant: {size}. If inventory returns, you get a private ten-minute purchase
-                window.
-              </p>
-            </AppCard>
+      {/* The panel's room is kept from the start, so joining never moves the frame. */}
+      <div role="status" className="mt-[0.625em] grid">
+        <div aria-hidden="true" className="invisible col-start-1 row-start-1">
+          <StandbyPanel size="XL" />
+        </div>
+        {size !== null && isJoined && (
+          <Reveal key={size} animate={animate} className="col-start-1 row-start-1">
+            <StandbyPanel size={size} />
           </Reveal>
         )}
       </div>
@@ -444,27 +460,65 @@ function StandbyView({ animate }: { animate: boolean }) {
   );
 }
 
+/**
+ * One of the two views. Both are laid out in the same cell, so the frame is
+ * always as tall as the taller one and switching never moves the page. The
+ * view that is not showing is hidden from sight, focus and assistive tech.
+ */
+function ViewLayer({
+  shown,
+  animate,
+  children,
+}: {
+  shown: boolean;
+  animate: boolean;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const wasShown = useRef(shown);
+  useEffect(() => {
+    if (wasShown.current === shown) return;
+    wasShown.current = shown;
+    const el = ref.current;
+    if (!shown || !animate || !el || typeof el.animate !== "function") return;
+    const run = el.animate(
+      [
+        { opacity: 0, transform: "translateY(6px)" },
+        { opacity: 1, transform: "translateY(0)" },
+      ],
+      { duration: 180, easing: EASE_OUT }
+    );
+    return () => run.cancel();
+  }, [shown, animate]);
+  return (
+    <div
+      ref={ref}
+      inert={!shown}
+      aria-hidden={shown ? undefined : true}
+      className={`col-start-1 row-start-1 flex min-w-0 flex-col ${shown ? "" : "invisible"}`}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function HoldDemo({ active }: { active: boolean }) {
   const reduced = usePrefersReducedMotion();
   const [view, setView] = useState<View>("hold");
-  // The first view is simply there; later ones settle in.
-  const [switched, setSwitched] = useState(false);
   const animate = active && !reduced;
 
   return (
     <AppFrame label="Hold and Standby demo">
-      <div className="flex min-h-[38.75em] flex-col px-[1.25em] pb-[1.25em] pt-[1em]">
-        <ViewSwitch
-          value={view}
-          onChange={(next) => {
-            if (next === view) return;
-            setView(next);
-            setSwitched(true);
-          }}
-        />
-        <Reveal key={view} animate={animate && switched} className="flex flex-1 flex-col">
-          {view === "hold" ? <HoldView active={active} /> : <StandbyView animate={animate} />}
-        </Reveal>
+      <div className="flex flex-col px-[1.25em] pb-[1.25em] pt-[1em]">
+        <ViewSwitch value={view} onChange={setView} />
+        <div className="grid">
+          <ViewLayer shown={view === "hold"} animate={animate}>
+            <HoldView active={active && view === "hold"} />
+          </ViewLayer>
+          <ViewLayer shown={view === "standby"} animate={animate}>
+            <StandbyView shown={view === "standby"} animate={animate} />
+          </ViewLayer>
+        </div>
       </div>
     </AppFrame>
   );

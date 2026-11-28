@@ -148,9 +148,9 @@ const SPECTRUM_BINS: string[] = Array.from({ length: SPECTRUM_STEPS + 1 }, (_, i
 
 const CORE_RAMP = ["@", "@", "@", "M", "M", "M", "W", "W", "#", "#", "%", "%"];
 const CORE_TINT = "#6A1DE6";
-const CORE_BODY = 17;
-const CORE_PATCH = 19;
 const STAR_RAMP = ["T", "t", "+", "-", "*", "o"];
+/** Below this the rim draws nothing: a defined edge, no faint stragglers. */
+const RIM_CUT = 0.3;
 
 interface Cell {
   x: number;
@@ -160,9 +160,19 @@ interface Cell {
   alpha: number;
 }
 
+const smoothstep = (a: number, b: number, v: number) => {
+  const k = clamp01((v - a) / (b - a));
+  return k * k * (3 - 2 * k);
+};
+
 /**
- * The card-scale spiral: a monospace lattice where every cell draws and
- * density sets how heavy and how bright it is. One frame, never animated.
+ * The card-scale spiral: a monospace lattice where every cell inside the disc
+ * draws, and density sets how heavy and how bright it is. One frame, never
+ * animated.
+ *
+ * The app lets this lattice run to the corners of the panel. Here the disc
+ * thins out before the panel edge, arms last, so it sits whole inside the card
+ * with the star field and the caption on clear ground.
  */
 function drawGalaxy(
   ctx: CanvasRenderingContext2D,
@@ -176,12 +186,17 @@ function drawGalaxy(
   const pitchY = point * 1.24;
   const arms = 4;
   const squash = 0.46;
-  const tilt = 0.15;
+  const tilt = variant === 0 ? 0.15 : -0.15;
   const winding = 4.4 + variant * 0.22;
-  const time = (7 + variant * 1.7) * 0.2;
+  // The frame each card stands on, chosen so the arms wrap both ends of the disc.
+  const time = variant === 0 ? 0.8 : 1.1;
   const cx = w / 2;
-  const cy = h / 2;
-  const reach = Math.min(w * 0.62, (h * 0.62) / squash);
+  const cy = h * 0.47;
+  const reach = Math.min(w * 0.43, (h * 0.6) / squash);
+  // The app sizes the core in points against a reach of about 222.
+  const k = reach / 222;
+  const coreBody = 17 * k;
+  const corePatch = 19 * k;
   const step = (2 * Math.PI) / arms;
   const ct = Math.cos(tilt);
   const st = Math.sin(tilt);
@@ -194,20 +209,20 @@ function drawGalaxy(
   ctx.save();
   ctx.translate(cx, cy);
   ctx.scale(1, squash);
-  const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, 190);
+  const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, 190 * k);
   halo.addColorStop(0, "rgb(255 255 255 / 0.09)");
   halo.addColorStop(0.5, "rgb(255 255 255 / 0.035)");
   halo.addColorStop(1, "rgb(255 255 255 / 0)");
   ctx.fillStyle = halo;
   ctx.beginPath();
-  ctx.arc(0, 0, 190, 0, Math.PI * 2);
+  ctx.arc(0, 0, 190 * k, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
   // The core: a small violet ball on a lattice a third of the disc's pitch.
   const corePitchX = pitchX / 3;
   const corePitchY = pitchY / 3;
-  const coreOuter = CORE_BODY + corePitchY;
+  const coreOuter = coreBody + corePitchY;
   ctx.fillStyle = CORE_TINT;
   for (const weight of [700, 600] as const) {
     ctx.font = `${weight === 700 ? 600 : 500} ${point * 0.42}px ${family}`;
@@ -223,8 +238,8 @@ function drawGalaxy(
       ) {
         const px = corePitchX * (column + 0.5);
         const py = corePitchY * (row + 0.5);
-        const nx = (px - cx) / CORE_BODY;
-        const ny = (py - cy) / CORE_BODY;
+        const nx = (px - cx) / coreBody;
+        const ny = (py - cy) / coreBody;
         const radius = Math.sqrt(nx * nx + ny * ny);
         if (radius > 1) continue;
         // Light from the upper left on top of a radial falloff.
@@ -261,12 +276,22 @@ function drawGalaxy(
       const r = Math.sqrt(r2);
       const centreRadius = Math.sqrt(dx * dx + flatY * flatY) * reach;
       const rPoints = r * reach;
-      if (centreRadius < CORE_PATCH) continue;
+      if (centreRadius < corePatch) continue;
+
+      // Distance from the nearest arm, measured along the winding.
+      const theta = Math.atan2(dy, dx);
+      const phase = (theta - r * winding - time) / step;
+      const armDistance = Math.abs(phase - Math.round(phase)) * step;
+      const armWidth = step * (0.34 + r * 0.15);
+      const armShape = Math.min(1, armDistance / armWidth);
+      // Where the disc ends. The lanes stop first and the arms trail on.
+      const rimStart = 0.6 + (1 - armShape * armShape) * 0.36;
+      const rim = 1 - smoothstep(rimStart, rimStart + 0.09, r);
 
       // Sparse stars above and around the disc, none in the lower band.
       const sn = artNoise(column * 29 + row * 97 + 3);
       const starAllowed = 1 - clamp01((py / h - 0.62) / 0.22);
-      if (sn < 0.02 * starAllowed) {
+      if (r > rimStart + 0.3 && sn < 0.02 * starAllowed) {
         const twinkle =
           0.52 + 0.3 * Math.sin(time * 1.1 + sn * 63) + 0.18 * Math.sin(time * 2.7 + sn * 149);
         const driftHash = artNoise((column + driftX) * 29 + (row + driftY) * 97 + 3);
@@ -280,21 +305,15 @@ function drawGalaxy(
           alpha: ((0.7 + twinkle * 0.3) * (0.65 + driftHash * 0.35)) / (1 + r * 0.55),
         });
       }
-
-      // Distance from the nearest arm, measured along the winding.
-      const theta = Math.atan2(dy, dx);
-      const phase = (theta - r * winding - time) / step;
-      const armDistance = Math.abs(phase - Math.round(phase)) * step;
-      const armWidth = step * (0.34 + r * 0.15);
-      const armShape = Math.min(1, armDistance / armWidth);
+      if (rim < RIM_CUT) continue;
       let density = armShape < 0.8 ? 1 : Math.max(0, 1 - (armShape - 0.8) / 0.2);
       density *= 1 / (1 + r2 * r * 0.95);
       density *= 1 - r2 * r * 0.3;
       // The arms drain toward the centre and sit in a shadow around the core.
-      const feed = Math.max(0, 1 - rPoints / 88);
+      const feed = Math.max(0, 1 - rPoints / (88 * k));
       density *= 1 - feed * feed * 0.66;
-      const bulge = Math.max(0, 1 - rPoints / 60);
-      const shadow = Math.min(1, rPoints / 42);
+      const bulge = Math.max(0, 1 - rPoints / (60 * k));
+      const shadow = Math.min(1, rPoints / (42 * k));
       density *= shadow * shadow * shadow;
       density = Math.max(0, density);
 
@@ -314,7 +333,7 @@ function drawGalaxy(
         y: py,
         ch: RAMP[glyphIndex],
         fill: SPECTRUM_BINS[Math.round(t * SPECTRUM_STEPS)],
-        alpha: floor + Math.pow(density, 0.72) * (1 - floor),
+        alpha: (floor + Math.pow(density, 0.72) * (1 - floor)) * rim,
       });
     }
   }
@@ -419,9 +438,28 @@ function buildSatellite(angle: number): Mark[] {
   const by = cy + Math.sin(angle) * ry - blockH / 2;
   const marks: Mark[] = [];
 
-  const count = 96;
+  // Marks are spaced evenly along the ellipse, not by angle, so they do not
+  // pile up at its two ends.
+  const samples = 1440;
+  const lengths: number[] = [0];
+  for (let i = 1; i <= samples; i += 1) {
+    const a = ((i - 1) / samples) * Math.PI * 2;
+    const b = (i / samples) * Math.PI * 2;
+    lengths.push(
+      lengths[i - 1] +
+        Math.hypot((Math.cos(b) - Math.cos(a)) * rx, (Math.sin(b) - Math.sin(a)) * ry)
+    );
+  }
+  const count = 72;
+  let cursor = 0;
   for (let i = 0; i < count; i += 1) {
-    const theta = (i / count) * Math.PI * 2;
+    const target = (i / count) * lengths[samples];
+    while (cursor < samples - 1 && lengths[cursor + 1] < target) cursor += 1;
+    // Interpolated inside the sample, so the angle is continuous in the
+    // target and the server and the browser land on the same mark.
+    const span = lengths[cursor + 1] - lengths[cursor];
+    const within = span > 0 ? clamp01((target - lengths[cursor]) / span) : 0;
+    const theta = ((cursor + within) / samples) * Math.PI * 2;
     const x = cx + Math.cos(theta) * rx;
     const y = cy + Math.sin(theta) * ry;
     // The orbit yields to the object so no mark sits under its frame.
@@ -431,7 +469,7 @@ function buildSatellite(angle: number): Mark[] {
     }
     const near = (Math.cos(theta - angle) + 1) / 2;
     const cross = i % 4 === 0;
-    marks.push(mark(x, y, cross ? "+" : "o", cell * 0.6, cross ? ACCENT : PERI, 0.1 + near * 0.26));
+    marks.push(mark(x, y, cross ? "+" : "o", cell * 0.6, cross ? ACCENT : PERI, 0.13 + near * 0.29));
   }
 
   SATELLITE_FRAME.forEach((line, row) => {
@@ -455,18 +493,21 @@ function buildPackage(left: number, top: number, seed: number): Mark[] {
   const marks: Mark[] = [];
 
   const lineY = top - cell * 2.6;
-  for (let i = 0; i * cell * 1.8 <= ART_W; i += 2) {
-    marks.push(mark(i * cell * 1.8 + cell * 0.6, lineY, "o", cell * 0.5, PERI, 0.16));
+  const lineStep = cell * 1.8;
+  const lineCount = Math.floor((ART_W - cell * 4) / lineStep);
+  const lineLeft = (ART_W - lineCount * lineStep) / 2;
+  for (let i = 0; i <= lineCount; i += 1) {
+    marks.push(mark(lineLeft + i * lineStep, lineY, "o", cell * 0.5, PERI, 0.2));
   }
 
   const trail = 9;
   for (let row = 0; row < trail; row += 1) {
     const u = row / trail;
-    const jitter = (artNoise(row * 23 + 11 + seed * 7) - 0.5) * cell * (0.8 + u * 1.6);
+    const jitter = (artNoise(row * 23 + 11 + seed * 7) - 0.5) * cell * (0.3 + u * 0.9);
     marks.push(
       mark(
-        left - (row + 0.6) * cell * 1.1 + jitter,
-        top + blockH / 2 + jitter * 0.5,
+        left - (row + 0.9) * cell * 0.92 + jitter * 0.3,
+        top + blockH / 2 + jitter,
         row % 3 === 0 ? "o" : "+",
         cell * 0.62,
         u < 0.34 ? ICE : ACCENT,
@@ -490,7 +531,7 @@ function buildPackage(left: number, top: number, seed: number): Mark[] {
 }
 
 const SATELLITE_MARKS: Mark[][] = [buildSatellite(2.05), buildSatellite(-0.62)];
-const PACKAGE_MARKS: Mark[][] = [buildPackage(150, 104, 0), buildPackage(128, 96, 1)];
+const PACKAGE_MARKS: Mark[][] = [buildPackage(160, 96, 0), buildPackage(152, 104, 1)];
 
 const GlyphScene = memo(function GlyphScene({ marks }: { marks: Mark[] }) {
   return (
@@ -673,9 +714,14 @@ const SETTLE_MS = 300;
 const SETTLE_TRANSITION = `transform ${SETTLE_MS}ms cubic-bezier(0.2, 0.9, 0.3, 1.1)`;
 const LEAVE_TRANSITION = `transform ${LEAVE_MS}ms ease-in, opacity ${LEAVE_MS}ms ease-in`;
 
-const BACK_STYLES: React.CSSProperties[] = [
-  { transform: "translateY(1em) scale(0.965)", opacity: 0.62, zIndex: 20 },
-  { transform: "translateY(2em) scale(0.93)", opacity: 0.36, zIndex: 10 },
+/**
+ * The app sets the cards behind to 62% and 36% opacity. On a black screen a
+ * black veil of the remainder looks the same, without the third card showing
+ * through the second while the front one is dragged away.
+ */
+const BACK_CARDS: { style: React.CSSProperties; veil: number }[] = [
+  { style: { transform: "translateY(1em) scale(0.965)", zIndex: 20 }, veil: 0.38 },
+  { style: { transform: "translateY(2em) scale(0.93)", zIndex: 10 }, veil: 0.64 },
 ];
 
 const DECISION_BASE =
@@ -1005,10 +1051,14 @@ export function LabDemo({ active }: { active: boolean }) {
                 <div
                   key={item.id}
                   aria-hidden="true"
-                  style={BACK_STYLES[depth - 1]}
+                  style={BACK_CARDS[depth - 1].style}
                   className="pointer-events-none absolute inset-x-0 top-0 h-[25.75em]"
                 >
                   <ConceptCard concept={item} />
+                  <span
+                    style={{ opacity: BACK_CARDS[depth - 1].veil }}
+                    className="absolute inset-0 rounded-[12px] bg-black"
+                  />
                 </div>
               )
             )}

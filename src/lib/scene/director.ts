@@ -129,7 +129,7 @@ function silhouetteFraming(w: number, h: number): Framing {
     elev: 17,
     cx: w / 2,
     cy: h * 0.5,
-    r: 0.15 * Math.min(w, h * 1.25),
+    r: w < 700 ? 0.24 * w : 0.15 * Math.min(w, h * 1.25),
     diskOut: 10.5,
     exposure: 2.6,
   };
@@ -208,10 +208,10 @@ export function direct(input: DirectorInput): SceneValues {
     starGain = 1.05 + 2.6 * easeInCubic(collapse);
 
     // Light floods the grid, then drains from the middle.
-    const fl = clamp01((t - 2.12) / 0.5);
-    flood = smooth(2.1, 2.2, t) * (1 - smooth(2.5, 3.1, t));
-    floodR = easeOutCubic(fl) * maxDim * 0.78;
-    drainR = smooth(2.35, 3.05, t) * maxDim * 0.7;
+    const fl = clamp01((t - 2.12) / 0.62);
+    flood = smooth(2.1, 2.2, t) * (1 - smooth(2.45, 2.95, t)) * 0.62;
+    floodR = easeOutCubic(fl) * maxDim * 0.74;
+    drainR = easeOutCubic(clamp01((t - 2.2) / 0.78)) * maxDim * 0.7;
 
     // The hole: horizon opens from a point; the disk gathers from infall.
     mass = smooth(2.2, 3.0, t);
@@ -221,17 +221,17 @@ export function direct(input: DirectorInput): SceneValues {
 
     // Camera: hold on the star, let the full silhouette open, then sweep down
     // to the horizon while the disk draws in.
-    const sweep = smoother(3.3, 4.7, t);
+    const sweep = smoother(3.2, 4.4, t);
     const starFrame: Framing = { ...sil, r: sil.r * 1.02 };
     f = mixFraming(starFrame, horizon, sweep);
     const open = smooth(2.5, 3.3, t);
-    const drawIn = smooth(3.45, 4.5, t);
+    const drawIn = smooth(3.3, 4.25, t);
     f.diskOut = lerp(lerp(3.0, 9.5, open), horizon.diskOut, drawIn);
     polar = 0;
     alpha = 1;
 
-    heroReveal = smooth(3.85, 4.6, t);
-    clockReveal = smooth(4.3, 4.95, t);
+    heroReveal = smooth(4.1, 4.75, t);
+    clockReveal = smooth(4.45, 5.0, t);
   }
 
   // ---------------- camera basis ----------------
@@ -301,7 +301,7 @@ export function direct(input: DirectorInput): SceneValues {
     horizonClock,
     dialClock,
     polar,
-    fadeGuard: (1 - smooth(0.05, 0.3, polar)) * smooth(3.5, 4.3, intro),
+    fadeGuard: (1 - smooth(0.05, 0.3, polar)) * smooth(3.4, 4.1, intro),
     glow: 0.9,
     well: 0.78 * mass,
     wellPx: f.r * lerp(0.62, 1.5, polar) * (f.diskOut / 4.4),

@@ -3,17 +3,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { DropsHomeDemo } from "@/components/demos/drops-home-demo";
 import { ClockDemo } from "@/components/demos/clock-demo";
-// PENDING import { SizeAssistDemo } from "@/components/demos/size-assist-demo";
-const SizeAssistDemo = PendingDemo;
-// PENDING import { HoldDemo } from "@/components/demos/hold-demo";
-const HoldDemo = PendingDemo;
-// PENDING import { LabDemo } from "@/components/demos/lab-demo";
-const LabDemo = PendingDemo;
-
-/** Stands in while a demo is still being built. */
-function PendingDemo(_: { active: boolean }) {
-  return <div className="h-[560px] w-full max-w-[400px] rounded-[26px] border border-white/15 bg-black" />;
-}
+import { SizeAssistDemo } from "@/components/demos/size-assist-demo";
+import { HoldDemo } from "@/components/demos/hold-demo";
+import { LabDemo } from "@/components/demos/lab-demo";
 
 interface Feature {
   id: string;
@@ -185,7 +177,7 @@ export function Features() {
             ))}
           </ol>
           <div className="relative">
-            <div className="sticky top-[max(84px,calc(50vh-330px))] h-[660px]">
+            <div className="sticky top-[max(76px,calc(50vh-330px))] h-[min(660px,calc(100vh-92px))]">
               {FEATURES.map((f, i) => {
                 const on = i === active;
                 const { Demo } = f;
@@ -194,7 +186,7 @@ export function Features() {
                     key={f.id}
                     aria-hidden={!on}
                     inert={!on}
-                    className={`absolute inset-0 flex items-start justify-center transition-[opacity,transform] duration-300 ease-out ${
+                    className={`absolute inset-0 flex items-center justify-center transition-[opacity,transform] duration-300 ease-out ${
                       on
                         ? "translate-y-0 opacity-100"
                         : "pointer-events-none translate-y-2 opacity-0"
