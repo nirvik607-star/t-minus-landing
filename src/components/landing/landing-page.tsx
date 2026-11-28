@@ -101,9 +101,9 @@ export function LandingPage() {
   const offerApp = live && APP_STORE_URL !== "";
   const [sceneOff, setSceneOff] = useState(false);
   // Enough rows of T's for the letters to hold their shape at each size.
-  const [minusRows, setMinusRows] = useState(8);
+  const [minusRows, setMinusRows] = useState(13);
   useEffect(() => {
-    const update = () => setMinusRows(window.innerWidth >= 900 ? 12 : window.innerWidth >= 560 ? 10 : 8);
+    const update = () => setMinusRows(window.innerWidth >= 900 ? 12 : window.innerWidth >= 640 ? 10 : 13);
     update();
     window.addEventListener("resize", update, { passive: true });
     return () => window.removeEventListener("resize", update);
@@ -304,7 +304,7 @@ export function LandingPage() {
       globeOnRef.current = f.world > 0.3;
       setGlobeOn(globeOnRef.current);
     }
-    const closingIn = f.closing > 0.001 ? smooth(0.62, 0.9, f.closing) : 0;
+    const closingIn = f.closing > 0.001 ? smooth(0.36, 0.72, f.closing) : 0;
     write("hc-v", horizonClockRef.current, "visibility", stripOpacity < 0.02 ? "hidden" : "visible");
 
     // Dial clock: centred in the void, sized to it.
@@ -543,7 +543,7 @@ export function LandingPage() {
               } flex flex-col items-center px-5 pt-[calc(56px+1.6dvh)] will-change-transform sm:pt-[calc(68px+2dvh)]`}
             >
               {/* The statement at poster scale: the two serif lines hang off the ends of the word. */}
-              <h1 className="flex w-[min(92vw,1180px,158dvh)] flex-col">
+              <h1 className="flex w-[min(92vw,1180px,158dvh)] flex-col lg:px-[4.6%]">
                 <span className="statement self-start text-[clamp(1.9rem,min(3.5vw,6dvh),3.3rem)] leading-[1] text-ink">
                   Fashion.
                 </span>
@@ -553,37 +553,52 @@ export function LandingPage() {
                   rows={minusRows}
                   maskWeight={800}
                   glyphs={MINUS_GLYPHS}
+                  condense
                   tints={MINUS_TINTS}
                   signal="#FFFFFF"
                   silhouette="#FFFFFF"
-                  silhouetteOpacity={0.1}
+                  silhouetteOpacity={0.14}
                   threshold={0.62}
                   revealSource={minusReveal}
-                  className="my-1 aspect-[4.86/1] w-full sm:my-1.5"
+                  className="my-1 h-[calc(92vw/2.75)] w-full sm:my-1.5 sm:h-[calc(min(92vw,1180px,158dvh)/4.86)] lg:-mx-[5%] lg:w-[110%]"
                 />
                 <span className="statement self-end text-[clamp(1.9rem,min(3.5vw,6dvh),3.3rem)] leading-[1] text-ink">
                   the Noise.
                 </span>
               </h1>
-              <p className="mt-3.5 max-w-[36ch] text-center text-[16px] leading-[1.45] text-soft sm:mt-4 sm:max-w-[44ch] sm:text-[18px]">
-                Limited drops from independent brands, on one live clock.{" "}
-                {live ? "On the App Store now." : "On the App Store January 1."}
-              </p>
-              <div ref={heroFormRef} className="mt-4 flex w-full flex-col items-center sm:mt-5">
-                {offerApp ? (
-                  <AppStoreButton />
-                ) : (
-                  <>
-                    <WaitlistForm onPulse={pulse} roleSwitch={false} perk onJoined={onJoined} />
+              {/* Under the word: what it is on the left, the form on the right. One column on small screens. */}
+              <div className="mt-3 grid w-[min(92vw,1180px,158dvh)] grid-cols-1 items-start gap-x-16 gap-y-4 lg:mt-1 lg:grid-cols-[minmax(0,1fr)_460px] lg:px-[4.6%]">
+                <div className="flex flex-col items-center lg:items-start">
+                  <p className="max-w-[36ch] text-center text-[16px] leading-[1.45] text-soft sm:text-[18px] lg:max-w-[30ch] lg:text-left lg:text-[21px] lg:leading-[1.4]">
+                    Limited drops from independent brands, on one live clock.{" "}
+                    {live ? "On the App Store now." : "On the App Store January 1."}
+                  </p>
+                  {offerApp ? null : (
                     <button
                       type="button"
                       onClick={() => goToForm("BRAND")}
-                      className="mt-1 inline-flex h-11 cursor-pointer items-center text-[13.5px] text-mute underline decoration-peri/60 underline-offset-[3px] [@media(max-height:799px)]:hidden [@media(hover:hover)]:hover:text-ink"
+                      className="mt-1 hidden h-11 cursor-pointer items-center text-[14px] text-mute underline decoration-peri/60 underline-offset-[3px] lg:inline-flex [@media(max-height:719px)]:hidden [@media(hover:hover)]:hover:text-ink"
                     >
                       Run a brand? Apply to launch a drop
                     </button>
-                  </>
-                )}
+                  )}
+                </div>
+                <div ref={heroFormRef} className="flex w-full flex-col items-center lg:items-start">
+                  {offerApp ? (
+                    <AppStoreButton />
+                  ) : (
+                    <>
+                      <WaitlistForm onPulse={pulse} roleSwitch={false} perk align="split" onJoined={onJoined} />
+                      <button
+                        type="button"
+                        onClick={() => goToForm("BRAND")}
+                        className="mt-1 inline-flex h-11 cursor-pointer items-center text-[13.5px] text-mute underline decoration-peri/60 underline-offset-[3px] lg:hidden [@media(max-height:799px)]:hidden [@media(hover:hover)]:hover:text-ink"
+                      >
+                        Run a brand? Apply to launch a drop
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
               {sceneOff ? (
                 <div className="relative -mx-5 mt-10 flex w-[calc(100%+2.5rem)] justify-center overflow-hidden pb-9 pt-14">

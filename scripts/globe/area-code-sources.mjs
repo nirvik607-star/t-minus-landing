@@ -1,7 +1,8 @@
 // Loads and normalises the source datasets behind src/lib/globe/area-codes.ts.
 // Used by build-area-codes.mjs (generation) and verify-area-codes.mjs (checks).
 import fs from "node:fs";
-import { genRequire, genVersion } from "./_deps.mjs";
+import path from "node:path";
+import { genPackageDir, genRequire, genVersion } from "./_deps.mjs";
 
 /** US states + DC. Used only to turn libphonenumber's state names into abbreviations. */
 export const US_STATES = {
@@ -59,6 +60,7 @@ export function normName(name) {
 export function loadCities() {
   const cities = genRequire("all-the-cities");
   const index = new Map();
+  const aliases = [];
   for (const c of cities) {
     if (c.country !== "US" && c.country !== "CA") continue;
     const state = c.country === "US" ? c.adminCode : GEONAMES_CA_ADMIN[c.adminCode];
@@ -74,7 +76,11 @@ export function loadCities() {
     const key = `${state}|${normName(c.name)}`;
     const prev = index.get(key);
     if (!prev || rec.population > prev.population) index.set(key, rec);
+    // Secondary keys: "Washington, D.C." -> "Washington", "Greater Sudbury" -> "Sudbury".
+    const short = c.name.replace(/,.*$/, "").replace(/^Greater /, "");
+    if (short !== c.name) aliases.push([`${state}|${normName(short)}`, rec]);
   }
+  for (const [key, rec] of aliases) if (!index.has(key)) index.set(key, rec);
   /** Look a city up by name within a state; tolerates "X" vs "X City". */
   const find = (name, state) => {
     const n = normName(name);
@@ -95,7 +101,7 @@ export function loadCities() {
  */
 export function loadGeocoding() {
   const { BSON } = genRequire("bson");
-  const file = genRequire.resolve("libphonenumber-geo-carrier/resources/geocodes/en/1.bson");
+  const file = path.join(genPackageDir("libphonenumber-geo-carrier"), "resources", "geocodes", "en", "1.bson");
   const table = BSON.deserialize(fs.readFileSync(file));
 
   const parse = (value) => {
@@ -161,7 +167,7 @@ export function loadGeocoding() {
 
 /** NANPA's list of in-service geographic / non-geographic NPAs (area-codes-nanp snapshot). */
 export async function loadNanpa() {
-  const file = genRequire.resolve("area-codes-nanp/package.json").replace(/package\.json$/, "dist/esm/area_codes.js");
+  const file = path.join(genPackageDir("area-codes-nanp"), "dist", "esm", "area_codes.js");
   const source = fs.readFileSync(file, "utf8");
   const snapshot = (source.match(/generated from CSV file: (\S+)/) || [])[1] || "unknown";
   const list = (name) => {
@@ -172,14 +178,27 @@ export async function loadNanpa() {
   return { snapshot, geo: list("areaCodesByGeo"), nonGeo: list("areaCodesByNonGeo") };
 }
 
-/** One "main city" hint per area code from areacode-to-zipcode (covers overlay codes). */
+/**
+ * One city per area code from areacode-to-zipcode (it covers overlay codes).
+ * Used only as a hint to find which code an overlay belongs to; its city is
+ * typically the alphabetically first place in the code, not the main one.
+ */
 export function loadCityHints() {
   const { getDataFromAreaCode } = genRequire("areacode-to-zipcode");
   return (code) => {
     const d = getDataFromAreaCode(Number(code));
     if (!d || !d.city || !d.state) return null;
-    return { name: d.city, state: d.state, country: d.country };
+    return { name: d.city, state: d.state, country: d.country, key: `${normName(d.city)}|${d.state}` };
   };
+}
+
+/** Great-circle distance in km. */
+export function distanceKm(lat1, lon1, lat2, lon2) {
+  const rad = Math.PI / 180;
+  const a =
+    Math.sin(((lat2 - lat1) * rad) / 2) ** 2 +
+    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(((lon2 - lon1) * rad) / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(a));
 }
 
 export const sourceVersions = () =>

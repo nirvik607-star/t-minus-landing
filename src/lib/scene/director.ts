@@ -294,7 +294,7 @@ export function direct(input: DirectorInput): SceneValues {
     const k = smoother(0, 1, closing);
     f = mixFraming(inside, endingFraming(w, h, input.stage), k);
     polar = 1;
-    world = smooth(0.5, 0.9, closing);
+    world = smooth(0.16, 0.58, closing);
   }
 
   // ---------------- intro ----------------

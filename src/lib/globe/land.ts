@@ -8,14 +8,17 @@
  * Grid: equirectangular, 240 x 120 cells, 1.5 degrees per cell.
  *   row 0    = latitude  +90 .. +88.5   (north to south)
  *   column 0 = longitude -180 .. -178.5 (west to east)
- * A cell is land when its CENTRE lies inside a land polygon.
+ * A cell is land when its CENTRE lies inside a land polygon, so islands
+ * smaller than a cell can be missing altogether (Hawaii has no land cell).
  *
  * Source data: Natural Earth 1:110m physical vectors, "Land" (v4.1.0),
- * https://www.naturalearthdata.com/ — public domain ("Made with Natural
- * Earth"; no permission or attribution required). Taken from the npm package
- * world-atlas (land-110m.json, TopoJSON), which is ISC licensed,
+ * https://www.naturalearthdata.com/ — public domain: free to use, modify and
+ * redistribute, no permission or credit required ("Made with Natural Earth"
+ * is the suggested, optional credit). Taken from the npm package world-atlas
+ * (land-110m.json, TopoJSON), which is ISC licensed,
  * Copyright 2013-2019 Michael Bostock.
- * Generated with world-atlas@2.0.2, topojson-client@3.1.0, d3-geo@3.1.2; none of them is needed at runtime.
+ * Generated with world-atlas@2.0.2, topojson-client@3.1.0, d3-geo@3.1.2;
+ * none of them is needed at runtime.
  *
  * 9527 of 28800 cells are land (33.1% of cells,
  * 28.9% of the sphere's area once cells are weighted by cos(latitude)).

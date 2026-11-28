@@ -61,7 +61,7 @@ const CONCEPTS: Concept[] = [
   },
   {
     id: "CONCEPT_06",
-    title: "Crossbody bag",
+    title: "Canvas tote",
     category: "Accessories",
     byline: "Studio 06, $95 to $125 provisional",
     supporters: 68,

@@ -56,14 +56,17 @@ const out = `/**
  * Grid: equirectangular, ${COLS} x ${ROWS} cells, ${STEP} degrees per cell.
  *   row 0    = latitude  +90 .. +${90 - STEP}   (north to south)
  *   column 0 = longitude -180 .. -${180 - STEP} (west to east)
- * A cell is land when its CENTRE lies inside a land polygon.
+ * A cell is land when its CENTRE lies inside a land polygon, so islands
+ * smaller than a cell can be missing altogether (Hawaii has no land cell).
  *
  * Source data: Natural Earth 1:110m physical vectors, "Land" (v4.1.0),
- * https://www.naturalearthdata.com/ — public domain ("Made with Natural
- * Earth"; no permission or attribution required). Taken from the npm package
- * world-atlas (land-110m.json, TopoJSON), which is ISC licensed,
+ * https://www.naturalearthdata.com/ — public domain: free to use, modify and
+ * redistribute, no permission or credit required ("Made with Natural Earth"
+ * is the suggested, optional credit). Taken from the npm package world-atlas
+ * (land-110m.json, TopoJSON), which is ISC licensed,
  * Copyright 2013-2019 Michael Bostock.
- * Generated with ${versions}; none of them is needed at runtime.
+ * Generated with ${versions};
+ * none of them is needed at runtime.
  *
  * ${landCells} of ${COLS * ROWS} cells are land (${((100 * landCells) / (COLS * ROWS)).toFixed(1)}% of cells,
  * ${((100 * landArea) / totalArea).toFixed(1)}% of the sphere's area once cells are weighted by cos(latitude)).

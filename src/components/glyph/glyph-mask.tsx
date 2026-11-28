@@ -36,6 +36,8 @@ export interface GlyphMaskProps {
   clearAfterReveal?: boolean;
   /** Characters for the ordinary cells, quiet to loud. Defaults to the full brand set. */
   glyphs?: readonly string[];
+  /** When the box is taller than the word's own shape, narrow the letters to fit instead of shrinking them. */
+  condense?: boolean;
   /** Seconds per loop. */
   loop?: number;
   /** 0..1: how much of the word has materialised (ordered scan, left to right). */
@@ -73,6 +75,7 @@ export function GlyphMask({
   minCoverage = 0.5,
   clearAfterReveal = false,
   glyphs = SUPPORT,
+  condense = false,
   loop = 2.0,
   reveal,
   revealSource,
@@ -117,6 +120,8 @@ export function GlyphMask({
     let dpr = 1;
     let lastFrame = -1;
     let clearedAt = 0;
+    let silScaleX = 1;
+    let silMid = 0;
     let silFont = "";
     let silX = 0;
     let silY = 0;
@@ -160,24 +165,31 @@ export function GlyphMask({
       setFont(px);
       let m = mctx.measureText(text);
       const wide = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+      silScaleX = 1;
       if (wide > mw * 0.995) {
-        px *= (mw * 0.995) / wide;
-        setFont(px);
-        m = mctx.measureText(text);
+        if (condense) {
+          // Full height kept; the letters are drawn narrower.
+          silScaleX = (mw * 0.995) / wide;
+        } else {
+          px *= (mw * 0.995) / wide;
+          setFont(px);
+          m = mctx.measureText(text);
+        }
       }
       const ascent = mctx.measureText("H").actualBoundingBoxAscent;
       const textW = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
       mctx.fillStyle = "#fff";
-      mctx.fillText(
-        text,
-        (mw - textW) / 2 + m.actualBoundingBoxLeft,
-        (mh + ascent) / 2
-      );
+      mctx.save();
+      mctx.translate(mw / 2, 0);
+      mctx.scale(silScaleX, 1);
+      mctx.fillText(text, -textW / 2 + m.actualBoundingBoxLeft, (mh + ascent) / 2);
+      mctx.restore();
       // The same word, solid, drawn faintly under the field so it always reads.
       const k = cell / sub;
       silFont = fontFor(px * k);
       silSpacing = tracking * px * k;
-      silX = ((mw - textW) / 2 + m.actualBoundingBoxLeft) * k;
+      silX = (-textW / 2 + m.actualBoundingBoxLeft) * k;
+      silMid = (mw / 2) * k;
       silY = ((mh + ascent) / 2) * k;
       const data = mctx.getImageData(0, 0, mw, mh).data;
       coverage = new Float32Array(cols * rows);
@@ -254,7 +266,9 @@ export function GlyphMask({
       ctx.textBaseline = "alphabetic";
       ctx.globalAlpha = silhouetteOpacity;
       ctx.fillStyle = silhouette;
-      ctx.fillText(text, ox + silX, oy + silY);
+      ctx.translate(ox + silMid, 0);
+      ctx.scale(silScaleX, 1);
+      ctx.fillText(text, silX, oy + silY);
       ctx.restore();
       if ("letterSpacing" in ctx) {
         (ctx as unknown as { letterSpacing: string }).letterSpacing = "0px";
@@ -319,6 +333,7 @@ export function GlyphMask({
     minCoverage,
     clearAfterReveal,
     glyphs,
+    condense,
     rowsProp,
     tints,
     signal,

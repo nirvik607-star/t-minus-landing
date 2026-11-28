@@ -317,7 +317,8 @@ export function WaitlistGlobe({ places, active, onPing, className = "" }: Waitli
           if (isLand(lat, lon)) {
             const tone = Math.min(1, shade + lift * 0.9);
             ctx.globalAlpha = Math.min(1, 0.42 + 0.58 * tone);
-            ctx.fillStyle = tone > 0.82 ? WHITE : tone > 0.5 ? PERI : ACCENT;
+            // Land stays in the purples; white is kept for the places people joined from.
+            ctx.fillStyle = lift > 0.5 ? WHITE : tone > 0.62 ? "#A9ACF0" : tone > 0.4 ? PERI : ACCENT;
             if (tone > 0.72) {
               ctx.font = fBold;
               ctx.fillText("T", px, py);
@@ -360,7 +361,12 @@ export function WaitlistGlobe({ places, active, onPing, className = "" }: Waitli
   }, []);
 
   return (
-    <div ref={wrapRef} className={`flex items-center justify-center ${className}`}>
+    <div
+      ref={wrapRef}
+      role="img"
+      aria-label="A globe drawn in the letter T, marking the broad areas people have joined the waitlist from."
+      className={`flex items-center justify-center ${className}`}
+    >
       <canvas ref={canvasRef} aria-hidden="true" className="block" />
     </div>
   );
