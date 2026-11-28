@@ -6,7 +6,7 @@ import { ClockDemo } from "@/components/demos/clock-demo";
 import { SizeAssistDemo } from "@/components/demos/size-assist-demo";
 import { HoldDemo } from "@/components/demos/hold-demo";
 import { LabDemo } from "@/components/demos/lab-demo";
-import { GarmentGlyph, type GarmentKind } from "@/components/demos/garment-glyph";
+import { ClosetDemo } from "@/components/demos/closet-demo";
 import { isWideStage, smooth, stageLayout, stageZoom } from "@/lib/scene/director";
 import { sceneStage } from "@/lib/scene/energy";
 
@@ -22,30 +22,6 @@ interface Feature {
   /** The same hint on small screens, where it differs. */
   hintSmall?: string;
   Demo: React.ComponentType<{ active: boolean }>;
-}
-
-const CLOSET: Array<{ kind: GarmentKind; name: string; meta: string }> = [
-  { kind: "jacket", name: "Field Jacket", meta: "M / Studio 01" },
-  { kind: "trouser", name: "Zip-off Trouser", meta: "32 / Studio 03" },
-  { kind: "liner", name: "Quilted Liner", meta: "M / Studio 05" },
-  { kind: "tote", name: "Modular Tote", meta: "OS / Studio 04" },
-];
-
-/** Not an app screen: four pieces as they would sit in a closet, drawn in glyphs. */
-function ClosetPieces() {
-  return (
-    <ul aria-label="Four pieces in an example closet" className="grid w-full max-w-[400px] grid-cols-2 gap-2.5">
-      {CLOSET.map((item) => (
-        <li key={item.kind} className="rounded-[14px] border border-white/15 bg-[#13021D] p-3.5">
-          <div className="aspect-square">
-            <GarmentGlyph kind={item.kind} label={`${item.name}, drawn in glyphs`} />
-          </div>
-          <p className="mt-2 text-[15px] font-medium leading-tight text-ink">{item.name}</p>
-          <p className="app-label mt-1 whitespace-nowrap text-[12px] text-mute">{item.meta}</p>
-        </li>
-      ))}
-    </ul>
-  );
 }
 
 const FEATURES: Feature[] = [
@@ -94,8 +70,9 @@ const FEATURES: Feature[] = [
     id: "closet",
     name: "Closet",
     lead: "What you bought, kept.",
-    body: "After a drop, each piece lands in your Closet with its size and the brand it came from. Brands can run their own membership inside the app.",
-    Demo: ClosetPieces,
+    body: "After a drop, each piece lands in your Closet with its size and where it stands: secured, on its way, or yours. Pick up to three for a public Showcase.",
+    hint: "Tap a piece to add it to your Showcase.",
+    Demo: ClosetDemo,
   },
 ];
 
@@ -313,9 +290,8 @@ export function Features({ outerRef, scene, onPart }: FeaturesProps) {
         Inside the app.
       </h2>
       <p className="mt-5 max-w-[40ch] text-[18px] leading-[1.5] text-soft lg:text-[19px]">
-        Six parts of it, ready to try.
+        Six working parts of it, running on example data.
       </p>
-      <p className="mt-2 text-[13.5px] leading-[1.4] text-mute">The demos run on example data.</p>
     </>
   );
 

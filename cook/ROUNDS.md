@@ -6,7 +6,7 @@ Bar: design 9 | usability 9 | creativity 9 | content 9 (each out of 10, fresh re
 Calibration offset: none yet (no user estimate received)
 Usage: not readable
 Gate: stills approved no | final render not applicable (the deliverable is the site)
-Best so far: round 9, `cook/stills/r09/`
+Best so far: round 10, `cook/stills/r10/`
 
 Correction, 05:20: the times first written for rounds 1 and 2 were estimates, not clock readings, and ran about 90 minutes ahead. They are replaced below with times taken from the commit log.
 
@@ -29,6 +29,11 @@ Made without asking, one line each.
 - 06:00 Desktop features are mirrored to demo left, copy right, so the dial only has to grow in place to become the ring around the demo.
 - 06:00 Header button is filled white again from the dial onward, because two critics said the demos' white buttons out-shouted an outlined call to action. Reverses the 05:10 decision.
 - 06:00 The per-demo "Live demo, example data" tab and the "Try it." prefix are gone; the section says once that every demo runs on example data. One critic read the repeated tab as a template tell.
+- 06:50 Closet is now a port of the app's own Closet screen (filters, Public Showcase count, piece states), read from the prototype source like the other five, instead of four loose tiles. Piece names are example data.
+- 06:50 The membership line moved from Closet to the brand pitch in the closing, where it belongs to the audience it is for. Flagged for the user.
+- 06:50 The intro's hole has a clean black shadow, with nothing drawn across its front. Five critics over six rounds read the band across it as a seam or a render fault at every angle tried.
+- 06:50 The demos keep the app's white primary buttons, against three critics who wanted them outlined so they do not compete with the page's own button. The user asked for accuracy to the prototype. Flagged for the user.
+- 06:50 Ice blue: the seconds of the page's countdown are the one ice-blue value in the hero and the dial; in the closing the word "zero." takes it and the seconds go white. Unit marks are periwinkle throughout.
 - 05:10 "Example studio / Portland, OR" replaces "Independent studio / Your city" on the Drops Home stage; other demo data keeps the prototype's own placeholder style (Studio 01, CONCEPT_01) and each demo is labelled as running on example data.
 
 ## User feedback inbox
@@ -261,8 +266,37 @@ Changes:
 - Accessibility: the audit showed the hero (the page's h1 and first form) left the accessibility tree once scrolled past, and my round-8 change hid the features from screen readers and the keyboard while the page sat at the top. Both now stay reachable; focusing the faded hero form scrolls back to it. The scene's clocks moved inside the main landmark.
 
 Stills: `cook/stills/r09/` | Pairs: `cook/compare/r09/`
-Scores: two critics running.
+
+Scores, eyeballed, raw:
+- Blind pairs won by the new build: 8 of 8 (critic Q). New build per pair: design 6.5 to 7, usability 6.5 to 7.5, creativity 6 to 7.5, content 3.5 (the intro frame) to 8.
+- Walkthrough (critic R, stronger model), whole page: design 6.4, usability 6.3, creativity 7.1, content 5.9. Features 6.5 / 7 / 7.5 / 7 on desktop and 6 / 6 / 7 / 7 on phone, against 6 / 6.5 / 6 / 6 and 5 / 6 / 4.5 / 6 in round 7. Pull-out 5 and 4: an empty frame with no clock and no button.
 Own score: design 8, usability 8, creativity 8.5, content 7.
 Measured: `tsc --noEmit` clean; axe-core (WCAG 2.1 A and AA plus best practice) reports no violations on the page at hero, features and closing, desktop and phone, or on the two legal pages; functional script passes; focusing the hero field from the features returns scroll to 0 with the hero visible; intro timing 4.4s / 0.4s / 1.7s / 0.1s; five extra sizes render without overflow or console errors; no-WebGL page renders complete.
+Not checked: real-device frame rate; a pass with a real screen reader; the demos against fresh prototype captures.
+
+Top gaps (critic R): the ring sitting hard against the left edge on desktop; Closet with no frame beside five framed demos; an empty pull-out; the phone closing clock dimmed and touching the rim; logo and button on raw rim glyphs on phones, with lines of copy sliced between them; nothing ice blue in the hero or dial; weak borders on the field and consent box; two weak lines under the section heading; closing columns a few pixels out. Critic Q: the band across the intro's hole reading as a render fault.
+Stop check: bar no -> next round
+
+## Round 10
+
+Time: 06:46 to 07:10 UTC | total elapsed 3.1h
+Focus: the round-9 gaps above.
+
+Changes:
+- Closet: a port of the app's Closet screen. Filter by state, tap a piece to put it on the Showcase (up to three).
+- Ring: narrower copy column, so the ring sits clear of the left edge at 1440.
+- Pull-out: the header button stays until the closing form arrives; the clock rides under the crest all the way out, seated deeper while the hole is still large.
+- Phone closing: a wider hole, so the clock sits inside it at full strength.
+- Phones inside the hole: a stronger shade behind the logo and button; content fades over a longer run before the rim.
+- Countdown: seconds in ice blue in the hero and dial; the day mark tucked against its digits.
+- Form: a visible field border, a heavier consent box, lighter consent text.
+- Section heading: one line under it, which also says the demos run on example data.
+- Intro: clean black shadow, no band across the front.
+- Closing: columns aligned, a little lower; the brand pitch carries the membership line.
+
+Stills: `cook/stills/r10/` | Pairs: `cook/compare/r10/`
+Scores: two critics running.
+Own score: design 8, usability 8, creativity 8.5, content 7.5.
+Measured: `tsc --noEmit` clean; axe-core reports no violations (page at three scroll states on desktop and phone, and both legal pages); functional script passes; intro timing 4.3s first visit, 0.4s returning, 1.8s after Skip, 0.1s reduced motion; five extra sizes render without horizontal overflow or console errors; no-WebGL page renders complete; production build passes.
 Not checked: real-device frame rate; a pass with a real screen reader; the demos against fresh prototype captures.
 

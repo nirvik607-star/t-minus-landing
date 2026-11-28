@@ -134,7 +134,8 @@ function mixFraming(a: Framing, b: Framing, t: number): Framing {
  */
 export function horizonFraming(w: number, h: number, lift = 0, clearY = 0): Framing {
   const phone = w < 700;
-  const r = phone ? 0.56 * w : Math.max(0.42 * w, Math.min(1.05 * w, 430));
+  // The closing's hole is wider on phones, so the clock has room under a flatter crest.
+  const r = phone ? (lift > 0 ? 0.95 : 0.56) * w : Math.max(0.42 * w, Math.min(1.05 * w, 430));
   let crest = phone
     ? Math.min(0.345 * h, 320)
     : Math.min(240, Math.max(128, 0.235 * h)) + lift * 0.5;
@@ -198,7 +199,7 @@ const CARD_CLEARANCE = 26;
  */
 export function stageLayout(w: number, h: number) {
   const right = w - Math.max(80, (w - 1360) / 2 + 80);
-  const copyW = Math.round(Math.min(420, Math.max(340, 0.28 * w)));
+  const copyW = Math.round(Math.min(400, Math.max(330, 0.264 * w)));
   const copyLeft = right - copyW;
   const r = Math.min(
     CARD_HALF_DIAGONAL * CARD_ZOOM_MAX + CARD_CLEARANCE,
@@ -319,7 +320,9 @@ export function direct(input: DirectorInput): SceneValues {
     // Camera: hold on the star, let the full silhouette open, then sweep down
     // to the horizon while the disk draws in.
     const sweep = smoother(3.2, 4.4, t);
-    front = 1 - smooth(0.15, 0.6, sweep);
+    // The shadow is kept clean: the disk passes behind the hole and its light
+    // wraps over and under it, with nothing drawn across the front.
+    front = 0;
     // The star is made of glyphs first and light second.
     glow = lerp(0.45, 0.95, smooth(2.2, 3.0, t));
     const starFrame: Framing = { ...sil, r: sil.r * 1.02 };

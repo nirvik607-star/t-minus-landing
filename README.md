@@ -27,7 +27,7 @@ npm run build:pages  # static export for GitHub Pages, written to ./out
 | `src/components/scene/blackhole-scene.tsx` | The canvas: sets up WebGL, runs the frame loop, reports geometry to the page. |
 | `src/lib/scene/shaders.ts` | Two passes. The first traces light through a black hole's field at one sample per glyph cell. The second draws the brand glyphs from an atlas. |
 | `src/lib/scene/director.ts` | Turns intro time and scroll position into camera and scene values. The page reads the same values to place the countdown inside the event horizon. |
-| `src/components/demos/` | The five feature demos, built from the iOS prototype's own layouts and rules, plus `garment-glyph.tsx`, which draws garments in the brand's glyphs. |
+| `src/components/demos/` | The six feature demos, built from the iOS prototype's own layouts and rules, plus `garment-glyph.tsx`, which draws garments in the brand's glyphs. |
 | `src/lib/scene/energy.ts` | One shared value the demos write and the scene reads, so the disk quickens with what is on screen. |
 | `src/components/glyph/glyph-mask.tsx` | Text drawn as a font-shaped mask filled with glyphs, as the app draws its clock. |
 | `src/app/privacy`, `src/app/terms` | Public legal pages for the text-message programme. |

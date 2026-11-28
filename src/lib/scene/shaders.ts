@@ -469,7 +469,7 @@ void main() {
   if (uCut > 0.5) {
     vec3 solid = outC + C_GROUND * (1.0 - outA);
     // Content dims as it nears the rim, so text fades out instead of being sliced.
-    float edge = smoothstep(uShadowDev - 52.0 * uDpr, uShadowDev - 3.0 * uDpr, distHole) * 0.94;
+    float edge = smoothstep(uShadowDev - 84.0 * uDpr, uShadowDev - 4.0 * uDpr, distHole) * 0.96;
     float holeA = a + (1.0 - a) * edge;
     outC = mix(solid, col * a, voidA);
     outA = mix(1.0, holeA, voidA);

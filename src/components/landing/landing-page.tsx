@@ -183,11 +183,14 @@ export function LandingPage() {
     // Strip clock: inside the void, under the crest.
     const crestY = f.holeY - f.shadowR;
     const room = h - crestY;
-    const low = crestY + Math.max(50, Math.min(room * 0.36, 96));
+    // A little deeper while the hole is still large on the way out, so the digits clear the rim.
+    const low = crestY + Math.max(50, Math.min(room * 0.36, f.closing > 0.001 ? 136 : 96));
     // Never closer to the rim than a line's height, whichever way the camera is moving.
     const stripY = Math.max(
       crestY + 46,
-      low + (Math.min(f.holeY, h * 0.5) - low) * smooth(0.12, 0.6, f.polar)
+      // On the rise the strip travels to the centre of the void; on the way
+      // out it simply rides under the crest.
+      low + (Math.min(f.holeY, h * 0.5) - low) * (f.closing > 0.001 ? 0 : smooth(0.12, 0.6, f.polar))
     );
     write(
       "hc-t",
@@ -202,10 +205,11 @@ export function LandingPage() {
     const roomGate = smooth(line - 10, line + 34, crestY);
     // On the way out the clock waits until the void is wide enough to hold it.
     const voidHalf = Math.sqrt(Math.max(0, f.shadowR * f.shadowR - (f.holeY - stripY) ** 2));
-    const fits = smooth(anchors.current.stripHalf + 14, anchors.current.stripHalf + 60, voidHalf);
+    const fits = smooth(anchors.current.stripHalf + 8, anchors.current.stripHalf + 40, voidHalf);
     const stripOpacity =
       f.horizonClock * (f.closing > 0.001 ? fits * (1 + (roomGate - 1) * closingIn) : 1);
     write("hc-o", horizonClockRef.current, "opacity", stripOpacity.toFixed(3));
+    write("hc-l", horizonClockRef.current, "--live", f.closing > 0.3 ? "#ffffff" : "#97DFFC");
     write("hc-v", horizonClockRef.current, "visibility", stripOpacity < 0.02 ? "hidden" : "visible");
 
     // Dial clock: centred in the void, sized to it.
@@ -263,7 +267,8 @@ export function LandingPage() {
     const overContent = f.exitPx > f.h * 0.12 && f.closing < 0.9;
     write("hs-o", headerScrimRef.current, "opacity", !f.settled && f.heroReveal < 0.6 ? "1" : "0");
     write("hb-o", headerBackRef.current, "opacity", overContent ? "1" : "0");
-    const showJoin = f.settled && pin > 0.24 && f.closing < 0.35;
+    // Stays until the closing form itself is arriving.
+    const showJoin = f.settled && pin > 0.24 && f.closing < 0.8;
     write("hx-o", headerExtrasRef.current, "opacity", showJoin ? "1" : "0");
     write("hx-p", headerExtrasRef.current, "pointer-events", showJoin ? "auto" : "none");
     // Hidden controls must not take keyboard focus.
@@ -323,7 +328,7 @@ export function LandingPage() {
           ref={headerBackRef}
           aria-hidden="true"
           style={{ opacity: 0 }}
-          className="absolute inset-x-0 top-0 -z-10 h-24 bg-gradient-to-b from-black/80 to-transparent transition-opacity duration-200 ease-out"
+          className="absolute inset-x-0 top-0 -z-10 h-[92px] bg-gradient-to-b from-[#13021D]/95 via-[#13021D]/70 to-transparent transition-opacity duration-200 ease-out sm:h-28"
         />
         {/* During the intro, a soft shade so the logo and Skip hold against the flash. */}
         <div
@@ -512,7 +517,7 @@ export function LandingPage() {
         <section
           ref={closingRef}
           data-section="closing"
-          className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1360px] flex-col items-center px-5 pb-[236px] pt-[12dvh] sm:px-10 lg:px-20 lg:pt-[18dvh]"
+          className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1360px] flex-col items-center px-5 pb-[236px] pt-[12dvh] sm:px-10 lg:px-20 lg:pt-[21dvh]"
         >
           <div className="grid w-full grid-cols-1 items-start gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,1fr)_460px]">
             <div className="text-center lg:text-left">
@@ -530,13 +535,13 @@ export function LandingPage() {
               </h2>
               <p className="mx-auto mt-4 max-w-[34ch] text-[16.5px] leading-[1.5] text-soft sm:text-[18px] lg:mx-0 lg:mt-6 lg:max-w-[46ch]">
                 {closingRole === "BRAND"
-                  ? "Keep your identity, your pricing and your checkout. Turn each collection into a scheduled release. Leave a number and we\u2019ll text you about setting up your first drop."
+                  ? "Keep your identity, your pricing and your checkout. Turn each collection into a scheduled release, and run your membership inside the app. Leave a number and we\u2019ll text you about setting up your first drop."
                   : live
                     ? "T^minus is live. Leave your number for drop alerts."
                     : "Follow independent releases on a live clock and be there when they open. Leave your number and we\u2019ll text you the moment T^minus is live."}
               </p>
             </div>
-            <div className="flex flex-col items-center lg:items-start">
+            <div className="flex flex-col items-center lg:-mt-2.5 lg:items-start">
               <div ref={closingFormRef} className="flex w-full flex-col items-center lg:items-start">
                 <WaitlistForm
                   inputRef={closingPhoneRef}

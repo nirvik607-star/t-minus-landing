@@ -268,7 +268,7 @@ export function WaitlistForm({
         />
       ) : null}
 
-      <div className={`${roleSwitch ? "mt-2.5" : perk && role === "SHOPPER" ? "mt-2.5 [@media(max-height:799px)]:mt-0" : ""} flex w-full items-center gap-1.5 rounded-[12px] border border-line bg-ground-deep/80 p-1.5 transition-colors duration-150 focus-within:border-peri`}>
+      <div className={`${roleSwitch ? "mt-2.5" : perk && role === "SHOPPER" ? "mt-2.5 [@media(max-height:799px)]:mt-0" : ""} flex w-full items-center gap-1.5 rounded-[12px] border border-white/25 bg-ground-deep/90 p-1.5 transition-colors duration-150 focus-within:border-peri`}>
         <label htmlFor={phoneId} className="sr-only">
           Mobile number
         </label>
@@ -343,7 +343,7 @@ export function WaitlistForm({
           />
           <span
             aria-hidden="true"
-            className="flex size-6 items-center justify-center rounded-[6px] border-[1.5px] border-[#B9A8FF] bg-ground-deep/80 transition-colors duration-150 peer-checked:border-accent peer-checked:bg-accent peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ice"
+            className="flex size-6 items-center justify-center rounded-[6px] border-2 border-[#CDBEFF] bg-ground-deep/90 transition-colors duration-150 peer-checked:border-accent peer-checked:bg-accent peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ice"
           >
             <svg
               viewBox="0 0 16 16"
@@ -358,7 +358,7 @@ export function WaitlistForm({
             </svg>
           </span>
         </span>
-        <label htmlFor={consentId} className="cursor-pointer text-[13px] leading-[1.45] text-mute">
+        <label htmlFor={consentId} className="cursor-pointer text-[13px] leading-[1.45] text-[#CFC6EA]">
           Text me {SMS_PROGRAM.brand} launch and drop alerts. Up to{" "}
           {SMS_PROGRAM.maxMessagesPerMonth} msgs/month. Msg &amp; data rates may
           apply. Reply STOP to cancel, HELP for help.{" "}

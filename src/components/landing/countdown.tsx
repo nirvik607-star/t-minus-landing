@@ -113,7 +113,14 @@ export function HorizonClock({ parts, joined = false }: { parts: ClockParts; joi
         <Unit value={parts.days} unit="d" numeralClass={numeral} unitClass={unit} />
         <Unit value={parts.hours} unit="h" numeralClass={numeral} unitClass={unit} />
         <Unit value={parts.minutes} unit="m" numeralClass={numeral} unitClass={unit} />
-        <Unit value={parts.seconds} unit="s" numeralClass={numeral} unitClass={unit} />
+        {/* The seconds are the live value: the one ice-blue thing in the view,
+            unless the page hands that to a word (the closing's "zero."). */}
+        <Unit
+          value={parts.seconds}
+          unit="s"
+          numeralClass={numeral.replace("text-ink", "text-[color:var(--live,#97DFFC)]")}
+          unitClass={unit}
+        />
       </div>
       <p className="mt-2.5 font-sans text-[13px] leading-none text-mute sm:mt-3">
         {joined ? (
@@ -148,7 +155,7 @@ export function DialClock({ parts }: { parts: ClockParts }) {
         <span className="value font-sans text-[7.4em] font-semibold leading-[0.8] tracking-[-0.045em] text-ink">
           {parts.days}
         </span>
-        <span className="ml-[0.2em] mt-[0.2em] font-mono text-[max(15px,1.6em)] font-medium leading-none text-[#A9ACF0]">
+        <span className="ml-[0.07em] mt-[0.2em] font-mono text-[max(15px,1.6em)] font-medium leading-none text-[#A9ACF0]">
           d
         </span>
       </div>
@@ -162,7 +169,7 @@ export function DialClock({ parts }: { parts: ClockParts }) {
           <span className={unit}>m</span>
         </span>
         <span className="inline-flex items-start">
-          <span className={numeral}>{parts.seconds}</span>
+          <span className={numeral.replace("text-ink", "text-ice")}>{parts.seconds}</span>
           <span className={unit}>s</span>
         </span>
       </div>
@@ -182,7 +189,7 @@ export function HeaderClock({ parts }: { parts: ClockParts }) {
       className="value inline-flex items-baseline gap-[0.45em] whitespace-nowrap font-mono text-[12px] font-medium text-soft sm:text-[13px]"
     >
       {/* Says which clock this is, now that the demos beside it run their own. */}
-      <span aria-hidden="true" className="hidden font-sans font-medium text-mute lg:inline">
+      <span aria-hidden="true" className="hidden text-mute lg:inline">
         {parts.plus ? "Live for" : "Launch in"}
       </span>
       <span aria-hidden="true">
