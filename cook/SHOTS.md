@@ -12,8 +12,8 @@ URL controls (new build): `?shot=<id>` freezes the scene clock and intro at the 
 | S04 | Intro, hole forming | desktop, phone | The full lensed silhouette: shadow, arc over the top, band across the front | Mushy rings, no tonal range |
 | S05 | Runway, rising | desktop | The camera move between horizon and top-down holds up mid-way | Text and scene fighting |
 | S06 | Top-down dial | desktop, phone | The hole as a watch dial: clock in the void, premise beside or beneath it | A white wall of glyphs; clock not centred in the void |
-| S07 | Features, each of five | desktop, phone | Each demo is accurate to the prototype and reads without a caption | Demo text under 12px; controls under 44px |
-| S08 | After the drop | desktop, phone | Closet and membership read as the end of the feature list. (The audiences block was folded into the closing in round 3.) | |
+| S07 | Features, each of six, read through the open hole | desktop, phone | Each demo is accurate to the prototype and reads without a caption; the ring frames it on desktop, the rim curves over it on phones | Demo text under 12px; controls under 44px; ring glyphs behind the copy |
+| S08 | Closet, then the pull-out | desktop, phone | Closet is the sixth part; on the way out the ring stays whole and the closing copy arrives after the hole has dropped below it | Closing copy crossing the rim |
 | S09 | Closing | desktop, phone | The horizon returns behind "Be ready at zero." and the form | |
 | S10 | Form states | phone | Error, brand path, success | Consent text legibility |
 | S11 | Legal pages | phone | Privacy and Terms are real pages in the same system | |

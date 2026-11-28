@@ -42,7 +42,7 @@ const SHOTS = [
   { id: "S07c-size", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "size-assist" },
   { id: "S07d-hold", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "hold" },
   { id: "S07e-lab", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "lab" },
-  { id: "S08-closet", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[aria-label='Four pieces in a closet']", block: "center" },
+  { id: "S08-closet", vps: ["d", "m"], qs: "skipIntro=1&still=1", feature: "closet" },
   { id: "S08b-pullout", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[data-section='closing']", block: "end", back: 0.42 },
   { id: "S09-closing", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[data-section='closing']" },
   { id: "S11a-privacy", vps: ["m"], path: "/privacy", qs: "" },

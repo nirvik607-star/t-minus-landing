@@ -20,8 +20,8 @@ npm run build:pages  # static export for GitHub Pages, written to ./out
 | Path | What it is |
 | --- | --- |
 | `src/lib/launch.ts` | The facts the page states: launch date, waitlist perk, text-message programme details, App Store URL. Change them here. |
-| `src/components/landing/landing-page.tsx` | The page, as one camera move: horizon (hero), rise to the top-down dial, drop into the hole, features inside it, pull back out to the closing. |
-| `src/components/landing/features.tsx` | The five features and the Closet block, with their copy. |
+| `src/components/landing/landing-page.tsx` | The page, as one camera move: horizon (hero), rise to the top-down dial, the hole opens and the features are read through it, pull back out to the closing. Layers bottom to top: black, the features, the scene canvas, hero and closing, clocks, header. |
+| `src/components/landing/features.tsx` | The six parts of the app with their copy. Wide screens: a ring frames the pinned demo, copy beside it. Small screens: copy and demo scroll behind the rim. |
 | `src/components/landing/waitlist-form.tsx` | The form, consent line and confirmation. |
 | `src/components/landing/countdown.tsx` | One ticking clock and its three readouts. Flips to T-plus at zero. |
 | `src/components/scene/blackhole-scene.tsx` | The canvas: sets up WebGL, runs the frame loop, reports geometry to the page. |

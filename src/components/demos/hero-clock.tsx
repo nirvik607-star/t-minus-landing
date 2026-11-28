@@ -248,14 +248,15 @@ export function HeroClock({ secondsLeft, active = true, className = "" }: HeroCl
         const markW = markPt * k * 1.2;
         const gapT = 2 * k;
         const gapOp = 7 * k;
-        const pairGap = 9 * k;
+        // Enough air after each unit mark that it belongs to the pair before it.
+        const pairGap = 14 * k;
         const total =
           tW + gapT + opW + gapOp + pairs.length * (slot * 2 + markW) + (pairs.length - 1) * pairGap;
         return { digitFont, tFont, opFont, slot, cap, tW, opW, markW, gapT, gapOp, pairGap, total };
       };
 
       let m = measure();
-      const room = W - 44 * k;
+      const room = W - 54 * k;
       if (m.total > room) {
         const s = room / m.total;
         digitPt *= s;

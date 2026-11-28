@@ -17,11 +17,11 @@ import {
   HorizonClock,
   useLaunchClock,
 } from "@/components/landing/countdown";
-import { PerkLine, WaitlistForm } from "@/components/landing/waitlist-form";
+import { WaitlistForm } from "@/components/landing/waitlist-form";
 import { Features } from "@/components/landing/features";
 import type { WaitlistRole } from "@/lib/waitlist";
 import { APP_STORE_URL } from "@/lib/launch";
-import { sceneEnergy } from "@/lib/scene/energy";
+import { sceneEnergy, sceneStage } from "@/lib/scene/energy";
 
 /** After zero, with a listing to point at, the page offers the app instead of the waitlist. */
 function AppStoreButton() {
@@ -36,7 +36,7 @@ function AppStoreButton() {
 }
 
 /** MINUS reads as a white word perforated by the glyph field: white ground, brand-purple marks. */
-const MINUS_TINTS = ["#8A6BEA", "#613DC1", "#9B8AE8"];
+const MINUS_TINTS = ["#B5A2F3", "#9D86EE", "#C5B8F6"];
 
 export function LandingPage() {
   const clock = useLaunchClock();
@@ -79,6 +79,7 @@ export function LandingPage() {
   const headerScrimRef = useRef<HTMLDivElement | null>(null);
   const closingPhoneRef = useRef<HTMLInputElement | null>(null);
   const featSectionRef = useRef<HTMLElement | null>(null);
+  const underlayRef = useRef<HTMLDivElement | null>(null);
   const minusReveal = useRef(0);
   const cache = useRef<Record<string, string>>({});
   const sceneOffRef = useRef(false);
@@ -182,9 +183,13 @@ export function LandingPage() {
       "transform",
       `translate3d(${f.holeX.toFixed(1)}px, ${stripY.toFixed(1)}px, 0) translate(-50%, -50%)`
     );
+    // The closing copy waits until the hole has pulled back below it. Until
+    // it shows, the clock is free to ride the hole; after, it needs the room.
+    const closingIn = f.closing > 0.001 ? smooth(0.7, 0.94, f.closing) : 0;
     const line = inputsRef.current.fadeLine;
+    const roomGate = smooth(line - 10, line + 34, crestY);
     const stripOpacity =
-      f.horizonClock * (f.closing > 0.001 ? smooth(line - 10, line + 34, crestY) : 1);
+      f.horizonClock * (f.closing > 0.001 ? 1 + (roomGate - 1) * closingIn : 1);
     write("hc-o", horizonClockRef.current, "opacity", stripOpacity.toFixed(3));
     write("hc-v", horizonClockRef.current, "visibility", stripOpacity < 0.02 ? "hidden" : "visible");
 
@@ -208,6 +213,16 @@ export function LandingPage() {
       (f.closing > 0.001 ? 0 : 1);
     write("pr-o", premiseRef.current, "opacity", premiseIn.toFixed(3));
     write("pr-y", premiseRef.current, "--rise", `${((1 - premiseIn) * 14).toFixed(1)}px`);
+
+    // From the dial onward the void is open: the features sit under the scene
+    // on black and are seen through the hole.
+    const open = f.cut > 0.5;
+    write("ul-o", underlayRef.current, "opacity", open ? "1" : "0");
+    write("ft-v", featSectionRef.current, "visibility", open ? "visible" : "hidden");
+    inputsRef.current.stage = sceneStage.on ? sceneStage : null;
+
+    write("cl-o", closingRef.current, "opacity", closingIn.toFixed(3));
+    write("cl-p", closingRef.current, "pointer-events", closingIn > 0.5 ? "auto" : "none");
 
     // Inside the hole: the disk turns with progress through the features and
     // answers whatever the demo on screen is doing.
@@ -259,7 +274,7 @@ export function LandingPage() {
       "pointer-events": "auto",
     });
     set(headerExtrasRef.current, { opacity: "1", visibility: "visible", "pointer-events": "auto" });
-    set(headerBackRef.current, { opacity: "1", "background-color": "rgb(44 7 53 / 0.94)" });
+    set(headerBackRef.current, { opacity: "1", background: "rgb(44 7 53 / 0.94)", height: "100%" });
   }, [sceneOff]);
 
   const pulse = useCallback((strength: number) => {
@@ -286,12 +301,12 @@ export function LandingPage() {
       )}
 
       <header className="pointer-events-none fixed inset-x-0 top-0 z-40 h-14 sm:h-[68px]">
-        {/* A plain backing once page content scrolls beneath the header. */}
+        {/* Inside the hole: a soft shade, so the logo holds against the rim behind it. */}
         <div
           ref={headerBackRef}
           aria-hidden="true"
           style={{ opacity: 0 }}
-          className="absolute inset-0 -z-10 border-b border-white/10 bg-black/90 backdrop-blur-md transition-opacity duration-200 ease-out"
+          className="absolute inset-x-0 top-0 -z-10 h-24 bg-gradient-to-b from-black/80 to-transparent transition-opacity duration-200 ease-out"
         />
         {/* During the intro, a soft shade so the logo and Skip hold against the flash. */}
         <div
@@ -337,7 +352,7 @@ export function LandingPage() {
           <button
             type="button"
             onClick={() => goToForm()}
-            className="h-11 cursor-pointer rounded-[8px] border border-ink/70 bg-ground/50 px-4 text-[13.5px] font-semibold uppercase tracking-[0.03em] text-ink backdrop-blur-sm transition-colors duration-150 ease-out active:opacity-70 [@media(hover:hover)]:hover:bg-ink [@media(hover:hover)]:hover:text-accent"
+            className="h-11 cursor-pointer rounded-[8px] bg-ink px-4 text-[13.5px] font-semibold uppercase tracking-[0.03em] text-accent transition-opacity duration-150 ease-out active:opacity-70 [@media(hover:hover)]:hover:opacity-90"
           >
             Join the waitlist
           </button>
@@ -365,12 +380,23 @@ export function LandingPage() {
         </>
       )}
 
-      <main id="top" className="relative z-10">
+      {/* Black behind the open void. Only shown while the void is open. */}
+      {sceneOff ? null : (
+        <div
+          ref={underlayRef}
+          aria-hidden="true"
+          style={{ opacity: 0 }}
+          className="pointer-events-none fixed inset-0 z-0 bg-black"
+        />
+      )}
+
+      {/* Layers, bottom to top: black, the features, the scene, hero and closing, clocks, header. */}
+      <main id="top" className="relative">
         {/* Runway: horizon, then the camera rises to look straight down. */}
         <div
           ref={runwayRef}
           data-runway
-          className={sceneOff ? "relative" : "relative h-[225dvh]"}
+          className={sceneOff ? "relative" : "relative z-10 h-[225dvh]"}
         >
           <div
             className={
@@ -411,19 +437,16 @@ export function LandingPage() {
                 Limited drops from independent brands, on one live clock.{" "}
                 {live ? "On the App Store now." : "On the App Store January 1."}
               </p>
-              {offerApp ? null : (
-                <PerkLine className="mt-3 text-center [@media(max-height:719px)]:hidden" />
-              )}
-              <div ref={heroFormRef} className="mt-3.5 flex w-full flex-col items-center sm:mt-4">
+              <div ref={heroFormRef} className="mt-4 flex w-full flex-col items-center sm:mt-5">
                 {offerApp ? (
                   <AppStoreButton />
                 ) : (
                   <>
-                    <WaitlistForm onPulse={pulse} roleSwitch={false} onJoined={() => setJoined(true)} />
+                    <WaitlistForm onPulse={pulse} roleSwitch={false} perk onJoined={() => setJoined(true)} />
                     <button
                       type="button"
                       onClick={() => goToForm("BRAND")}
-                      className="mt-1 inline-flex h-11 cursor-pointer items-center text-[14px] text-mute underline decoration-peri/60 underline-offset-[3px] [@media(max-height:719px)]:hidden [@media(hover:hover)]:hover:text-ink"
+                      className="mt-1 inline-flex h-11 cursor-pointer items-center text-[13.5px] text-mute underline decoration-peri/60 underline-offset-[3px] [@media(max-height:719px)]:hidden [@media(hover:hover)]:hover:text-ink"
                     >
                       Run a brand? Apply to launch a drop
                     </button>
@@ -463,17 +486,17 @@ export function LandingPage() {
           </div>
         </div>
 
-        <Features outerRef={featSectionRef} />
+        <Features outerRef={featSectionRef} scene={!sceneOff} />
 
         {/* Closing: the horizon returns. The audience choice changes the pitch. */}
         <section
           ref={closingRef}
           data-section="closing"
-          className="relative mx-auto flex min-h-[100dvh] w-full max-w-[1360px] flex-col items-center px-5 pb-[236px] pt-[12dvh] sm:px-10 lg:px-20 lg:pt-[14dvh]"
+          className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1360px] flex-col items-center px-5 pb-[236px] pt-[12dvh] sm:px-10 lg:px-20 lg:pt-[14dvh]"
         >
           <div className="grid w-full grid-cols-1 items-start gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,1fr)_460px]">
             <div className="text-center lg:text-left">
-              <h2 className="statement text-[clamp(2.9rem,7.2vw,6rem)] leading-[0.94] text-ink">
+              <h2 className="statement text-[clamp(2.9rem,5.9vw,5.4rem)] leading-[0.94] text-ink">
                 {closingRole === "BRAND" ? (
                   <>
                     Launch on <br className="hidden lg:block" />
@@ -481,8 +504,7 @@ export function LandingPage() {
                   </>
                 ) : (
                   <>
-                    Be ready <br className="hidden lg:block" />
-                    at <span className="text-ice">zero.</span>
+                    Be ready at <span className="text-ice">zero.</span>
                   </>
                 )}
               </h2>
@@ -503,8 +525,8 @@ export function LandingPage() {
                   onRoleChange={setClosingRole}
                   onJoined={() => setJoined(true)}
                   align="split"
+                  perk
                 />
-                <PerkLine className="mt-3 text-center lg:text-left" />
               </div>
             </div>
           </div>

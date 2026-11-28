@@ -9,3 +9,9 @@ export const sceneEnergy = { value: 0 };
 export function setSceneEnergy(value: number) {
   sceneEnergy.value = Math.min(1, Math.max(0, value));
 }
+
+/**
+ * Wide screens: the ring that frames the pinned demo. The features section
+ * measures its own layout and writes it here; the scene draws the hole to it.
+ */
+export const sceneStage = { on: false, cx: 0, cy: 0, r: 0, guardX: 0 };

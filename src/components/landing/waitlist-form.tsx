@@ -14,7 +14,7 @@ import { SMS_PROGRAM, WAITLIST_ENDPOINT, WAITLIST_PERK, siteUrl } from "@/lib/la
 export function PerkLine({ className = "" }: { className?: string }) {
   if (!WAITLIST_PERK) return null;
   return (
-    <p className={`text-[14px] leading-[1.4] text-soft ${className}`}>
+    <p className={`text-[13.5px] leading-[1.4] text-soft ${className}`}>
       <span className="font-semibold text-ink">Waitlist perk:</span>{" "}
       {WAITLIST_PERK.charAt(0).toLowerCase() + WAITLIST_PERK.slice(1)}
     </p>
@@ -35,6 +35,8 @@ interface WaitlistFormProps {
   onRoleChange?: (role: WaitlistRole) => void;
   /** Told once a signup has been saved. */
   onJoined?: (role: WaitlistRole) => void;
+  /** Show the waitlist perk as the line above the field (shoppers only). */
+  perk?: boolean;
 }
 
 const ROLES: { id: WaitlistRole; label: string }[] = [
@@ -50,6 +52,7 @@ export function WaitlistForm({
   roleSwitch = true,
   onRoleChange,
   onJoined,
+  perk = false,
 }: WaitlistFormProps) {
   const uid = useId();
   const phoneId = `${uid}-phone`;
@@ -257,7 +260,11 @@ export function WaitlistForm({
         </div>
       ) : null}
 
-      <div className={`${roleSwitch ? "mt-2" : ""} flex w-full items-center gap-1.5 rounded-[12px] border border-line bg-ground-deep/80 p-1.5 transition-colors duration-150 focus-within:border-peri`}>
+      {perk && role === "SHOPPER" ? (
+        <PerkLine className={`${roleSwitch ? "mt-3" : ""} w-full ${align === "split" ? "text-center lg:text-left" : "text-center"}`} />
+      ) : null}
+
+      <div className={`${roleSwitch || (perk && role === "SHOPPER") ? "mt-2.5" : ""} flex w-full items-center gap-1.5 rounded-[12px] border border-line bg-ground-deep/80 p-1.5 transition-colors duration-150 focus-within:border-peri`}>
         <label htmlFor={phoneId} className="sr-only">
           Mobile number
         </label>
@@ -332,7 +339,7 @@ export function WaitlistForm({
           />
           <span
             aria-hidden="true"
-            className="flex size-6 items-center justify-center rounded-[6px] border border-peri/70 bg-ground-deep/80 transition-colors duration-150 peer-checked:border-accent peer-checked:bg-accent peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ice"
+            className="flex size-6 items-center justify-center rounded-[6px] border-[1.5px] border-[#B9A8FF] bg-ground-deep/80 transition-colors duration-150 peer-checked:border-accent peer-checked:bg-accent peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ice"
           >
             <svg
               viewBox="0 0 16 16"
@@ -347,7 +354,7 @@ export function WaitlistForm({
             </svg>
           </span>
         </span>
-        <label htmlFor={consentId} className="cursor-pointer text-[13.5px] leading-[1.45] text-soft/90">
+        <label htmlFor={consentId} className="cursor-pointer text-[13px] leading-[1.45] text-mute">
           Text me {SMS_PROGRAM.brand} launch and drop alerts. Up to{" "}
           {SMS_PROGRAM.maxMessagesPerMonth} msgs/month. Msg &amp; data rates may
           apply. Reply STOP to cancel, HELP for help.{" "}

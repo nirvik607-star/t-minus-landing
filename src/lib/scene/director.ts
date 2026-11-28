@@ -37,6 +37,8 @@ export interface DirectorInput {
   clearY?: number;
   /** 0..1 from the demos: how urgent the thing on screen is. Speeds and brightens the disk. */
   energy?: number;
+  /** Wide screens: the ring that frames the pinned demo, CSS px. */
+  stage?: { cx: number; cy: number; r: number; guardX?: number } | null;
 }
 
 export interface SceneValues {
@@ -86,6 +88,10 @@ export interface SceneValues {
   starPx: number;
   /** 0..1: how far inside the hole the camera is. */
   dive: number;
+  /** 1 = the void is open and the page beneath shows through it. */
+  cut: number;
+  /** CSS px: the field fades out to the right of this x. 0 = off. */
+  fadeX: number;
 }
 
 interface Framing {
@@ -175,24 +181,58 @@ export function dialFraming(w: number, h: number): Framing {
   };
 }
 
+/** Wide screens frame each demo in a full ring, with the copy beside it. */
+export function isWideStage(w: number, h: number): boolean {
+  return w >= 1100 && w / h > 1.25;
+}
+
+const CARD_HALF_DIAGONAL = 398; // the tallest demo card, 400 x 688
+const CARD_ZOOM_MIN = 0.84;
+const CARD_ZOOM_MAX = 1.15;
+const CARD_CLEARANCE = 26;
+
 /**
- * Inside: the camera has dropped through the dial. The void fills the screen
- * as a black stage and the lit rim shows around its edge.
+ * Where the ring sits on a wide screen, and the column the copy takes beside
+ * it. The ring is as large as the window allows and never smaller than the
+ * tallest demo at its smallest scale.
  */
-export function insideFraming(w: number, h: number): Framing {
-  // Wide screens: a round stage just large enough to hold the copy, so the
-  // rim shows down both sides (and more of it the wider the screen). Tall
-  // screens: the rim sits just past the edges and shows only in the corners.
-  const content = Math.min(w, 1360) - 160;
-  const r = w >= 1024 ? Math.hypot(content / 2, 170) + 8 : 0.5 * h + 6;
-  return {
-    elev: 90,
-    cx: w / 2,
-    cy: h / 2,
-    r: Math.max(r, 0.5 * h + 6),
-    diskOut: 4.3,
-    exposure: 2.3,
-  };
+export function stageLayout(w: number, h: number) {
+  const right = w - Math.max(80, (w - 1360) / 2 + 80);
+  const copyW = Math.round(Math.min(420, Math.max(340, 0.28 * w)));
+  const copyLeft = right - copyW;
+  const r = Math.min(
+    CARD_HALF_DIAGONAL * CARD_ZOOM_MAX + CARD_CLEARANCE,
+    Math.max(h / 2 - 58, CARD_HALF_DIAGONAL * CARD_ZOOM_MIN + CARD_CLEARANCE)
+  );
+  // The lit ring reaches about 1.2 radii; it stops short of the copy.
+  const cx = Math.max(copyLeft - 30 - 1.2 * r, 190);
+  return { cx, cy: h / 2, r, copyW, copyLeft };
+}
+
+/** Scale that fits a card of this size inside a ring of radius r. */
+export function stageZoom(r: number, cardW: number, cardH: number): number {
+  const half = Math.hypot(cardW / 2, cardH / 2);
+  return Math.min(CARD_ZOOM_MAX, Math.max(CARD_ZOOM_MIN, (r - CARD_CLEARANCE) / Math.max(half, 1)));
+}
+
+/**
+ * Inside: the camera has dropped through the dial and the page is read
+ * through the hole. Wide screens: a full ring around the pinned demo.
+ * Otherwise a porthole a little smaller than the screen, so the lit rim
+ * curves across the top and bottom and the content passes behind it.
+ */
+export function insideFraming(
+  w: number,
+  h: number,
+  stage?: { cx: number; cy: number; r: number } | null
+): Framing {
+  if (stage && stage.r > 0) {
+    return { elev: 90, cx: stage.cx, cy: stage.cy, r: stage.r, diskOut: 3.2, exposure: 2.4 };
+  }
+  const pad = w < 640 ? 20 : 40;
+  // Never so small that it cuts into a line of text in the middle of the screen.
+  const r = Math.max(0.5 * h - 44, Math.hypot(w / 2 - pad, h / 2 - 150));
+  return { elev: 90, cx: w / 2, cy: h / 2, r, diskOut: 4.3, exposure: 2.3 };
 }
 
 export function direct(input: DirectorInput): SceneValues {
@@ -213,13 +253,13 @@ export function direct(input: DirectorInput): SceneValues {
   f.r = lerp(horizon.r, dial.r, smoother(0.08, 0.6, pin));
   let polar = rise;
 
-  // Past the runway the camera drops through the dial: the void opens until
-  // it fills the screen, and the features play out inside it.
-  const inside = insideFraming(w, h);
+  // Past the runway the camera drops through the dial: the void opens and
+  // the features are read through it.
+  const inside = insideFraming(w, h, input.stage);
   let orbit = 0;
   let dive = 0;
   if (exitPx > 0) {
-    dive = smoother(0, h * (w < 700 ? 0.5 : 0.8), exitPx);
+    dive = smoother(0, h * (w < 700 ? 0.5 : 0.6), exitPx);
     f = mixFraming(dial, inside, dive);
     polar = 1;
     // About a quarter turn for each feature.
@@ -330,7 +370,7 @@ export function direct(input: DirectorInput): SceneValues {
   const insideNow = exitPx > 0 && closing <= 0.001;
   const horizonClock = insideNow ? 0 : clockReveal * (1 - smooth(0.62, 0.76, polar));
   const dialClock =
-    closing > 0.001 ? 0 : smooth(0.68, 0.86, polar) * (1 - smooth(h * 0.04, h * 0.36, exitPx));
+    closing > 0.001 ? 0 : smooth(0.68, 0.86, polar) * (1 - smooth(h * 0.04, h * 0.3, exitPx));
 
   return {
     camPos,
@@ -363,10 +403,11 @@ export function direct(input: DirectorInput): SceneValues {
     horizonClock,
     dialClock,
     polar,
-    // On the way out, the field is kept off the closing copy from the start.
+    // On the way out the ring stays whole until the hole has nearly settled;
+    // only then is the field cleared from behind the closing copy.
     fadeGuard:
       closing > 0.001
-        ? smooth(0, 0.12, closing)
+        ? smooth(0.6, 0.88, closing)
         : (1 - smooth(0.05, 0.3, polar)) * smooth(3.4, 4.1, intro),
     glow,
     front,
@@ -376,5 +417,12 @@ export function direct(input: DirectorInput): SceneValues {
     wellPx: f.r * (f.diskOut / B_CRIT) * lerp(0.5, 0.92, polar) * (1 - 0.5 * dive),
     starPx: (starR * focalPx) / CAM_DIST,
     dive: closing > 0.001 ? 1 - smoother(0, 1, closing) : dive,
+    // Open from the dial onward. The features are far below the screen before then.
+    cut: intro >= INTRO_SECONDS && pin > 0.5 ? 1 : 0,
+    // The guard slides in from the right edge as the ring grows, and back out as it leaves.
+    fadeX:
+      input.stage && input.stage.guardX && exitPx > 0
+        ? lerp(w + 120, input.stage.guardX, closing > 0.001 ? 1 - smoother(0, 0.5, closing) : dive)
+        : 0,
   };
 }

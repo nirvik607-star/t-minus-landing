@@ -6,7 +6,7 @@ Bar: design 9 | usability 9 | creativity 9 | content 9 (each out of 10, fresh re
 Calibration offset: none yet (no user estimate received)
 Usage: not readable
 Gate: stills approved no | final render not applicable (the deliverable is the site)
-Best so far: round 6, `cook/stills/r06/`, commit 6e054d8
+Best so far: round 8, `cook/stills/r08/`
 
 Correction, 05:20: the times first written for rounds 1 and 2 were estimates, not clock readings, and ran about 90 minutes ahead. They are replaced below with times taken from the commit log.
 
@@ -25,6 +25,10 @@ Made without asking, one line each.
 - 05:10 MINUS is a white word perforated by brand-purple glyphs, not ice-blue glyphs on a faint ground, because every critic called the earlier fill muddy.
 - 05:10 Header button is an outline; the form's submit is the only white button on the marketing page.
 - 05:35 The features moved from the plum ground to a black stage inside the hole, and the audiences and after-the-drop blocks became the closing's role switch and a Closet block, because the same structural criticism came back four rounds running. Flagged for the user as the largest departure from the grilled plan.
+- 06:00 The page content now sits behind the scene and is seen through the open hole, instead of the hole being a backdrop behind the content. Six walkthrough critics in a row said the idea stopped at the features; this makes the hole the frame for them. Flagged for the user.
+- 06:00 Desktop features are mirrored to demo left, copy right, so the dial only has to grow in place to become the ring around the demo.
+- 06:00 Header button is filled white again from the dial onward, because two critics said the demos' white buttons out-shouted an outlined call to action. Reverses the 05:10 decision.
+- 06:00 The per-demo "Live demo, example data" tab and the "Try it." prefix are gone; the section says once that every demo runs on example data. One critic read the repeated tab as a template tell.
 - 05:10 "Example studio / Portland, OR" replaces "Independent studio / Your city" on the Drops Home stage; other demo data keeps the prototype's own placeholder style (Studio 01, CONCEPT_01) and each demo is labelled as running on example data.
 
 ## User feedback inbox
@@ -179,6 +183,58 @@ Changes:
 - Skip intro is a text control; header units are quiet; footer links brighter.
 
 Stills: `cook/stills/r06/` | Pairs: `cook/compare/r06/`
-Scores: two critics running.
+Scores, eyeballed, raw:
+- Blind pairs won by the new build: 8 of 8 (critic K). Features pair: design 7.5, creativity 8, content 8.
+- Walkthrough (critic L, stronger model), whole page: design 6.4, usability 6.6, creativity 7.0, content 6.3.
 Measured: `tsc --noEmit` clean; functional script passes; production build passes.
 Progress note sent: 05:46 (eight stills).
+Stop check: bar no -> next round
+
+## Round 07
+
+Time: 05:45 to 05:57 UTC | total elapsed 1.9h
+Focus: the joins the round-6 walkthrough found, and the page at five more window sizes.
+
+Changes:
+- Stage radius sized to the copy; the dial clock swells and fades through the dive; shorter dive on phones; the hole stays centred through the rise.
+- Header keeps its backing through the pull-out; a shade behind the logo during the intro.
+- Closet has its own block, with labelled pieces.
+- Short windows: the pinned demo scales to fit. Very short screens (a phone on its side) get the static layout. One-row footer and field fit at 360px.
+
+Stills: `cook/stills/r07/` | Pairs: `cook/compare/r07/`
+
+Scores, eyeballed, raw:
+- Blind pairs won by the new build: 8 of 8 (critic M). New build per pair: design 7 to 7.5, usability 6.5 to 7.5, creativity 6.5 to 7.5, content 4.5 (the intro frame, which has no words) to 7.5.
+- Walkthrough (critic N, stronger model), whole page: design 6.5, usability 6.3, creativity 7.0, content 6.4. Features 6 on desktop and 5 on phone; dive 5 and 4.
+
+Own score: design 7.5, usability 7.5, creativity 8, content 7.
+Measured: `tsc --noEmit` clean; functional script passes; intro timing by script unchanged (4.4s first visit, 0.4s returning, 1.7s after Skip, 0.1s reduced motion); no-WebGL page renders complete; five extra sizes render without overflow or console errors.
+Not checked: real-device frame rate; screen reader pass; the demos against fresh prototype captures.
+
+Top gaps (critic N): on phones the hole vanished in the features, leaving a plain dark list; the dive frames were empty; the header was an opaque bar that cut the scene and the copy; desktop copy and card did not line up; unit marks crowding digits in the demo clock; a nearly invisible consent box; a grey smudge inside the hole on phones; an overloaded hero; no rim on the hole during the pull-out. Critic M: the outlined header button, the perk read last in the closing, a dead gap beside the closing headline, MINUS reading as moth-eaten.
+Progress note sent: no separate note; folded into round 8.
+Stop check: bar no -> next round
+
+## Round 08
+
+Time: 05:58 to 06:24 UTC | total elapsed 2.3h
+Focus: the features act on phones (weakest shot, 5 for design and 4.5 for creativity) and the dive.
+
+Changes:
+- The hole is open from the dial onward: the scene is drawn above the features and its void is left clear, so the page is read through the hole and the rim hides whatever is outside it.
+- Desktop: a full ring frames the pinned demo, each demo scaled to fit it, with the copy beside it on open ground. Only the block of copy near the middle of the screen is present; the others fade, so nothing slides under the header. Closet is the sixth part, pinned like the rest.
+- Phones: the hole is a little smaller than the screen, so the lit rim curves across the top and bottom and copy and demos scroll behind it.
+- Dive: the section starts under the end of the runway, hidden, and its first content rises into the hole as the hole opens. No empty frames.
+- Pull-out: the ring stays whole and lit; the clock rides the hole; the closing copy fades in once the hole has dropped below it.
+- Header: no bar, a soft shade behind the logo; the button is filled.
+- Hero and closing: the perk is the line directly above the field; consent text smaller and quieter with a brighter box; closing headline on one line beside the form.
+- Demo clock: more air after each unit mark and at the edges. No light inside the hole unless the disk really crosses in front of it (the grey smudge).
+- MINUS: lighter perforation so the letter edges read clean.
+
+Stills: `cook/stills/r08/` | Pairs: `cook/compare/r08/`
+Scores: two critics running.
+Own score: design 8, usability 7.5, creativity 8.5, content 7.
+Measured: `tsc --noEmit` clean; functional script passes (no text under 12px by computed size, no target under 44px, form states, keyboard order, no console errors); intro timing 4.4s / 0.4s / 1.7s / 0.1s; no-WebGL page renders complete; five extra sizes render without overflow or console errors; production build passes.
+Not checked: real-device frame rate (the scene now blends over page content while the hole is open); screen reader pass; the demos against fresh prototype captures. Demo cards on desktop are scaled between 0.84 and 1.15 to fit the ring, so their smallest labels can render near 10px on a 720px-tall window.
+Progress note sent: 06:24 (six stills).
+

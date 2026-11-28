@@ -349,11 +349,14 @@ uniform float uWellDev;     // falloff length of the well, device px
 uniform float uSignal;      // atlas index (1-based) of the large signal T
 uniform float uPolar;       // 0 = seen at an angle, 1 = seen from above
 uniform float uFront;       // 0..1: show the disk where it crosses in front of the shadow
+uniform float uCut;         // 1 = the void is left open, so the page beneath shows through the hole
+uniform float uFadeXDev;    // the field fades out to the right of this x (device px); far right = off
 
 const vec3 C_DEEP  = vec3(0.306, 0.078, 0.549); // #4E148C
 const vec3 C_ACC   = vec3(0.380, 0.239, 0.757); // #613DC1
 const vec3 C_PERI  = vec3(0.522, 0.541, 0.890); // #858AE3
 const vec3 C_WHITE = vec3(0.965, 0.955, 1.000);
+const vec3 C_GROUND = vec3(0.17255, 0.02745, 0.20784); // #2C0735, the page ground
 
 float hash21(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
@@ -430,6 +433,9 @@ void main() {
 
   // Keep the field clear of the form above the horizon.
   a *= 1.0 - smoothstep(uFadeLineDev - uFadeSoftDev, uFadeLineDev, gl_FragCoord.y);
+  // And clear of the copy that stands beside the ring on wide screens.
+  float sideClear = 1.0 - smoothstep(uFadeXDev - 80.0 * uDpr, uFadeXDev, gl_FragCoord.x);
+  a *= sideClear;
 
   // Soft light from the cells around this pixel, read from blurred mips of
   // the scene. It sits under the glyphs and gives the field its depth.
@@ -444,6 +450,7 @@ void main() {
   // on top of it stay readable even where the scene is brightest.
   float glowAmt = uGlow * min(0.62, smoothstep(0.0, 0.5, glowInk) * (0.3 + 0.7 * glowInk));
   glowAmt *= 1.0 - smoothstep(uFadeLineDev - uFadeSoftDev * 1.6, uFadeLineDev + uFadeSoftDev * 0.5, gl_FragCoord.y);
+  glowAmt *= sideClear;
 
   // The well: space darkens toward the hole, so the light has something to
   // stand against.
@@ -453,8 +460,16 @@ void main() {
 
   // Composite, bottom to top: ground, well, void, glow, glyph.
   float underA = max(wellA, voidA);
-  vec3 underC = glowCol * glowAmt * (1.0 - voidA * 0.82);
+  // No light inside the shadow unless the disk really crosses in front of it.
+  vec3 underC = glowCol * glowAmt * (1.0 - voidA * mix(1.0, 0.82, uFront));
   vec3 outC = col * a + underC * (1.0 - a);
   float outA = a + underA * (1.0 - a);
+  // Porthole: the field is laid on its own ground and the void is left open,
+  // so the page beneath shows through the hole and is hidden everywhere else.
+  if (uCut > 0.5) {
+    vec3 solid = outC + C_GROUND * (1.0 - outA);
+    outC = mix(solid, col * a, voidA);
+    outA = mix(1.0, a, voidA);
+  }
   o = vec4(outC, outA) * uAlpha;
 }`;

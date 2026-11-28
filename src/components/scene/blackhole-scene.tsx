@@ -30,6 +30,8 @@ export interface SceneInputs {
   turn?: number;
   /** 0..1 urgency reported by the demo on screen. */
   energy?: number;
+  /** Wide screens: the ring that frames the pinned demo, in CSS px. */
+  stage?: { cx: number; cy: number; r: number; guardX: number } | null;
 }
 
 export interface SceneControl {
@@ -361,6 +363,7 @@ export function BlackholeScene({
         turn: inputsRef?.current.turn,
         clearY: inputsRef?.current.fadeLine,
         energy: energySmooth,
+        stage: inputsRef?.current.stage,
       });
 
       const settled = introClock >= INTRO_SECONDS;
@@ -458,6 +461,8 @@ export function BlackholeScene({
       );
       gl.uniform1f(glyph.u("uStars"), v.stars);
       gl.uniform1f(glyph.u("uAlpha"), v.alpha);
+      gl.uniform1f(glyph.u("uCut"), v.cut);
+      gl.uniform1f(glyph.u("uFadeXDev"), v.fadeX > 0 ? v.fadeX * dpr : W * 4);
       gl.uniform1f(glyph.u("uDpr"), dpr);
       const fadeLine = inputsRef?.current.fadeLine ?? 0;
       const guard = fadeLine > 0 ? v.fadeGuard : 0;
@@ -553,7 +558,7 @@ export function BlackholeScene({
     <canvas
       ref={canvasRef}
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-0 h-full w-full"
+      className="pointer-events-none fixed inset-0 z-[2] h-full w-full"
     />
   );
 }
