@@ -6,7 +6,7 @@ Bar: design 9 | usability 9 | creativity 9 | content 9 (each out of 10, fresh re
 Calibration offset: none yet (no user estimate received)
 Usage: not readable
 Gate: stills approved no | final render not applicable (the deliverable is the site)
-Best so far: round 8, `cook/stills/r08/`
+Best so far: round 9, `cook/stills/r09/`
 
 Correction, 05:20: the times first written for rounds 1 and 2 were estimates, not clock readings, and ran about 90 minutes ahead. They are replaced below with times taken from the commit log.
 
@@ -232,9 +232,37 @@ Changes:
 - MINUS: lighter perforation so the letter edges read clean.
 
 Stills: `cook/stills/r08/` | Pairs: `cook/compare/r08/`
-Scores: two critics running.
+
+Scores, eyeballed, raw:
+- Blind pairs won by the new build: 8 of 8 (critic O). New build per pair: design 6.5 to 7.5, usability 7 to 7.5, creativity 6.5 to 7.5, content 5 (the intro frame) to 8. Features pair, desktop: 7.5 / 7.5 / 7.5 / 8.
+- Walkthrough (critic P, stronger model), whole page: design 6.4, usability 6.0, creativity 7.0, content 5.8. Features up to 6.5 desktop and 5.5 phone (from 6 and 5); dive up to 6 and 5.5 (from 5 and 4); the pull-out fell to 4.5 because the returning clock sat on the rim.
 Own score: design 8, usability 7.5, creativity 8.5, content 7.
 Measured: `tsc --noEmit` clean; functional script passes (no text under 12px by computed size, no target under 44px, form states, keyboard order, no console errors); intro timing 4.4s / 0.4s / 1.7s / 0.1s; no-WebGL page renders complete; five extra sizes render without overflow or console errors; production build passes.
 Not checked: real-device frame rate (the scene now blends over page content while the hole is open); screen reader pass; the demos against fresh prototype captures. Demo cards on desktop are scaled between 0.84 and 1.15 to fit the ring, so their smallest labels can render near 10px on a 720px-tall window.
 Progress note sent: 06:24 (six stills).
+
+Top gaps (critic P): the clock printing over the rim on the way out, with the hole off-centre; demo frames changing width and height from part to part; the dial's text on a different column from the feature copy; the rim cutting into reading room on phones and slicing text; muddy digits in the demo clock; two clocks with nothing to say which is the launch; four ice-blue unit marks on the page's own clocks; closing columns not aligned; a seam across the hole in the intro. Critic O: MINUS reading as dirt at small cell sizes; an undersized hero lockup on desktop. Both: a fashion page with no fashion on it.
+Stop check: bar no -> next round
+
+## Round 09
+
+Time: 06:25 to 06:45 UTC | total elapsed 2.7h
+Focus: the round-8 gaps above, then an automated accessibility audit, which had never been run.
+
+Changes:
+- One scale for every demo inside the ring; feature copy starts at one height; the premise beside the dial sits on the feature copy's column.
+- Pull-out: the hole returns to the centre line first; the clock waits until the void is wide enough to hold it and never sits within a line's height of the rim.
+- Content dims as it nears the rim instead of being cut by it; slightly larger porthole on phones.
+- Page clocks: periwinkle unit marks, so ice blue is one word per view; the header clock is labelled as the launch count.
+- Hero: larger lockup on desktop; larger glyph cells in MINUS so the marks read as characters; perk and brand link drop out below 800px of height.
+- Intro: a more open view of the disk so the band across the hole has body. One beat of light through the ring when the part changes.
+- Closing: wider body, columns aligned, a little lower.
+- Demo clock: a slightly stronger base under the glyph fill. Still a glyph fill.
+- Accessibility: the audit showed the hero (the page's h1 and first form) left the accessibility tree once scrolled past, and my round-8 change hid the features from screen readers and the keyboard while the page sat at the top. Both now stay reachable; focusing the faded hero form scrolls back to it. The scene's clocks moved inside the main landmark.
+
+Stills: `cook/stills/r09/` | Pairs: `cook/compare/r09/`
+Scores: two critics running.
+Own score: design 8, usability 8, creativity 8.5, content 7.
+Measured: `tsc --noEmit` clean; axe-core (WCAG 2.1 A and AA plus best practice) reports no violations on the page at hero, features and closing, desktop and phone, or on the two legal pages; functional script passes; focusing the hero field from the features returns scroll to 0 with the hero visible; intro timing 4.4s / 0.4s / 1.7s / 0.1s; five extra sizes render without overflow or console errors; no-WebGL page renders complete.
+Not checked: real-device frame rate; a pass with a real screen reader; the demos against fresh prototype captures.
 

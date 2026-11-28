@@ -81,6 +81,7 @@ export function LandingPage() {
   const featSectionRef = useRef<HTMLElement | null>(null);
   const underlayRef = useRef<HTMLDivElement | null>(null);
   const minusReveal = useRef(0);
+  const heroShown = useRef(true);
   const cache = useRef<Record<string, string>>({});
   const sceneOffRef = useRef(false);
   sceneOffRef.current = sceneOff;
@@ -166,8 +167,10 @@ export function LandingPage() {
       "transform",
       `translate3d(0, ${(-leave * 36 + (1 - f.heroReveal) * 10).toFixed(1)}px, 0)`
     );
+    // Faded out, the hero still holds the page's h1 and first form for
+    // assistive tech and the keyboard; focusing into it scrolls back to it.
     write("hero-p", heroRef.current, "pointer-events", heroOpacity > 0.5 ? "auto" : "none");
-    write("hero-v", heroRef.current, "visibility", heroOpacity < 0.01 ? "hidden" : "visible");
+    heroShown.current = heroOpacity > 0.5;
     // The word finishes resolving before the rest of the hero has faded in.
     minusReveal.current = Math.min(1, f.heroReveal * 1.8);
 
@@ -230,7 +233,9 @@ export function LandingPage() {
     // on black and are seen through the hole.
     const open = f.cut > 0.5;
     write("ul-o", underlayRef.current, "opacity", open ? "1" : "0");
-    write("ft-v", featSectionRef.current, "visibility", open ? "visible" : "hidden");
+    // Unseen but still reachable before then. (Opacity is cleared, not set to
+    // 1, so the section's columns keep their own places in the page's layers.)
+    write("ft-o", featSectionRef.current, "opacity", open ? "" : "0");
     inputsRef.current.stage = sceneStage.on ? sceneStage : null;
 
     write("cl-o", closingRef.current, "opacity", closingIn.toFixed(3));
@@ -372,26 +377,6 @@ export function LandingPage() {
         </div>
       </header>
 
-      {/* Clocks that live inside the event horizon. */}
-      {sceneOff ? null : (
-        <>
-          <div
-            ref={horizonClockRef}
-            style={{ opacity: 0 }}
-            className="pointer-events-none fixed left-0 top-0 z-20 will-change-transform"
-          >
-            <HorizonClock parts={clock} joined={joined} />
-          </div>
-          <div
-            ref={dialClockRef}
-            style={{ opacity: 0 }}
-            className="pointer-events-none fixed left-0 top-0 z-20 will-change-transform"
-          >
-            <DialClock parts={clock} />
-          </div>
-        </>
-      )}
-
       {/* Black behind the open void. Only shown while the void is open. */}
       {sceneOff ? null : (
         <div
@@ -404,6 +389,26 @@ export function LandingPage() {
 
       {/* Layers, bottom to top: black, the features, the scene, hero and closing, clocks, header. */}
       <main id="top" className="relative">
+        {/* Clocks that live inside the event horizon. */}
+        {sceneOff ? null : (
+          <>
+            <div
+              ref={horizonClockRef}
+              style={{ opacity: 0 }}
+              className="pointer-events-none fixed left-0 top-0 z-20 will-change-transform"
+            >
+              <HorizonClock parts={clock} joined={joined} />
+            </div>
+            <div
+              ref={dialClockRef}
+              style={{ opacity: 0 }}
+              className="pointer-events-none fixed left-0 top-0 z-20 will-change-transform"
+            >
+              <DialClock parts={clock} />
+            </div>
+          </>
+        )}
+
         {/* Runway: horizon, then the camera rises to look straight down. */}
         <div
           ref={runwayRef}
@@ -420,6 +425,9 @@ export function LandingPage() {
             <section
               ref={heroRef}
               data-section="hero"
+              onFocusCapture={() => {
+                if (!sceneOff && !heroShown.current) window.scrollTo({ top: 0, behavior: "auto" });
+              }}
               style={{ opacity: sceneOff ? 1 : 0 }}
               className={`${
                 sceneOff ? "relative" : "absolute inset-x-0 top-0"
