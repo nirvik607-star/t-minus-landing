@@ -20,7 +20,7 @@ import {
 import { WaitlistForm } from "@/components/landing/waitlist-form";
 import { Features } from "@/components/landing/features";
 import type { WaitlistRole } from "@/lib/waitlist";
-import { APP_STORE_URL, SMS_PROGRAM } from "@/lib/launch";
+import { APP_STORE_URL } from "@/lib/launch";
 import { sceneEnergy, sceneStage } from "@/lib/scene/energy";
 
 /** After zero, with a listing to point at, the page offers the app instead of the waitlist. */
@@ -35,8 +35,11 @@ function AppStoreButton() {
   );
 }
 
-/** MINUS reads as a white word perforated by the glyph field: white ground, brand-purple marks. */
-const MINUS_TINTS = ["#B5A2F3", "#9D86EE", "#C5B8F6"];
+/**
+ * MINUS arrives as a white word full of glyphs, and the glyphs then leave it:
+ * minus the noise. At rest it is a plain white word.
+ */
+const MINUS_TINTS = ["#8A6BEA", "#613DC1", "#9B8AE8"];
 
 export function LandingPage() {
   const clock = useLaunchClock();
@@ -200,7 +203,8 @@ export function LandingPage() {
     );
     // The closing copy waits until the hole has pulled back below it. Until
     // it shows, the clock is free to ride the hole; after, it needs the room.
-    const closingIn = f.closing > 0.001 ? smooth(0.7, 0.94, f.closing) : 0;
+    const closingFrom = f.w < 700 ? 0.6 : 0.7;
+    const closingIn = f.closing > 0.001 ? smooth(closingFrom, closingFrom + 0.24, f.closing) : 0;
     const line = inputsRef.current.fadeLine;
     const roomGate = smooth(line - 10, line + 34, crestY);
     // On the way out the clock waits until the void is wide enough to hold it.
@@ -355,7 +359,7 @@ export function LandingPage() {
           type="button"
           onClick={() => controlRef.current?.skipIntro()}
           style={{ opacity: 0, visibility: "hidden" }}
-          className="pointer-events-auto absolute right-3 top-1/2 h-11 -translate-y-1/2 cursor-pointer px-2 text-[14px] font-medium text-soft underline decoration-peri/60 underline-offset-[3px] transition-opacity duration-200 ease-out sm:right-8 lg:right-[72px] [@media(hover:hover)]:hover:text-ink"
+          className="pointer-events-auto absolute right-3 top-1/2 h-11 -translate-y-1/2 cursor-pointer rounded-[8px] bg-[#13021D]/70 px-3.5 text-[14px] font-medium text-ink transition-opacity duration-200 ease-out sm:right-8 lg:right-20 [@media(hover:hover)]:hover:bg-[#13021D]/90"
         >
           Skip intro
         </button>
@@ -454,7 +458,7 @@ export function LandingPage() {
                   silhouette="#FFFFFF"
                   silhouetteOpacity={0.96}
                   threshold={0.74}
-                  minCoverage={0.93}
+                  clearAfterReveal
                   revealSource={minusReveal}
                   className="my-1.5 h-[min(62px,8dvh)] w-[min(300px,38.5dvh)] sm:my-2 sm:h-[min(112px,12.4dvh)] sm:w-[min(540px,59.8dvh)]"
                 />
@@ -542,7 +546,7 @@ export function LandingPage() {
                   ? "Keep your identity, your pricing and your checkout. Turn each collection into a scheduled release, and run your membership inside the app. Leave a number and we\u2019ll text you about setting up your first drop."
                   : live
                     ? "T^minus is live. Leave your number for drop alerts."
-                    : `One text the moment T^minus is live, then drop alerts. Never more than ${SMS_PROGRAM.maxMessagesPerMonth} a month, and STOP ends them.`}
+                    : "One text the moment T^minus is live. After that, only drop alerts."}
               </p>
             </div>
             <div className="flex flex-col items-center lg:-mt-2.5 lg:items-start">

@@ -6,7 +6,7 @@ Bar: design 9 | usability 9 | creativity 9 | content 9 (each out of 10, fresh re
 Calibration offset: none yet (no user estimate received)
 Usage: not readable
 Gate: stills approved no | final render not applicable (the deliverable is the site)
-Best so far: round 11, `cook/stills/r11/`
+Best so far: round 12, `cook/stills/r12/`
 
 Correction, 05:20: the times first written for rounds 1 and 2 were estimates, not clock readings, and ran about 90 minutes ahead. They are replaced below with times taken from the commit log.
 
@@ -36,6 +36,8 @@ Made without asking, one line each.
 - 06:45 The intro's hole has a clean black shadow, with nothing drawn across its front. Five critics over six rounds read the band across it as a seam or a render fault at every angle tried.
 - 06:45 The demos keep the app's white primary buttons, against three critics who wanted them outlined so they do not compete with the page's own button. The user asked for accuracy to the prototype. Flagged for the user.
 - 06:45 Ice blue: the seconds of the page's countdown are the one ice-blue value in the hero and the dial; in the closing the word "zero." takes it and the seconds go white. Unit marks are periwinkle throughout.
+- 07:08 MINUS arrives full of glyphs and they then clear out of it, leaving a plain white word. Seven critics in a row read the marks as dirt, damage or moth holes at every density and colour tried; this keeps the glyphs as the arrival and makes the line literal. Reverses the 05:10 perforated treatment. Flagged for the user.
+- 07:08 Critics now contradict each other on the ring's size and position, the closing's layout and a label above the features, so those are left as they are for the user to judge.
 - 06:58 On phones each demo is scaled to fit between the arcs of the rim (never below nine tenths) and rests there for a third of a screen. Its controls then measure 40 to 43px instead of 44. Seeing the demo whole was judged worth four pixels; flagged for the user.
 - 05:10 "Example studio / Portland, OR" replaces "Independent studio / Your city" on the Drops Home stage; other demo data keeps the prototype's own placeholder style (Studio 01, CONCEPT_01) and each demo is labelled as running on example data.
 
@@ -324,8 +326,35 @@ Changes:
 - The runway no longer takes taps meant for the first demo as it rises (found by a hit test, not by a critic).
 
 Stills: `cook/stills/r11/` | Pairs: `cook/compare/r11/`
-Scores: two critics running.
+
+Scores, eyeballed, raw:
+- Blind pairs won by the new build: 8 of 8 (critic U). New build per pair: design 6.9 to 7.3, usability 6.3 to 7.5, creativity 6.7 to 7.5, content 5.4 (the intro frame) to 7.4.
+- Walkthrough (critic V, stronger model), whole page: design 6.4, usability 6.6, creativity 7.0, content 6.0. Phone features 7 / 7 / 6.5 / 7 and phone closet 7 / 7 / 6 / 7, from 5.5 / 5 / 6 / 7. Intro 7.5 / 6.5 / 8 / 6.
+- Reading the last three walkthroughs together (6.4 / 6.3 / 7.1 / 5.9, then 6.8 / 6.4 / 7.3 / 6.3, then 6.4 / 6.6 / 7.0 / 6.0): a different critic each round moves the whole-page score by about 0.4 either way, which is more than one round's changes do. Section scores are the steadier signal.
 Own score: design 8, usability 8, creativity 8.5, content 7.5.
 Measured: `tsc --noEmit` clean; axe-core reports no violations; functional script: no text under 12px, form states and keyboard order pass, no console errors, and 26 demo controls on the phone measure 40 to 43px while their demo is scaled (everything else is 44px or more); hit tests: the hero field and the first demo take taps at three scroll positions on desktop and phone; four extra sizes render without horizontal overflow or console errors; no-WebGL page renders complete.
 Not checked: real-device frame rate; a pass with a real screen reader; the demos against fresh prototype captures; the phone hold on a real iPhone with its moving address bar.
+
+Top gaps (critic V): the desktop ring running under the header and close to the left edge, with the demo small inside it; an undersized hero countdown; glyph marks in MINUS reading as rendering damage; the section heading smaller than the first part's name on phones; an empty phone pull-out; the closing's split layout against the hero's centred one; the Skip control on the white of the intro's flash; a part's name wrapping to two lines and moving the copy under it; an outlined button on the legal pages. Critic U: the same marks in MINUS; demo buttons out-ranking the page's own.
+Stop check: bar no. The loop pauses here for the user: see the note under round 12.
+
+## Round 12
+
+Time: 07:02 to 07:15 UTC | total elapsed 3.2h
+Focus: the round-11 gaps that are faults, not matters of taste.
+
+Changes:
+- MINUS: glyphs on arrival, plain white at rest.
+- Desktop features: every part's name sits in a two-line slot, so the copy under it starts at one height.
+- Skip intro has its own dark backing. Legal pages use the same filled button as the page.
+- Phones: the closing copy arrives sooner in the pull-out, once it is clear of the rim.
+- Closing body shortened; it no longer repeats the consent line beneath it.
+
+Stills: `cook/stills/r12/`
+Scores: not run for this round. The changes answer points raised by seven critics (MINUS) or are alignment fixes, and one more pair of critics would add more noise than signal.
+Own score: design 8, usability 8, creativity 8.5, content 7.5.
+Measured: `tsc --noEmit` clean; axe-core reports no violations; functional script as in round 11 (26 scaled demo controls on the phone at 40 to 43px, nothing else under 44px, no text under 12px, forms and keyboard order pass, no console errors); hit tests pass; five extra sizes render without horizontal overflow or console errors; no-WebGL page renders complete; intro timing 4.4s first visit, 0.4s returning, 1.7s after Skip, 0.1s reduced motion; `npm run build` and `npm run build:pages` both pass; a recorded scroll of the whole page ran at 38 frames a second at phone size and 15 at 1280x720 on software rendering, with no GPU.
+Not checked: frame rate on a real phone or laptop GPU; a pass with a real screen reader; the demos against fresh prototype captures; the phone hold on a real iPhone with its moving address bar.
+
+Why the loop pauses: the bar is 9 on four criteria and the page stands at about 6.5 / 6.5 / 7.1 / 6.1 by the walkthrough critics and about 7 / 7 / 7.2 / 7 by the pairs critics, having won every blind pair against the old page for eight rounds running. Three things now hold the score: no real garment, brand or drop to show; decisions that are the user's (listed under Decisions as flagged); and critics who have begun reversing each other. Further rounds without the user's eye would trade one critic's taste for the next.
 

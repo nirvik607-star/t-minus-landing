@@ -97,12 +97,16 @@ function Copy({ feature, wide }: { feature: Feature; wide: boolean }) {
   const hint = !wide && feature.hintSmall ? feature.hintSmall : feature.hint;
   return (
     <>
+      {/* Beside the ring every name gets a two-line slot and sits on its last
+          line, so the copy under it starts at one height whatever the name. */}
       <h3
         className={`headline text-ink ${
-          wide ? "text-[clamp(2.75rem,4.7vw,4.5rem)]" : "text-[clamp(2.75rem,5.4vw,5rem)]"
+          wide
+            ? "flex min-h-[2.04em] items-end text-[clamp(2.75rem,4.7vw,4.5rem)]"
+            : "text-[clamp(2.75rem,5.4vw,5rem)]"
         }`}
       >
-        {feature.name}
+        <span>{feature.name}</span>
       </h3>
       <p className="mt-5 max-w-[40ch] text-[18px] leading-[1.5] text-soft lg:text-[19px]">
         <span className="font-medium text-ink">{feature.lead}</span> {feature.body}
@@ -435,7 +439,7 @@ export function Features({ outerRef, scene, onPart }: FeaturesProps) {
                     itemRefs.current[i] = el;
                   }}
                   data-feature={f.id}
-                  className="flex min-h-[86vh] flex-col justify-start pt-[27vh]"
+                  className="flex min-h-[86vh] flex-col justify-start pt-[22vh]"
                 >
                   <div
                     ref={(el) => {

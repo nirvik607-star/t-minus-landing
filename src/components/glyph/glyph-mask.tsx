@@ -32,6 +32,8 @@ export interface GlyphMaskProps {
   threshold?: number;
   /** How full a cell must be before it gets a mark. Near 1 keeps every mark whole, inside the letter. */
   minCoverage?: number;
+  /** The marks leave once the word has fully arrived, and the plain silhouette is what stays. */
+  clearAfterReveal?: boolean;
   /** Seconds per loop. */
   loop?: number;
   /** 0..1: how much of the word has materialised (ordered scan, left to right). */
@@ -67,6 +69,7 @@ export function GlyphMask({
   silhouetteOpacity = 0.2,
   threshold = 0.74,
   minCoverage = 0.5,
+  clearAfterReveal = false,
   loop = 2.0,
   reveal,
   revealSource,
@@ -110,6 +113,7 @@ export function GlyphMask({
     let h = 0;
     let dpr = 1;
     let lastFrame = -1;
+    let clearedAt = 0;
     let silFont = "";
     let silX = 0;
     let silY = 0;
@@ -200,8 +204,26 @@ export function GlyphMask({
         rv = reduced || still ? 1 : Math.min(1, Math.max(0, t));
         revealRef.current = rv;
       }
-      const revealKey = Math.round(rv * 200);
-      if (frame === lastFrame && revealKey === (draw as unknown as { k?: number }).k) return;
+      // The marks are the noise. Once the word has resolved they clear out of it.
+      let marks = 1;
+      if (clearAfterReveal) {
+        if (rv >= 0.999) {
+          if (clearedAt === 0) clearedAt = now;
+          marks = reduced || still ? 0 : 1 - Math.min(1, Math.max(0, (now - clearedAt - 350) / 900));
+        } else {
+          clearedAt = 0;
+        }
+      }
+      const revealKey = Math.round(rv * 200) + Math.round(marks * 60) * 1000;
+      // Nothing left to animate once the marks are gone.
+      // (A rebuild sets lastFrame to -1, which always forces one redraw.)
+      if (
+        lastFrame !== -1 &&
+        (frame === lastFrame || marks === 0) &&
+        revealKey === (draw as unknown as { k?: number }).k
+      ) {
+        return;
+      }
       lastFrame = frame;
       (draw as unknown as { k?: number }).k = revealKey;
 
@@ -237,7 +259,7 @@ export function GlyphMask({
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
-      for (let r = 0; r < rows; r++) {
+      for (let r = 0; r < (marks > 0 ? rows : 0); r++) {
         for (let c = 0; c < cols; c++) {
           const cov = coverage[r * cols + c];
           if (cov < minCoverage) continue;
@@ -262,7 +284,7 @@ export function GlyphMask({
           const tint = isSignal
             ? signal
             : tints[(3 * c + 5 * r + Math.floor(e * tints.length)) % tints.length];
-          ctx.globalAlpha = cov < 0.8 ? 0.7 : 1;
+          ctx.globalAlpha = (cov < 0.8 ? 0.7 : 1) * marks;
           ctx.fillStyle = tint;
           ctx.font = isSignal ? fontSignal : fontSupport;
           ctx.fillText(glyph, x, y + cell * 0.04);
@@ -292,6 +314,7 @@ export function GlyphMask({
     maskFamilyVar,
     cellProp,
     minCoverage,
+    clearAfterReveal,
     rowsProp,
     tints,
     signal,
