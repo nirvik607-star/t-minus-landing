@@ -44,6 +44,7 @@ export function LandingPage() {
   const dialClockRef = useRef<HTMLDivElement | null>(null);
   const headerExtrasRef = useRef<HTMLDivElement | null>(null);
   const headerClockRef = useRef<HTMLSpanElement | null>(null);
+  const headerBackRef = useRef<HTMLDivElement | null>(null);
   const closingPhoneRef = useRef<HTMLInputElement | null>(null);
   const minusReveal = useRef(0);
   const cache = useRef<Record<string, string>>({});
@@ -166,6 +167,8 @@ export function LandingPage() {
     // Header extras appear once the scene's own clocks are out of view.
     const showClock = f.settled && f.horizonClock < 0.04 && f.dialClock < 0.04;
     write("hk-o", headerClockRef.current, "opacity", showClock ? "1" : "0");
+    const overContent = f.exitPx > f.h * 0.45 && f.closing < 0.05;
+    write("hb-o", headerBackRef.current, "opacity", overContent ? "1" : "0");
     const showJoin = f.settled && pin > 0.24 && f.closing < 0.35;
     write("hx-o", headerExtrasRef.current, "opacity", showJoin ? "1" : "0");
     write("hx-p", headerExtrasRef.current, "pointer-events", showJoin ? "auto" : "none");
@@ -197,6 +200,13 @@ export function LandingPage() {
       )}
 
       <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between px-5 sm:h-[68px] sm:px-9">
+        {/* A plain backing once page content scrolls beneath the header. */}
+        <div
+          ref={headerBackRef}
+          aria-hidden="true"
+          style={{ opacity: 0 }}
+          className="absolute inset-0 -z-10 border-b border-line bg-ground/90 backdrop-blur-md transition-opacity duration-200 ease-out"
+        />
         <a
           href="#top"
           onClick={(e) => {

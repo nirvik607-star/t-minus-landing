@@ -1,52 +1,49 @@
-# T^minus Landing Page
+# T^minus landing page
 
-Standalone Next.js 16 + procedural 3D WebGL2/GLSL ASCII Black Hole landing page for **T^minus** (`App Store v1.0 - Jan 1, 2027`).
+Waitlist page for **T^minus**: limited drops from independent brands, on one live clock. On the App Store January 1, 2027.
 
-**Live Preview (GitHub Pages):** https://nirvik607-star.github.io/t-minus-landing/
+Next.js 16, React 19, Tailwind 4 and a hand-written WebGL2 scene. No video, no image assets beyond the social card and icons, no runtime dependencies beyond Next and React.
 
-Zero MP4 video assets, zero database setup, zero `.env` variables, and zero native C++ addons—runs natively on macOS, Windows, and Linux, and exports cleanly as a static site for GitHub Pages.
+## Run it
 
-## Quickstart (macOS / Linux / Windows)
-
-Requires **Node.js 20+**.
+Requires Node.js 20 or later.
 
 ```bash
-git clone https://github.com/nirvik607-star/t-minus-landing.git
-cd t-minus-landing
 npm install
-npm run dev
+npm run dev        # http://localhost:3000
+npm run build      # Node server build, includes the /api/waitlist endpoint
+npm run build:pages  # static export for GitHub Pages, written to ./out
 ```
 
-Open **http://localhost:3000** (or **http://localhost:3000/landing** — both routes render the exact same experience).
+## What is where
 
-### Production & Static GitHub Pages Build
+| Path | What it is |
+| --- | --- |
+| `src/lib/launch.ts` | The facts the page states: launch date, waitlist perk, text-message programme details, App Store URL. Change them here. |
+| `src/components/landing/landing-page.tsx` | The page: hero, runway to the top-down dial, features, audiences, closing. |
+| `src/components/landing/waitlist-form.tsx` | The form, consent line and confirmation. |
+| `src/components/landing/countdown.tsx` | One ticking clock and its three readouts. Flips to T-plus at zero. |
+| `src/components/scene/blackhole-scene.tsx` | The canvas: sets up WebGL, runs the frame loop, reports geometry to the page. |
+| `src/lib/scene/shaders.ts` | Two passes. The first traces light through a black hole's field at one sample per glyph cell. The second draws the brand glyphs from an atlas. |
+| `src/lib/scene/director.ts` | Turns intro time and scroll position into camera and scene values. The page reads the same values to place the countdown inside the event horizon. |
+| `src/components/demos/` | The five feature demos, built from the iOS prototype's own layouts and rules. |
+| `src/components/glyph/glyph-mask.tsx` | Text drawn as a font-shaped mask filled with glyphs, as the app draws its clock. |
+| `src/app/privacy`, `src/app/terms` | Public legal pages for the text-message programme. |
+| `src/app/api/waitlist/route.ts` | Local JSON waitlist endpoint for Node server runs. The export (`GET`) stays shut unless `WAITLIST_EXPORT_TOKEN` is set. |
+| `src/app/v1` | The previous page, kept for comparison until the rebuild is approved. |
+| `cook/` | Working notes for the rebuild: brief, shot list, round ledger and the still-rendering harness. |
 
-```bash
-# Node server build (includes local /api/waitlist JSON endpoint)
-npm run build
-npm run start
-
-# Static GitHub Pages export (outputs to ./out with .nojekyll)
-npm run build:pages
-```
-
-## Useful Preview Query Params
+## Useful URL controls
 
 | URL | State |
 | --- | --- |
-| `/` | Full 7.25s 3D intro (3.60s cosmic opening -> 1.35s pure-white/ice-blue supernova & pure-ASCII `T^minus` -> unbroken 3D sweep to bottom horizon) |
-| `/?skipIntro=1` | Instant settled hero with live bottom black hole horizon |
-| `/?introAt=1.8` | Pinned during Stage A cosmic opening (tilted 3/4 black hole + helical `#97DFFC` polar jets) |
-| `/?introAt=4.22` | Pinned at Stage B supernova peak (pure-white + ice-blue burst & pure-ASCII `T^minus`) |
-| `/?introAt=5.7` | Pinned mid-flight during Stage C 3D sweep |
+| `/` | Full page. The intro runs about five seconds on a first visit and about one second after that. Any scroll, tap or key ends it early. |
+| `/?skipIntro=1` | Settled hero, no intro. |
+| `/?introAt=3.4` | Intro pinned at a time in seconds (0 to 5). |
+| `/?still=1` | Freezes the scene clock and glyph changes, for repeatable screenshots. |
 
-## Project Map
+## Before launch
 
-- `src/components/landing/ascii-blackhole-canvas.tsx` — Pure procedural 3D WebGL2/GLSL ES 3.00 relativistic black hole (` ^-t+=T*` strict glyph ramp, Galaxy palette, seamless inward-spiral top-down polar streamlines, 3D helical polar jets, cell-quantized pure-ASCII `T^minus`, adaptive bloom/EMA governor, zero MP4 video).
-- `src/components/landing/landing-experience.tsx` — Native CSS sticky scroll runway, frame-locked countdown sync, hero lift-off fade, enlarged responsive wordmark, and Layer 20 curved `#040206` pre-rim occlusion veil.
-- `src/components/landing/horizon-countdown.tsx` — Tabular launch countdown synced inside the `#000000` event horizon core.
-- `src/components/landing/waitlist-bar.tsx` — Audience toggle (`I'm shopping` / `I run a brand`), E.164 phone formatter, SMS consent, `.ics` launch reminder, and share sheet.
-- `src/components/landing/ascii-corner-button.tsx` — Retina pixel-snapped diagonal-X corner ASCII CTA button (disabled on pure-white primary pills).
-- `src/components/landing/ascii-reveal.tsx` — Organic settle text materialization (`^ - t + = T *`).
-- `src/components/landing/t-minus-wordmark.tsx` — Locked `26:15` SwiftUI `T^minus` wordmark + crisp `500`-weight WebGL mask rasterizer.
-- `src/app/api/waitlist/route.ts` — Local JSON waitlist endpoint (`.data/waitlist.json`, gitignored) for Node server runs (`NEXT_PUBLIC_WAITLIST_ENDPOINT` can be set for static deployments).
+- Signups post to `/api/waitlist`, which writes to a local file. A static export has no endpoint, so the form cannot save there. Move to a host with a real datastore before sending traffic.
+- `src/lib/launch.ts` holds a placeholder support address and message frequency. Set them, and have the legal pages reviewed, before registering the text-message programme with carriers.
+- Set `APP_STORE_URL` once the listing exists: at zero the form becomes a download button.
