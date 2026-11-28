@@ -26,43 +26,43 @@ interface Concept {
 const CONCEPTS: Concept[] = [
   {
     id: "CONCEPT_01",
-    title: "Packable rain shell",
+    title: "Cropped puffer",
     category: "Outerwear",
     byline: "Studio 01, $120 to $160 provisional",
     supporters: 284,
   },
   {
     id: "CONCEPT_02",
-    title: "Reversible work vest",
-    category: "Layers",
+    title: "Heavyweight hoodie",
+    category: "Fleece",
     byline: "Studio 02, $90 to $120 provisional",
     supporters: 173,
   },
   {
     id: "CONCEPT_03",
-    title: "Zip-off travel trouser",
+    title: "Relaxed cargo pant",
     category: "Bottoms",
     byline: "Studio 03, $110 to $140 provisional",
     supporters: 96,
   },
   {
     id: "CONCEPT_04",
-    title: "Modular tote",
-    category: "Accessories",
+    title: "Boxy graphic tee",
+    category: "Tees",
     byline: "Studio 04, $60 to $85 provisional",
     supporters: 211,
   },
   {
     id: "CONCEPT_05",
-    title: "Quilted liner jacket",
-    category: "Outerwear",
+    title: "Court sneaker",
+    category: "Footwear",
     byline: "Studio 05, $140 to $180 provisional",
     supporters: 152,
   },
   {
     id: "CONCEPT_06",
-    title: "Knit overshirt",
-    category: "Shirting",
+    title: "Crossbody bag",
+    category: "Accessories",
     byline: "Studio 06, $95 to $125 provisional",
     supporters: 68,
   },
@@ -553,7 +553,7 @@ const GlyphScene = memo(function GlyphScene({ marks }: { marks: Mark[] }) {
  * colour, the rounded clip and the caption. The scenes alternate galaxy,
  * satellite, package, and the second use of each stands on a different frame.
  */
-const CONCEPT_GARMENTS: GarmentKind[] = ["shell", "vest", "trouser", "tote", "liner", "overshirt"];
+const CONCEPT_GARMENTS: GarmentKind[] = ["puffer", "hoodie", "cargo", "tee", "sneaker", "bag"];
 
 /**
  * The landing page shows each concept as the garment itself, drawn in glyphs.

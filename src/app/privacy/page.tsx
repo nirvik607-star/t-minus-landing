@@ -30,6 +30,19 @@ export default function PrivacyPage() {
         <p>We do not ask for your name, email address, payment details or location.</p>
       </LegalSection>
 
+      <LegalSection heading="The public map">
+        <p>
+          This website shows a globe of where people have joined from. It is drawn from the area
+          code of each number and nothing else: an area code tells us a broad region, such as a
+          metro area or part of a state, shared by a very large number of phones.
+        </p>
+        <p>
+          The map never shows or sends your number, any part of it, the time you joined, or the order
+          people joined in. It shows a region&rsquo;s name and a mark on the globe, and a count of
+          how many people are on the list.
+        </p>
+      </LegalSection>
+
       <LegalSection heading="How we use it">
         <p>
           We use your number to send you the text messages you asked for: a message when T^minus is

@@ -92,6 +92,8 @@ export interface SceneValues {
   cut: number;
   /** CSS px: the field fades out to the right of this x. 0 = off. */
   fadeX: number;
+  /** 0..1: the globe in the void at the ending. */
+  world: number;
 }
 
 interface Framing {
@@ -236,6 +238,25 @@ export function insideFraming(
   return { elev: 90, cx: w / 2, cy: h / 2, r, diskOut: 4.3, exposure: 2.3 };
 }
 
+/**
+ * The ending: the ring stays, and the world sits in the void where the
+ * countdown and then the demos were. Wide screens keep the ring where the
+ * demos left it; small screens lift a smaller ring to the top, with the
+ * signup under it.
+ */
+export function endingFraming(
+  w: number,
+  h: number,
+  stage?: { cx: number; cy: number; r: number } | null
+): Framing {
+  if (stage && stage.r > 0) {
+    const r = Math.min(stage.r, Math.max(240, 0.37 * h));
+    return { elev: 90, cx: stage.cx, cy: stage.cy, r, diskOut: 3.3, exposure: 2.5 };
+  }
+  const r = Math.min(0.4 * w, 0.2 * h, 230);
+  return { elev: 90, cx: w / 2, cy: Math.max(r + 84, 0.29 * h), r, diskOut: 4.2, exposure: 2.4 };
+}
+
 export function direct(input: DirectorInput): SceneValues {
   const { w, h, intro, pin, exitPx, closing, px, py } = input;
   const clearY = input.clearY ?? 0;
@@ -267,16 +288,13 @@ export function direct(input: DirectorInput): SceneValues {
     orbit = (input.turn ?? 0) * 8.6;
   }
 
-  // At the end it pulls back out, and the hole settles as the horizon under
-  // the closing form.
+  // At the end the ring draws in around the world.
+  let world = 0;
   if (closing > 0.001) {
     const k = smoother(0, 1, closing);
-    const end = horizonFraming(w, h, 78, clearY);
-    f = mixFraming(inside, end, k);
-    // The hole is back on the centre line before the clock returns to it.
-    f.cx = lerp(inside.cx, end.cx, smoother(0, 0.5, closing));
-    polar = 1 - k;
-    orbit *= 1 - k;
+    f = mixFraming(inside, endingFraming(w, h, input.stage), k);
+    polar = 1;
+    world = smooth(0.5, 0.9, closing);
   }
 
   // ---------------- intro ----------------
@@ -408,12 +426,8 @@ export function direct(input: DirectorInput): SceneValues {
     horizonClock,
     dialClock,
     polar,
-    // On the way out the ring stays whole until the hole has nearly settled;
-    // only then is the field cleared from behind the closing copy.
-    fadeGuard:
-      closing > 0.001
-        ? smooth(0.6, 0.88, closing)
-        : (1 - smooth(0.05, 0.3, polar)) * smooth(3.4, 4.1, intro),
+    // The field is kept off the hero's form. From the dial on the ring is whole.
+    fadeGuard: closing > 0.001 ? 0 : (1 - smooth(0.05, 0.3, polar)) * smooth(3.4, 4.1, intro),
     glow,
     front,
     // The ground under the glyph field drops toward black across the whole
@@ -421,20 +435,17 @@ export function direct(input: DirectorInput): SceneValues {
     well: 0.9 * mass,
     wellPx: f.r * (f.diskOut / B_CRIT) * lerp(0.5, 0.92, polar) * (1 - 0.5 * dive),
     starPx: (starR * focalPx) / CAM_DIST,
-    dive: closing > 0.001 ? 1 - smoother(0, 1, closing) : dive,
+    dive: closing > 0.001 ? 1 : dive,
     // Open from the dial onward. The features are far below the screen before then.
     cut: intro >= INTRO_SECONDS && pin > 0.5 ? 1 : 0,
+    world,
     // The guard slides in from the right edge as the ring grows, and back out as it leaves.
     fadeX:
       input.stage && input.stage.guardX && intro >= INTRO_SECONDS
         ? lerp(
             w + 120,
             input.stage.guardX,
-            closing > 0.001
-              ? 1 - smoother(0, 0.5, closing)
-              : exitPx > 0
-                ? 1
-                : smooth(0.5, 0.86, polar)
+            exitPx > 0 || closing > 0.001 ? 1 : smooth(0.5, 0.86, polar)
           )
         : 0,
   };

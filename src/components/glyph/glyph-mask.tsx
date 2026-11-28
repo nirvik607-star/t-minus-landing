@@ -34,6 +34,8 @@ export interface GlyphMaskProps {
   minCoverage?: number;
   /** The marks leave once the word has fully arrived, and the plain silhouette is what stays. */
   clearAfterReveal?: boolean;
+  /** Characters for the ordinary cells, quiet to loud. Defaults to the full brand set. */
+  glyphs?: readonly string[];
   /** Seconds per loop. */
   loop?: number;
   /** 0..1: how much of the word has materialised (ordered scan, left to right). */
@@ -70,6 +72,7 @@ export function GlyphMask({
   threshold = 0.74,
   minCoverage = 0.5,
   clearAfterReveal = false,
+  glyphs = SUPPORT,
   loop = 2.0,
   reveal,
   revealSource,
@@ -280,7 +283,7 @@ export function GlyphMask({
           const isSignal = e > threshold || arriving;
           const glyph = isSignal
             ? "T"
-            : SUPPORT[Math.min(SUPPORT.length - 1, Math.floor(e * SUPPORT.length))];
+            : glyphs[Math.min(glyphs.length - 1, Math.floor(e * glyphs.length))];
           const tint = isSignal
             ? signal
             : tints[(3 * c + 5 * r + Math.floor(e * tints.length)) % tints.length];
@@ -315,6 +318,7 @@ export function GlyphMask({
     cellProp,
     minCoverage,
     clearAfterReveal,
+    glyphs,
     rowsProp,
     tints,
     signal,

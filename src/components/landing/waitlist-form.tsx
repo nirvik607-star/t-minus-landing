@@ -34,7 +34,7 @@ interface WaitlistFormProps {
   /** Told whenever the chosen audience changes, so the page can change its pitch. */
   onRoleChange?: (role: WaitlistRole) => void;
   /** Told once a signup has been saved. */
-  onJoined?: (role: WaitlistRole) => void;
+  onJoined?: (role: WaitlistRole, phone?: string) => void;
   /** Show the waitlist perk as the line above the field (shoppers only). */
   perk?: boolean;
 }
@@ -140,7 +140,7 @@ export function WaitlistForm({
         return;
       }
       setJoined(role);
-      onJoined?.(role);
+      onJoined?.(role, e164 ?? undefined);
       onPulse?.(1);
     } catch {
       setError({ field: "form", text: "No connection. Check your signal and try again." });

@@ -47,7 +47,7 @@ export function DropsHomeDemo({ active }: { active: boolean }) {
             <GlyphPatch opacity={0.12} />
           </div>
           <div className="absolute inset-0 px-10 pb-7 pt-4">
-            <GarmentGlyph kind="jacket" label="Field jacket, drawn in glyphs" />
+            <GarmentGlyph kind="hoodie" label="Heavyweight hoodie, drawn in glyphs" />
           </div>
           <div className="absolute left-2 top-2 flex flex-col gap-[3px] bg-black/70 px-2 py-1.5">
             <span className="app-label text-[color:var(--secondary)]">50 units allocated</span>
@@ -73,7 +73,7 @@ export function DropsHomeDemo({ active }: { active: boolean }) {
       </div>
 
       <div className="flex items-baseline justify-between px-5 pt-[13px]">
-        <span className="app-serif text-[1.4375em]">Field Jacket</span>
+        <span className="app-serif text-[1.4375em]">Heavyweight Hoodie</span>
         <span className="value text-[1.0625em] font-medium">$148</span>
       </div>
 

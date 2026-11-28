@@ -22,17 +22,17 @@ interface Piece {
 }
 
 const PIECES: Piece[] = [
-  { id: "jacket", kind: "jacket", name: "Field Jacket", size: "M", state: "Owned" },
-  { id: "trouser", kind: "trouser", name: "Zip-off Trouser", size: "32", state: "Owned" },
-  { id: "liner", kind: "liner", name: "Quilted Liner", size: "M", state: "Incoming" },
-  { id: "tote", kind: "tote", name: "Modular Tote", size: "OS", state: "Secured" },
+  { id: "hoodie", kind: "hoodie", name: "Heavyweight Hoodie", size: "M", state: "Owned" },
+  { id: "cargo", kind: "cargo", name: "Cargo Pant", size: "32", state: "Owned" },
+  { id: "sneaker", kind: "sneaker", name: "Court Sneaker", size: "10", state: "Incoming" },
+  { id: "cap", kind: "cap", name: "Five-Panel Cap", size: "OS", state: "Secured" },
 ];
 
 const SHOWCASE_LIMIT = 3;
 
 export function ClosetDemo() {
   const [filter, setFilter] = useState<Filter>("All");
-  const [showcase, setShowcase] = useState<string[]>(["jacket"]);
+  const [showcase, setShowcase] = useState<string[]>(["hoodie"]);
 
   const shown = PIECES.filter((p) => filter === "All" || p.state === filter);
 

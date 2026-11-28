@@ -31,7 +31,7 @@ const EASE_OUT = "cubic-bezier(0.22, 1, 0.36, 1)";
 /** iOS system red in dark mode, at the 88% the app draws it. */
 const EXPIRED_RED = "text-[rgb(255_69_58/0.88)]";
 
-const ITEM = { name: "Field Jacket", price: "$148", size: "M" } as const;
+const ITEM = { name: "Heavyweight Hoodie", price: "$148", size: "M" } as const;
 /** The drop's pool: 50 allocated, 23 sold, one unit in this hold. */
 const POOL = { allocated: 50, sold: 23, held: 1, open: 26 } as const;
 
@@ -320,7 +320,7 @@ function HoldView({ active }: { active: boolean }) {
             className="relative h-[5em] w-[4.25em] shrink-0 overflow-hidden rounded-[8px] border border-white/[0.12] bg-[color:var(--galaxy-deep)]"
           >
             <div className="absolute inset-0 p-[3px]">
-              <GarmentGlyph kind="jacket" label="" />
+              <GarmentGlyph kind="hoodie" label="" />
             </div>
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-[0.375em]">

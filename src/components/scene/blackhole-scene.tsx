@@ -510,7 +510,10 @@ export function BlackholeScene({
         .trim();
       if (cssFamily) fontFamily = `${cssFamily}, ui-monospace, monospace`;
       try {
-        await document.fonts.load(`600 20px ${fontFamily}`);
+        // Every weight the ramp draws a T in.
+        await Promise.all(
+          [400, 500, 600, 700].map((wt) => document.fonts.load(`${wt} 20px ${fontFamily}`))
+        );
       } catch {
         // fall back to whatever monospace is available
       }

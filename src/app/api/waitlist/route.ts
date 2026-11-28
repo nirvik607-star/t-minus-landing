@@ -1,44 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
 import {
   escapeCsvCell,
   normalizePhoneToE164,
   type WaitlistRole,
 } from "@/lib/waitlist";
+import { readEntries, writeEntries, type WaitlistRecord } from "@/lib/waitlist-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-interface WaitlistRecord {
-  id: string;
-  phone: string;
-  role: WaitlistRole;
-  brandHandle: string | null;
-  proTrialWeeks: number;
-  source: string | null;
-  smsConsentAt: string;
-  createdAt: string;
-}
-
-const DATA_DIR = path.join(process.cwd(), ".data");
-const STORE_PATH = path.join(DATA_DIR, "waitlist.json");
-
-function readEntries(): WaitlistRecord[] {
-  try {
-    if (!fs.existsSync(STORE_PATH)) return [];
-    const parsed = JSON.parse(fs.readFileSync(STORE_PATH, "utf-8"));
-    return Array.isArray(parsed) ? (parsed as WaitlistRecord[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeEntries(entries: WaitlistRecord[]) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(STORE_PATH, JSON.stringify(entries, null, 2), "utf-8");
-}
 
 function sanitizeOptionalText(raw: unknown, maxLen: number): string | null {
   if (typeof raw !== "string") return null;

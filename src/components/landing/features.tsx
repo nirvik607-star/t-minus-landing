@@ -9,6 +9,7 @@ import { LabDemo } from "@/components/demos/lab-demo";
 import { ClosetDemo } from "@/components/demos/closet-demo";
 import { isWideStage, smooth, stageLayout, stageZoom } from "@/lib/scene/director";
 import { sceneStage } from "@/lib/scene/energy";
+import { GlyphVeil } from "@/components/glyph/glyph-veil";
 
 interface Feature {
   id: string;
@@ -410,8 +411,8 @@ export function Features({ outerRef, scene, onPart }: FeaturesProps) {
                       width: CARD_W,
                       transform: `translate(-50%, -50%) scale(${layout?.zooms[i] ?? 1})`,
                     }}
-                    className={`absolute top-1/2 transition-opacity duration-300 ease-out ${
-                      on ? "opacity-100" : "pointer-events-none opacity-0"
+                    className={`absolute top-1/2 transition-opacity duration-150 ease-out ${
+                      on ? "opacity-100 delay-200" : "pointer-events-none opacity-0 delay-100"
                     }`}
                   >
                     <div
@@ -424,6 +425,19 @@ export function Features({ outerRef, scene, onPart }: FeaturesProps) {
                   </div>
                 );
               })}
+              {/* Each change of part happens behind a front of T's that closes over the stage and clears. */}
+              {layout ? (
+                <GlyphVeil
+                  trigger={active}
+                  className="absolute top-1/2"
+                  style={{
+                    left: layout.cx - layout.colLeft,
+                    width: layout.r * 1.97,
+                    height: layout.r * 1.97,
+                    transform: "translate(-50%, -50%)",
+                  }}
+                />
+              ) : null}
             </div>
           </div>
           {/* The copy: beside the ring, over open ground. */}

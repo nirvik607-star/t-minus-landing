@@ -13,7 +13,14 @@ export const LAUNCH_DATE_SHORT = "January 1";
  * incentive. Set to null to show no perk line at all.
  */
 export const WAITLIST_PERK: string | null =
-  "2 weeks of Premium, free when the paid tier opens.";
+  "2 weeks of Premium, free when it opens: early access to drops and extra points.";
+
+/**
+ * What Premium is, as far as the page may promise today. The owner has more
+ * in mind (numbered pieces, member-only bids, better store rewards) but has
+ * not committed to it, so none of that is stated anywhere on the page.
+ */
+export const PREMIUM_PROMISES = ["Early access to drops", "Extra points on every drop"] as const;
 
 /** Text-message programme details shown in the consent line and legal pages. */
 export const SMS_PROGRAM = {

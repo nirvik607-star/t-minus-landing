@@ -8,7 +8,14 @@ import {
   type SceneFrame,
   type SceneInputs,
 } from "@/components/scene/blackhole-scene";
-import { dialFraming, isWideDial, isWideStage, smooth, stageLayout } from "@/lib/scene/director";
+import {
+  dialFraming,
+  endingFraming,
+  isWideDial,
+  isWideStage,
+  smooth,
+  stageLayout,
+} from "@/lib/scene/director";
 import { GlyphMask } from "@/components/glyph/glyph-mask";
 import { TMinusWordmark } from "@/components/landing/t-minus-wordmark";
 import {
@@ -22,6 +29,12 @@ import { Features } from "@/components/landing/features";
 import type { WaitlistRole } from "@/lib/waitlist";
 import { APP_STORE_URL } from "@/lib/launch";
 import { sceneEnergy, sceneStage } from "@/lib/scene/energy";
+import {
+  WaitlistGlobe,
+  useWaitlistPulse,
+  type PulsePlace,
+} from "@/components/globe/waitlist-globe";
+import { areaCodeFromE164, regionForAreaCode } from "@/lib/globe/area-codes";
 
 /** After zero, with a listing to point at, the page offers the app instead of the waitlist. */
 function AppStoreButton() {
@@ -36,16 +49,65 @@ function AppStoreButton() {
 }
 
 /**
- * MINUS arrives as a white word full of glyphs, and the glyphs then leave it:
- * minus the noise. At rest it is a plain white word.
+ * MINUS is the hero: a word as wide as the page, built from the letter T.
+ * Lower-case t's are its quiet cells, capitals its loud ones.
  */
-const MINUS_TINTS = ["#8A6BEA", "#613DC1", "#9B8AE8"];
+const MINUS_TINTS = ["#FFFFFF", "#E4DEFA", "#BDB5F2"];
+const MINUS_GLYPHS = ["t", "t", "T", "t", "T", "T"] as const;
+
+/** Below this many people the page does not quote a number. */
+const PULSE_MIN_COUNT = 10;
+
+/**
+ * One line under the ending's headline: how many are on the list, and the
+ * area whose turn it is on the globe. Says only what the feed says.
+ */
+function PulseLine({
+  data,
+  pinged,
+  self,
+}: {
+  data: ReturnType<typeof useWaitlistPulse>;
+  pinged: PulsePlace | null;
+  self: PulsePlace | null;
+}) {
+  const count = data?.count ?? 0;
+  const showCount = count >= PULSE_MIN_COUNT;
+  return (
+    <div className="mt-4 flex min-h-[3.1em] flex-col items-center gap-1 text-[15px] leading-[1.35] text-soft xl:items-start">
+      {showCount ? (
+        <p>
+          <span className="value font-semibold text-ink">{count.toLocaleString("en-US")}</span> on
+          the list{data?.sample ? " (preview data)" : ""}.
+        </p>
+      ) : (
+        <p>{self ? "You are on the map." : "The map fills in as people join."}</p>
+      )}
+      {/* Changes every couple of seconds: kept out of screen readers' way. */}
+      <p aria-hidden="true" className="value font-mono text-[12.5px] text-mute">
+        {pinged
+          ? pinged.self
+            ? `You, near ${pinged.label}`
+            : `Joined from near ${pinged.label}`
+          : "\u00a0"}
+      </p>
+    </div>
+  );
+}
 
 export function LandingPage() {
   const clock = useLaunchClock();
   const live = clock.ready && clock.plus;
   const offerApp = live && APP_STORE_URL !== "";
   const [sceneOff, setSceneOff] = useState(false);
+  // Enough rows of T's for the letters to hold their shape at each size.
+  const [minusRows, setMinusRows] = useState(8);
+  useEffect(() => {
+    const update = () => setMinusRows(window.innerWidth >= 900 ? 12 : window.innerWidth >= 560 ? 10 : 8);
+    update();
+    window.addEventListener("resize", update, { passive: true });
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   // The pinned hero needs height. On a very short screen (a phone on its side)
   // the page lays out statically instead, as it does without WebGL.
@@ -63,6 +125,24 @@ export function LandingPage() {
   } | null>(null);
   const [closingRole, setClosingRole] = useState<WaitlistRole>("SHOPPER");
   const [joined, setJoined] = useState(false);
+  // The ending's globe: the public feed, the visitor's own place once they
+  // join, and whichever place is taking its turn.
+  const pulseData = useWaitlistPulse();
+  const [selfPlace, setSelfPlace] = useState<PulsePlace | null>(null);
+  const [pinged, setPinged] = useState<PulsePlace | null>(null);
+  const [globeOn, setGlobeOn] = useState(false);
+  const globeOnRef = useRef(false);
+  const globeRef = useRef<HTMLDivElement | null>(null);
+  const places = React.useMemo(
+    () => [...(selfPlace ? [selfPlace] : []), ...(pulseData?.places ?? [])],
+    [selfPlace, pulseData]
+  );
+  const onJoined = useCallback((_role: WaitlistRole, phone?: string) => {
+    setJoined(true);
+    const code = phone ? areaCodeFromE164(phone) : null;
+    const region = code ? regionForAreaCode(code) : null;
+    if (region) setSelfPlace({ ...region, self: true });
+  }, []);
 
   const runwayRef = useRef<HTMLDivElement | null>(null);
   const closingRef = useRef<HTMLElement | null>(null);
@@ -81,6 +161,7 @@ export function LandingPage() {
   const skipRef = useRef<HTMLButtonElement | null>(null);
   const headerScrimRef = useRef<HTMLDivElement | null>(null);
   const closingPhoneRef = useRef<HTMLInputElement | null>(null);
+  const closingBodyRef = useRef<HTMLDivElement | null>(null);
   const featSectionRef = useRef<HTMLElement | null>(null);
   const underlayRef = useRef<HTMLDivElement | null>(null);
   const minusReveal = useRef(0);
@@ -105,6 +186,14 @@ export function LandingPage() {
     if (closing) {
       anchors.current.closingFormBottomDoc =
         closing.getBoundingClientRect().bottom + window.scrollY;
+    }
+    const body = closingBodyRef.current;
+    if (body && !sceneOffRef.current) {
+      const wideEnd = isWideStage(w, h);
+      const end = endingFraming(w, h, wideEnd ? { ...stageLayout(w, h) } : null);
+      // Small screens: the copy starts under the ring. Wide: it takes the feature copy's column.
+      body.style.setProperty("--end-top", `${Math.round(end.cy + end.r * 1.34 + 14)}px`);
+      body.style.setProperty("--end-col", `${stageLayout(w, h).copyW}px`);
     }
     const strip = horizonClockRef.current;
     if (strip && strip.offsetWidth > 0) anchors.current.stripHalf = strip.offsetWidth / 2;
@@ -177,23 +266,17 @@ export function LandingPage() {
     // The word finishes resolving before the rest of the hero has faded in.
     minusReveal.current = Math.min(1, f.heroReveal * 1.8);
 
-    // The field stays clear of whichever form sits above the horizon.
-    inputsRef.current.fadeLine =
-      f.closing > 0.001
-        ? anchors.current.closingFormBottomDoc - window.scrollY + 22
-        : anchors.current.heroFormBottom + 22;
+    // The field stays clear of the hero's form above the horizon.
+    inputsRef.current.fadeLine = anchors.current.heroFormBottom + 22;
 
-    // Strip clock: inside the void, under the crest.
+    // Strip clock: inside the void, under the crest. As the camera rises it
+    // travels to the centre of the void.
     const crestY = f.holeY - f.shadowR;
     const room = h - crestY;
-    // A little deeper while the hole is still large on the way out, so the digits clear the rim.
-    const low = crestY + Math.max(50, Math.min(room * 0.5, f.closing > 0.001 ? 136 : 96));
-    // Never closer to the rim than a line's height, whichever way the camera is moving.
+    const low = crestY + Math.max(50, Math.min(room * 0.5, 96));
     const stripY = Math.max(
       crestY + 46,
-      // On the rise the strip travels to the centre of the void; on the way
-      // out it simply rides under the crest.
-      low + (Math.min(f.holeY, h * 0.5) - low) * (f.closing > 0.001 ? 0 : smooth(0.04, 0.42, f.polar))
+      low + (Math.min(f.holeY, h * 0.5) - low) * smooth(0.04, 0.42, f.polar)
     );
     write(
       "hc-t",
@@ -201,19 +284,27 @@ export function LandingPage() {
       "transform",
       `translate3d(${f.holeX.toFixed(1)}px, ${stripY.toFixed(1)}px, 0) translate(-50%, -50%)`
     );
-    // The closing copy waits until the hole has pulled back below it. Until
-    // it shows, the clock is free to ride the hole; after, it needs the room.
-    const closingFrom = f.w < 700 ? 0.6 : 0.7;
-    const closingIn = f.closing > 0.001 ? smooth(closingFrom, closingFrom + 0.24, f.closing) : 0;
-    const line = inputsRef.current.fadeLine;
-    const roomGate = smooth(line - 10, line + 34, crestY);
-    // On the way out the clock waits until the void is wide enough to hold it.
-    const voidHalf = Math.sqrt(Math.max(0, f.shadowR * f.shadowR - (f.holeY - stripY) ** 2));
-    const fits = smooth(anchors.current.stripHalf + 8, anchors.current.stripHalf + 40, voidHalf);
-    const stripOpacity =
-      f.horizonClock * (f.closing > 0.001 ? fits * (1 + (roomGate - 1) * closingIn) : 1);
+    const stripOpacity = f.horizonClock;
     write("hc-o", horizonClockRef.current, "opacity", stripOpacity.toFixed(3));
-    write("hc-l", horizonClockRef.current, "--live", f.closing > 0.3 ? "#ffffff" : "#97DFFC");
+
+    // The ending: the world sits in the void, sized to it. The copy beside
+    // it arrives once the ring has nearly settled.
+    const globeSize = f.shadowR * 2 * 0.955;
+    write("gl-s", globeRef.current, "width", `${globeSize.toFixed(1)}px`);
+    write("gl-h", globeRef.current, "height", `${globeSize.toFixed(1)}px`);
+    write(
+      "gl-t",
+      globeRef.current,
+      "transform",
+      `translate3d(${f.holeX.toFixed(1)}px, ${f.holeY.toFixed(1)}px, 0) translate(-50%, -50%)`
+    );
+    write("gl-o", globeRef.current, "opacity", f.world.toFixed(3));
+    write("gl-v", globeRef.current, "visibility", f.world < 0.02 ? "hidden" : "visible");
+    if (globeOnRef.current !== f.world > 0.3) {
+      globeOnRef.current = f.world > 0.3;
+      setGlobeOn(globeOnRef.current);
+    }
+    const closingIn = f.closing > 0.001 ? smooth(0.62, 0.9, f.closing) : 0;
     write("hc-v", horizonClockRef.current, "visibility", stripOpacity < 0.02 ? "hidden" : "visible");
 
     // Dial clock: centred in the void, sized to it.
@@ -232,8 +323,7 @@ export function LandingPage() {
     const premiseIn =
       smooth(0.7, 0.95, f.polar) *
       smooth(0.6, 0.74, pin) *
-      (1 - smooth(0, h * 0.16, f.exitPx)) *
-      (f.closing > 0.001 ? 0 : 1);
+      (1 - smooth(0, h * 0.16, f.exitPx));
     write("pr-o", premiseRef.current, "opacity", premiseIn.toFixed(3));
     write("pr-y", premiseRef.current, "--rise", `${((1 - premiseIn) * 14).toFixed(1)}px`);
 
@@ -268,11 +358,11 @@ export function LandingPage() {
     // Header extras appear once the scene's own clocks are out of view.
     const showClock = f.settled && f.horizonClock < 0.04 && f.dialClock < 0.04;
     write("hk-o", headerClockRef.current, "opacity", showClock ? "1" : "0");
-    const overContent = f.exitPx > f.h * 0.12 && f.closing < 0.9;
+    const overContent = f.exitPx > f.h * 0.12;
     write("hs-o", headerScrimRef.current, "opacity", !f.settled && f.heroReveal < 0.6 ? "1" : "0");
     write("hb-o", headerBackRef.current, "opacity", overContent ? "1" : "0");
     // Stays until the closing form itself is arriving.
-    const showJoin = f.settled && pin > 0.24 && f.closing < 0.8;
+    const showJoin = f.settled && pin > 0.24 && f.closing < 0.86;
     write("hx-o", headerExtrasRef.current, "opacity", showJoin ? "1" : "0");
     write("hx-p", headerExtrasRef.current, "pointer-events", showJoin ? "auto" : "none");
     // Hidden controls must not take keyboard focus.
@@ -409,6 +499,13 @@ export function LandingPage() {
               <HorizonClock parts={clock} joined={joined} />
             </div>
             <div
+              ref={globeRef}
+              style={{ opacity: 0, visibility: "hidden" }}
+              className="pointer-events-none fixed left-0 top-0 z-20 will-change-transform"
+            >
+              <WaitlistGlobe places={places} active={globeOn} onPing={setPinged} className="size-full" />
+            </div>
+            <div
               ref={dialClockRef}
               style={{ opacity: 0 }}
               className="pointer-events-none fixed left-0 top-0 z-20 will-change-transform"
@@ -445,24 +542,26 @@ export function LandingPage() {
                 sceneOff ? "relative" : "absolute inset-x-0 top-0"
               } flex flex-col items-center px-5 pt-[calc(56px+1.6dvh)] will-change-transform sm:pt-[calc(68px+2dvh)]`}
             >
-              <h1 className="flex flex-col items-center text-center">
-                <span className="statement text-[clamp(2.25rem,min(5.4vw,7.5dvh),4.6rem)] text-ink">
+              {/* The statement at poster scale: the two serif lines hang off the ends of the word. */}
+              <h1 className="flex w-[min(92vw,1180px,158dvh)] flex-col">
+                <span className="statement self-start text-[clamp(1.9rem,min(3.5vw,6dvh),3.3rem)] leading-[1] text-ink">
                   Fashion.
                 </span>
                 <GlyphMask
                   text="MINUS"
                   label="minus"
-                  rows={7}
+                  rows={minusRows}
+                  maskWeight={800}
+                  glyphs={MINUS_GLYPHS}
                   tints={MINUS_TINTS}
-                  signal="#4E148C"
+                  signal="#FFFFFF"
                   silhouette="#FFFFFF"
-                  silhouetteOpacity={0.96}
-                  threshold={0.74}
-                  clearAfterReveal
+                  silhouetteOpacity={0.1}
+                  threshold={0.62}
                   revealSource={minusReveal}
-                  className="my-1.5 h-[min(62px,8dvh)] w-[min(300px,38.5dvh)] sm:my-2 sm:h-[min(112px,12.4dvh)] sm:w-[min(540px,59.8dvh)]"
+                  className="my-1 aspect-[4.86/1] w-full sm:my-1.5"
                 />
-                <span className="statement text-[clamp(2.25rem,min(5.4vw,7.5dvh),4.6rem)] text-ink">
+                <span className="statement self-end text-[clamp(1.9rem,min(3.5vw,6dvh),3.3rem)] leading-[1] text-ink">
                   the Noise.
                 </span>
               </h1>
@@ -475,7 +574,7 @@ export function LandingPage() {
                   <AppStoreButton />
                 ) : (
                   <>
-                    <WaitlistForm onPulse={pulse} roleSwitch={false} perk onJoined={() => setJoined(true)} />
+                    <WaitlistForm onPulse={pulse} roleSwitch={false} perk onJoined={onJoined} />
                     <button
                       type="button"
                       onClick={() => goToForm("BRAND")}
@@ -521,46 +620,52 @@ export function LandingPage() {
 
         <Features outerRef={featSectionRef} scene={!sceneOff} onPart={() => pulse(0.45)} />
 
-        {/* Closing: the horizon returns. The audience choice changes the pitch. */}
+        {/* The ending: the world in the void, and the signup beside it. */}
         <section
           ref={closingRef}
           data-section="closing"
-          className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1360px] flex-col items-center px-5 pb-[236px] pt-[12dvh] sm:px-10 lg:px-20 lg:pt-[21dvh]"
+          className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1360px] flex-col px-5 pb-16 sm:px-10 lg:px-20"
         >
-          <div className="grid w-full grid-cols-1 items-start gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,1fr)_460px]">
-            <div className="text-center lg:text-left">
-              <h2 className="statement text-[clamp(2.9rem,5.9vw,5.4rem)] leading-[0.94] text-ink">
-                {closingRole === "BRAND" ? (
-                  <>
-                    Launch on <br className="hidden lg:block" />
-                    your own <span className="text-ice">clock.</span>
-                  </>
-                ) : (
-                  <>
-                    Be ready at <span className="text-ice">zero.</span>
-                  </>
-                )}
-              </h2>
-              <p className="mx-auto mt-4 max-w-[34ch] text-[16.5px] leading-[1.5] text-soft sm:text-[18px] lg:mx-0 lg:mt-6 lg:max-w-[46ch]">
-                {closingRole === "BRAND"
-                  ? "Keep your identity, your pricing and your checkout. Turn each collection into a scheduled release, and run your membership inside the app. Leave a number and we\u2019ll text you about setting up your first drop."
-                  : live
-                    ? "T^minus is live. Leave your number for drop alerts."
-                    : "One text the moment T^minus is live. After that, only drop alerts."}
-              </p>
+          {sceneOff ? (
+            <div className="mx-auto mt-16 size-[min(78vw,340px)]">
+              <WaitlistGlobe places={places} active onPing={setPinged} className="size-full" />
             </div>
-            <div className="flex flex-col items-center lg:-mt-2.5 lg:items-start">
-              <div ref={closingFormRef} className="flex w-full flex-col items-center lg:items-start">
-                <WaitlistForm
-                  inputRef={closingPhoneRef}
-                  requestedRole={requestedRole}
-                  onPulse={pulse}
-                  onRoleChange={setClosingRole}
-                  onJoined={() => setJoined(true)}
-                  align="split"
-                  perk
-                />
-              </div>
+          ) : null}
+          <div
+            ref={closingBodyRef}
+            className={`flex w-full flex-1 flex-col items-center text-center ${
+              sceneOff ? "pt-8" : "justify-start pt-[var(--end-top,56dvh)] xl:justify-center xl:pt-0"
+            } xl:ml-auto xl:w-[var(--end-col,400px)] xl:items-start xl:text-left`}
+          >
+            <h2 className="statement text-[clamp(2.7rem,4.6vw,4.4rem)] leading-[0.96] text-ink">
+              {closingRole === "BRAND" ? (
+                <>
+                  Launch on your own <span className="text-ice">clock.</span>
+                </>
+              ) : (
+                <>
+                  Be ready at <span className="text-ice">zero.</span>
+                </>
+              )}
+            </h2>
+            <PulseLine data={pulseData} pinged={pinged} self={selfPlace} />
+            <p className="mt-3 hidden max-w-[40ch] text-[17px] leading-[1.5] text-soft xl:block">
+              {closingRole === "BRAND"
+                ? "Keep your identity, your pricing and your checkout. Turn each collection into a scheduled release, and run your membership inside the app."
+                : live
+                  ? "T^minus is live. Leave your number for drop alerts."
+                  : "One text the moment T^minus is live. After that, only drop alerts."}
+            </p>
+            <div ref={closingFormRef} className="mt-4 flex w-full flex-col items-center xl:mt-6 xl:items-start">
+              <WaitlistForm
+                inputRef={closingPhoneRef}
+                requestedRole={requestedRole}
+                onPulse={pulse}
+                onRoleChange={setClosingRole}
+                onJoined={onJoined}
+                align="split"
+                perk
+              />
             </div>
           </div>
           <footer className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-center gap-x-1 px-5 pb-2 text-[13px] text-soft sm:pb-3">

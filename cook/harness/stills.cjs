@@ -50,8 +50,8 @@ const SHOTS = [
   { id: "S07p4-hold-held", vps: ["m"], qs: "skipIntro=1&still=1", held: "hold" },
   { id: "S07p5-lab-held", vps: ["m"], qs: "skipIntro=1&still=1", held: "lab" },
   { id: "S07p6-closet-held", vps: ["m"], qs: "skipIntro=1&still=1", held: "closet" },
-  { id: "S08b-pullout", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[data-section='closing']", block: "end", back: 0.42 },
-  { id: "S09-closing", vps: ["d", "m"], qs: "skipIntro=1&still=1", sel: "[data-section='closing']" },
+  { id: "S08b-pullout", vps: ["d", "m"], qs: "skipIntro=1&still=1&pulseDemo=1", sel: "[data-section='closing']", block: "end", back: 0.42 },
+  { id: "S09-closing", vps: ["d", "m"], qs: "skipIntro=1&still=1&pulseDemo=1", sel: "[data-section='closing']" },
   { id: "S11a-privacy", vps: ["m"], path: "/privacy", qs: "" },
   { id: "S11b-terms", vps: ["m"], path: "/terms", qs: "" },
 ];
