@@ -6,7 +6,7 @@ Bar: design 9 | usability 9 | creativity 9 | content 9 (each out of 10, fresh re
 Calibration offset: none yet (no user estimate received)
 Usage: not readable
 Gate: stills approved no | final render not applicable (the deliverable is the site)
-Best so far: round 5, `cook/stills/r05/`, commit 08588fc
+Best so far: round 6, `cook/stills/r06/`, commit 6e054d8
 
 Correction, 05:20: the times first written for rounds 1 and 2 were estimates, not clock readings, and ran about 90 minutes ahead. They are replaced below with times taken from the commit log.
 
@@ -24,6 +24,7 @@ Made without asking, one line each.
 - 05:10 Feature names are the headlines and are set in the brand serif italic, because three critics flagged two competing headline voices and the app's own rule is serif for product headlines. The user was wary of italics, so it is one CSS rule (`.headline`) to switch back. Flagged for the user.
 - 05:10 MINUS is a white word perforated by brand-purple glyphs, not ice-blue glyphs on a faint ground, because every critic called the earlier fill muddy.
 - 05:10 Header button is an outline; the form's submit is the only white button on the marketing page.
+- 05:35 The features moved from the plum ground to a black stage inside the hole, and the audiences and after-the-drop blocks became the closing's role switch and a Closet block, because the same structural criticism came back four rounds running. Flagged for the user as the largest departure from the grilled plan.
 - 05:10 "Example studio / Portland, OR" replaces "Independent studio / Your city" on the Drops Home stage; other demo data keeps the prototype's own placeholder style (Studio 01, CONCEPT_01) and each demo is labelled as running on example data.
 
 ## User feedback inbox
@@ -150,6 +151,34 @@ Changes:
 - Layout measured on resize instead of on a timer.
 
 Stills: `cook/stills/r05/` | Pairs: `cook/compare/r05/`
-Scores: two critics running.
+
+Scores, eyeballed, raw:
+- Blind pairs won by the new build: 8 of 8 (critic I).
+- New build per pair (critic I): design 7 to 7.5, usability 7 to 7.5, creativity 6.5 to 7.5, content 5.5 to 7.5.
+- Walkthrough (critic J, stronger model), whole page: design 6.4, usability 6.8, creativity 6.6, content 6.2. Usability up 0.8; the rest flat. Dial 7.5, hero 7, features 6, closing 6.
+
+Own score: design 7.5, usability 8, creativity 7.5, content 7.
 Measured: `tsc --noEmit` clean; functional script passes (no text under 12px, no target under 44px, form states, keyboard order, no console errors).
+
+Top gaps, the same from both critics and from rounds 2 to 4: the black hole stops at the features, which then read as a stock copy-left, card-right layout; hero and closing are the same composition; the scroll never escalates. Smaller: clock sits low in the desktop hero; a blank stretch mid-rise on desktop; an orphan line after the features; a four-level type stack in each feature; the demo tab colliding with the card corner.
 Progress note sent: 05:34 (seven stills).
+Stop check: bar no -> next round
+
+## Round 06
+
+Time: 05:33 to 05:45 UTC | total elapsed 1.7h
+Focus: make the page one continuous camera move, because four walkthrough critics in a row named the features section as where the idea stops.
+
+Changes:
+- After the dial the camera drops through it. The void opens until it fills the screen as a black stage with the lit rim around it (down both sides on wide screens, in the corners on phones), and the five features play out inside. At the end it pulls back out and the hole settles as the horizon under the closing form.
+- The disk turns with scroll through the features and quickens with the demos, as before.
+- Features: the name is the headline; one paragraph with its first sentence in white; a quiet line above each demo marks it as a demo. Closet is a sixth, static block with four pieces drawn in glyphs.
+- Scene: open spiral arms instead of rings; spikes on the intro's star; nothing in the centre while the flash peaks.
+- Desktop horizon sits higher, so the countdown clears the fold; the strip clock travels to the centre of the void during the rise.
+- Transitions cleaned: the premise leaves as the dive begins; the strip clock waits until the crest has cleared the closing form.
+- Skip intro is a text control; header units are quiet; footer links brighter.
+
+Stills: `cook/stills/r06/` | Pairs: `cook/compare/r06/`
+Scores: two critics running.
+Measured: `tsc --noEmit` clean; functional script passes; production build passes.
+Progress note sent: 05:46 (eight stills).

@@ -20,13 +20,15 @@ npm run build:pages  # static export for GitHub Pages, written to ./out
 | Path | What it is |
 | --- | --- |
 | `src/lib/launch.ts` | The facts the page states: launch date, waitlist perk, text-message programme details, App Store URL. Change them here. |
-| `src/components/landing/landing-page.tsx` | The page: hero, runway to the top-down dial, features, audiences, closing. |
+| `src/components/landing/landing-page.tsx` | The page, as one camera move: horizon (hero), rise to the top-down dial, drop into the hole, features inside it, pull back out to the closing. |
+| `src/components/landing/features.tsx` | The five features and the Closet block, with their copy. |
 | `src/components/landing/waitlist-form.tsx` | The form, consent line and confirmation. |
 | `src/components/landing/countdown.tsx` | One ticking clock and its three readouts. Flips to T-plus at zero. |
 | `src/components/scene/blackhole-scene.tsx` | The canvas: sets up WebGL, runs the frame loop, reports geometry to the page. |
 | `src/lib/scene/shaders.ts` | Two passes. The first traces light through a black hole's field at one sample per glyph cell. The second draws the brand glyphs from an atlas. |
 | `src/lib/scene/director.ts` | Turns intro time and scroll position into camera and scene values. The page reads the same values to place the countdown inside the event horizon. |
-| `src/components/demos/` | The five feature demos, built from the iOS prototype's own layouts and rules. |
+| `src/components/demos/` | The five feature demos, built from the iOS prototype's own layouts and rules, plus `garment-glyph.tsx`, which draws garments in the brand's glyphs. |
+| `src/lib/scene/energy.ts` | One shared value the demos write and the scene reads, so the disk quickens with what is on screen. |
 | `src/components/glyph/glyph-mask.tsx` | Text drawn as a font-shaped mask filled with glyphs, as the app draws its clock. |
 | `src/app/privacy`, `src/app/terms` | Public legal pages for the text-message programme. |
 | `src/app/api/waitlist/route.ts` | Local JSON waitlist endpoint for Node server runs. The export (`GET`) stays shut unless `WAITLIST_EXPORT_TOKEN` is set. |
