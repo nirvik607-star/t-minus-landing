@@ -147,6 +147,7 @@ export function BlackholeScene({
     let originYDev = 0;
     let glyphCount = 7;
     let rampCount = 6;
+    let signalIndex = 8;
     let atlasReady = false;
     let fontFamily = "ui-monospace, monospace";
 
@@ -182,10 +183,15 @@ export function BlackholeScene({
         gl.UNSIGNED_BYTE,
         null
       );
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_MIN_FILTER,
+        gl.LINEAR_MIPMAP_LINEAR
+      );
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.generateMipmap(gl.TEXTURE_2D);
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
       gl.framebufferTexture2D(
         gl.FRAMEBUFFER,
@@ -204,6 +210,7 @@ export function BlackholeScene({
       const atlas = buildGlyphAtlas(cellDev, cellDev, fontFamily);
       glyphCount = atlas.order.length;
       rampCount = atlas.ramp;
+      signalIndex = atlas.signal;
       gl.bindTexture(gl.TEXTURE_2D, atlasTex);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
       gl.texImage2D(
@@ -412,6 +419,7 @@ export function BlackholeScene({
       gl.useProgram(glyph.prog);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+      gl.generateMipmap(gl.TEXTURE_2D);
       gl.uniform1i(glyph.u("uScene"), 0);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, atlasTex);
@@ -440,6 +448,10 @@ export function BlackholeScene({
         guard > 0.001 ? (h - fadeLine) * dpr + (1 - guard) * H : H * 4
       );
       gl.uniform1f(glyph.u("uFadeSoftDev"), 46 * dpr);
+      gl.uniform1f(glyph.u("uGlow"), v.glow);
+      gl.uniform1f(glyph.u("uWell"), v.well);
+      gl.uniform1f(glyph.u("uWellDev"), v.wellPx * dpr);
+      gl.uniform1f(glyph.u("uSignal"), signalIndex);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
       canvas.dataset.sceneReady = "true";

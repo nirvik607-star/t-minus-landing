@@ -70,6 +70,10 @@ export interface SceneValues {
   polar: number;
   /** 0..1: how strongly the field is kept clear above the fade line. */
   fadeGuard: number;
+  /** Soft light under the glyphs, the darkening around the hole, and its reach in CSS px. */
+  glow: number;
+  well: number;
+  wellPx: number;
 }
 
 interface Framing {
@@ -205,9 +209,9 @@ export function direct(input: DirectorInput): SceneValues {
 
     // Light floods the grid, then drains from the middle.
     const fl = clamp01((t - 2.12) / 0.5);
-    flood = smooth(2.1, 2.2, t) * (1 - smooth(2.55, 3.35, t));
+    flood = smooth(2.1, 2.2, t) * (1 - smooth(2.5, 3.1, t));
     floodR = easeOutCubic(fl) * maxDim * 0.78;
-    drainR = smooth(2.35, 3.3, t) * maxDim * 0.7;
+    drainR = smooth(2.35, 3.05, t) * maxDim * 0.7;
 
     // The hole: horizon opens from a point; the disk gathers from infall.
     mass = smooth(2.2, 3.0, t);
@@ -215,16 +219,19 @@ export function direct(input: DirectorInput): SceneValues {
     voidAlpha = smooth(2.25, 2.7, t);
     spin = 1 + 2.4 * (1 - smooth(2.5, 4.4, t));
 
-    // Camera: hold on the star and silhouette, then sweep down to the horizon.
-    const sweep = smoother(2.95, 4.55, t);
+    // Camera: hold on the star, let the full silhouette open, then sweep down
+    // to the horizon while the disk draws in.
+    const sweep = smoother(3.3, 4.7, t);
     const starFrame: Framing = { ...sil, r: sil.r * 1.02 };
     f = mixFraming(starFrame, horizon, sweep);
-    f.diskOut = lerp(3.4, horizon.diskOut, smooth(2.5, 4.3, t));
+    const open = smooth(2.5, 3.3, t);
+    const drawIn = smooth(3.45, 4.5, t);
+    f.diskOut = lerp(lerp(3.0, 9.5, open), horizon.diskOut, drawIn);
     polar = 0;
     alpha = 1;
 
-    heroReveal = smooth(3.55, 4.25, t);
-    clockReveal = smooth(4.05, 4.7, t);
+    heroReveal = smooth(3.85, 4.6, t);
+    clockReveal = smooth(4.3, 4.95, t);
   }
 
   // ---------------- camera basis ----------------
@@ -294,6 +301,9 @@ export function direct(input: DirectorInput): SceneValues {
     horizonClock,
     dialClock,
     polar,
-    fadeGuard: (1 - smooth(0.05, 0.3, polar)) * smooth(2.9, 3.6, intro),
+    fadeGuard: (1 - smooth(0.05, 0.3, polar)) * smooth(3.5, 4.3, intro),
+    glow: 0.9,
+    well: 0.78 * mass,
+    wellPx: f.r * lerp(0.62, 1.5, polar) * (f.diskOut / 4.4),
   };
 }

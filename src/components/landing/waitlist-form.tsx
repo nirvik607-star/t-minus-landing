@@ -10,6 +10,21 @@ import {
 } from "@/lib/waitlist";
 import { SMS_PROGRAM, WAITLIST_PERK, siteUrl } from "@/lib/launch";
 
+/** The waitlist incentive, as one short line. Renders nothing when no perk is set. */
+export function PerkLine({ className = "" }: { className?: string }) {
+  if (!WAITLIST_PERK) return null;
+  return (
+    <p
+      className={`inline-flex items-center gap-2 rounded-full border border-accent/70 bg-accent/25 px-3.5 py-1.5 text-[13px] font-medium leading-tight text-ink ${className}`}
+    >
+      <span aria-hidden="true" className="font-mono text-ice">
+        +
+      </span>
+      <span>Waitlist perk: {WAITLIST_PERK.charAt(0).toLowerCase() + WAITLIST_PERK.slice(1)}</span>
+    </p>
+  );
+}
+
 interface WaitlistFormProps {
   /** Set from outside to switch the audience (the "Apply as a brand" links). */
   requestedRole?: { role: WaitlistRole; seq: number } | null;
@@ -17,8 +32,6 @@ interface WaitlistFormProps {
   align?: "center" | "start";
   /** Light pulse through the scene while typing, a stronger one on success. */
   onPulse?: (strength: number) => void;
-  /** Hide the perk line where space is short. */
-  showPerk?: boolean;
 }
 
 const ROLES: { id: WaitlistRole; label: string }[] = [
@@ -31,7 +44,6 @@ export function WaitlistForm({
   inputRef,
   align = "center",
   onPulse,
-  showPerk = true,
 }: WaitlistFormProps) {
   const uid = useId();
   const phoneId = `${uid}-phone`;
@@ -317,8 +329,8 @@ export function WaitlistForm({
         </span>
         <label htmlFor={consentId} className="cursor-pointer text-[12.5px] leading-[1.45] text-mute">
           Text me {SMS_PROGRAM.brand} launch and drop alerts. Up to{" "}
-          {SMS_PROGRAM.maxMessagesPerMonth} messages a month. Message and data
-          rates may apply. Reply STOP to cancel, HELP for help.{" "}
+          {SMS_PROGRAM.maxMessagesPerMonth} msgs/month. Msg &amp; data rates may
+          apply. Reply STOP to cancel, HELP for help.{" "}
           <Link href="/privacy" className="text-soft underline decoration-peri/60 underline-offset-2">
             Privacy
           </Link>{" "}
@@ -330,15 +342,10 @@ export function WaitlistForm({
         </label>
       </div>
 
-      <p id={errorId} role="alert" className={`min-h-0 text-[13.5px] font-medium text-ice ${error ? "mt-2.5" : ""}`}>
+      <p id={errorId} role="alert" className={`min-h-0 text-[13.5px] font-medium text-ink ${error ? "mt-2.5" : ""}`}>
         {error?.text}
       </p>
 
-      {showPerk && WAITLIST_PERK && !error ? (
-        <p className="mt-2.5 text-[13.5px] leading-[1.4] text-soft">
-          Join before launch: {WAITLIST_PERK.charAt(0).toLowerCase() + WAITLIST_PERK.slice(1)}
-        </p>
-      ) : null}
     </form>
   );
 }

@@ -8,7 +8,8 @@
 
 /** Density ramp, sparse to dense, then the reserved asterisk. */
 export const RAMP_GLYPHS = ["-", "^", "+", "=", "t", "T"] as const;
-export const RESERVED_GLYPHS = ["*"] as const;
+/** Accents: the asterisk, and a heavier T for the hottest cells. */
+export const RESERVED_GLYPHS = ["*", "T"] as const;
 export const BRAND_GLYPHS = [...RAMP_GLYPHS, ...RESERVED_GLYPHS] as const;
 
 export interface GlyphAtlas {
@@ -17,6 +18,8 @@ export interface GlyphAtlas {
   order: string[];
   /** How many of them form the density ramp. */
   ramp: number;
+  /** 1-based atlas index of the heavy signal T. */
+  signal: number;
   cellW: number;
   cellH: number;
 }
@@ -44,12 +47,18 @@ export function buildGlyphAtlas(
   const cap = mT.actualBoundingBoxAscent || fontPx * 0.7;
   const baseline = Math.round(ch / 2 + cap / 2);
 
-  const draw = (ctx: CanvasRenderingContext2D, glyph: string, x0: number) => {
-    ctx.font = font;
+  const signalFont = `700 ${Math.round(ch * 1.62)}px ${fontFamily}`;
+  const draw = (
+    ctx: CanvasRenderingContext2D,
+    glyph: string,
+    x0: number,
+    heavy = false
+  ) => {
+    ctx.font = heavy ? signalFont : font;
     ctx.textBaseline = "alphabetic";
     ctx.textAlign = "center";
     ctx.fillStyle = "#fff";
-    ctx.fillText(glyph, x0 + cw / 2, baseline);
+    ctx.fillText(glyph, x0 + cw / 2, heavy ? Math.round(ch * 0.97) : baseline);
   };
 
   const order: string[] = [...BRAND_GLYPHS];
@@ -65,9 +74,16 @@ export function buildGlyphAtlas(
     ctx.beginPath();
     ctx.rect(i * cw, 0, cw, ch);
     ctx.clip();
-    draw(ctx, g, i * cw);
+    draw(ctx, g, i * cw, i === order.length - 1);
     ctx.restore();
   });
 
-  return { canvas, order, ramp: RAMP_GLYPHS.length, cellW: cw, cellH: ch };
+  return {
+    canvas,
+    order,
+    ramp: RAMP_GLYPHS.length,
+    signal: order.length,
+    cellW: cw,
+    cellH: ch,
+  };
 }

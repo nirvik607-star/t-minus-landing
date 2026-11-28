@@ -104,3 +104,50 @@
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Demo scope: the app's own tokens, so the feature demos match the product.
+ * The app is dark by default and uses iOS system greys alongside the brand palette.
+ */
+.app-demo {
+  --paper: #000000;
+  --amuted: #1c1c1e;
+  --elevated: #2c2c2e;
+  --aink: #ffffff;
+  --secondary: rgb(235 235 245 / 0.6);
+  --aline: rgb(255 255 255 / 0.14);
+  --accent-soft: rgb(97 61 193 / 0.12);
+  --galaxy-deep: #13021d;
+  --void: #0e0518;
+  --success: #21ad6e;
+  background: var(--paper);
+  color: var(--aink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+@media (min-width: 1024px) {
+  .app-demo {
+    font-size: 17px;
+  }
+}
+
+/* The app's small mono labels. Sized in em so they scale with the demo. */
+.app-label {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.6875em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.app-serif {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-variation-settings: "opsz" 28;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+}

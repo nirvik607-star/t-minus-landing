@@ -17,11 +17,11 @@ import {
   HorizonClock,
   useLaunchClock,
 } from "@/components/landing/countdown";
-import { WaitlistForm } from "@/components/landing/waitlist-form";
+import { PerkLine, WaitlistForm } from "@/components/landing/waitlist-form";
 import { Features } from "@/components/landing/features";
 import type { WaitlistRole } from "@/lib/waitlist";
 
-const MINUS_TINTS = ["#97DFFC", "#97DFFC", "#D3E9F2"];
+const MINUS_TINTS = ["#97DFFC", "#BFEAFD", "#E6F6FE"];
 
 export function LandingPage() {
   const clock = useLaunchClock();
@@ -43,6 +43,7 @@ export function LandingPage() {
   const horizonClockRef = useRef<HTMLDivElement | null>(null);
   const dialClockRef = useRef<HTMLDivElement | null>(null);
   const headerExtrasRef = useRef<HTMLDivElement | null>(null);
+  const headerClockRef = useRef<HTMLSpanElement | null>(null);
   const closingPhoneRef = useRef<HTMLInputElement | null>(null);
   const minusReveal = useRef(0);
   const cache = useRef<Record<string, string>>({});
@@ -162,9 +163,11 @@ export function LandingPage() {
     );
 
     // Header extras appear once the scene's own clocks are out of view.
-    const showExtras = f.settled && f.horizonClock < 0.04 && f.dialClock < 0.04;
-    write("hx-o", headerExtrasRef.current, "opacity", showExtras ? "1" : "0");
-    write("hx-p", headerExtrasRef.current, "pointer-events", showExtras ? "auto" : "none");
+    const showClock = f.settled && f.horizonClock < 0.04 && f.dialClock < 0.04;
+    write("hk-o", headerClockRef.current, "opacity", showClock ? "1" : "0");
+    const showJoin = f.settled && pin > 0.24 && f.closing < 0.35;
+    write("hx-o", headerExtrasRef.current, "opacity", showJoin ? "1" : "0");
+    write("hx-p", headerExtrasRef.current, "pointer-events", showJoin ? "auto" : "none");
   }, []);
 
   const pulse = useCallback((strength: number) => {
@@ -206,7 +209,13 @@ export function LandingPage() {
           style={{ opacity: 0, pointerEvents: "none" }}
           className="flex items-center gap-4 transition-opacity duration-300 ease-out"
         >
-          <HeaderClock parts={clock} />
+          <span
+            ref={headerClockRef}
+            style={{ opacity: 0 }}
+            className="hidden transition-opacity duration-300 ease-out min-[420px]:inline-flex"
+          >
+            <HeaderClock parts={clock} />
+          </span>
           <button
             type="button"
             onClick={() => goToForm()}
@@ -241,10 +250,10 @@ export function LandingPage() {
               ref={heroRef}
               data-section="hero"
               style={{ opacity: sceneOff ? 1 : 0 }}
-              className="absolute inset-x-0 top-0 flex flex-col items-center px-5 pt-[calc(56px+2.2dvh)] will-change-transform sm:pt-[calc(68px+3.4dvh)]"
+              className="absolute inset-x-0 top-0 flex flex-col items-center px-5 pt-[calc(56px+1.6dvh)] will-change-transform sm:pt-[calc(68px+2dvh)]"
             >
               <h1 className="flex flex-col items-center text-center">
-                <span className="statement text-[clamp(2.5rem,5vw,4.3rem)] text-ink">
+                <span className="statement text-[clamp(2.25rem,min(4.6vw,6.6dvh),3.9rem)] text-ink">
                   Fashion.
                 </span>
                 <GlyphMask
@@ -252,19 +261,21 @@ export function LandingPage() {
                   label="minus"
                   cell={6}
                   tints={MINUS_TINTS}
-                  threshold={0.7}
+                  threshold={0.62}
+                  silhouetteOpacity={0.34}
                   revealSource={minusReveal}
-                  className="my-2 h-[66px] w-[318px] sm:my-3 sm:h-[102px] sm:w-[492px]"
+                  className="my-1.5 h-[min(62px,8dvh)] w-[min(300px,38.5dvh)] sm:my-2 sm:h-[min(92px,10.2dvh)] sm:w-[min(444px,49.2dvh)]"
                 />
-                <span className="statement text-[clamp(2.5rem,5vw,4.3rem)] text-ink">
+                <span className="statement text-[clamp(2.25rem,min(4.6vw,6.6dvh),3.9rem)] text-ink">
                   the Noise.
                 </span>
               </h1>
-              <p className="mt-4 max-w-[36ch] text-center text-[16px] leading-[1.45] text-soft sm:mt-6 sm:max-w-[44ch] sm:text-[18px]">
+              <p className="mt-3.5 max-w-[36ch] text-center text-[16px] leading-[1.45] text-soft sm:mt-4 sm:max-w-[44ch] sm:text-[18px]">
                 Limited drops from independent brands, on one live clock. On the
                 App Store January 1.
               </p>
-              <div ref={heroFormRef} className="mt-4 flex w-full justify-center sm:mt-6">
+              <PerkLine className="mt-3 [@media(max-height:700px)]:hidden" />
+              <div ref={heroFormRef} className="mt-3.5 flex w-full justify-center sm:mt-4">
                 <WaitlistForm onPulse={pulse} />
               </div>
             </section>
@@ -349,9 +360,9 @@ export function LandingPage() {
               inputRef={closingPhoneRef}
               requestedRole={requestedRole}
               onPulse={pulse}
-              showPerk={false}
             />
           </div>
+          <PerkLine className="mt-4" />
           <footer className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-center gap-x-1 px-5 pb-2 text-[13px] text-mute sm:pb-3">
             <span className="px-2">&copy; 2026 T^minus</span>
             <nav className="flex items-center gap-1">

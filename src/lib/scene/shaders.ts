@@ -131,14 +131,16 @@ vec3 shadeDisk(vec3 hit, vec3 v) {
 
   float edgeIn = smoothstep(0.0, 0.05, x);
   float edgeOut = 1.0 - smoothstep(0.7, 1.0, x);
-  float prof = pow(uDiskIn / r, 1.15) * edgeIn * edgeOut;
+  float prof = pow(uDiskIn / r, 1.75) * edgeIn * edgeOut;
 
   // Ring structure: gaps and bright lanes.
   // Lanes trail in a loose two-armed spiral rather than closed rings.
   float lanes = 0.64 + 0.36 * sin(log(r) * 23.0 - 2.0 * (phi + base * 5.0) + n * 6.0);
   float fine = vnoiseP(vec2((phi + base * 9.0 + omega * 3.0) / TAU * 11.0, log(r) * 38.0), 11.0);
   float tex = smoothstep(0.22, 0.78, n);
-  float emit = prof * (0.24 + 1.5 * tex * tex + 0.5 * smoothstep(0.55, 0.9, fine)) * lanes;
+  float emit = prof * (0.3 + 2.1 * tex * tex + 0.7 * smoothstep(0.55, 0.9, fine)) * lanes;
+  // A floor of faint matter so the outer disk thins out instead of vanishing.
+  emit += 0.05 * edgeIn * edgeOut * (0.4 + tex);
 
   // Relativistic beaming: the side rotating toward the camera is brighter.
   float beta = sqrt(0.5 / max(r - 1.0, 0.35));
@@ -149,7 +151,7 @@ vec3 shadeDisk(vec3 hit, vec3 v) {
   float dop = 1.0 / (gamma * (1.0 - beta * cosT));
   float grav = sqrt(max(1.0 - 1.0 / r, 0.02));
   float boost = pow(dop * grav, 3.0);
-  emit *= mix(1.0, boost, 0.62);
+  emit *= mix(1.0, boost, 0.72);
 
   // Second hand: one hot cell on the inner edge, stepping once a second.
   float dAng = abs(mod(phi - uHandAngle + 3.14159265, TAU) - 3.14159265);
@@ -182,13 +184,13 @@ vec3 trace(vec3 ro, vec3 rd) {
       float t = -b - sqrt(disc);
       vec3 n = normalize(ro + rd * t);
       float mu = max(dot(n, -rd), 0.0);
-      float limb = 0.26 + 0.74 * pow(mu, 0.6);
+      float limb = 0.2 + 0.8 * pow(mu, 0.85);
       float ca = cos(uTime * 0.11), sa = sin(uTime * 0.11);
       vec3 q = vec3(ca * n.x + sa * n.z, n.y, -sa * n.x + ca * n.z);
       float g = 0.6 * vnoise3(q * 4.6 + vec3(0.0, uTime * 0.05, 0.0))
               + 0.4 * vnoise3(q * 10.5 - vec3(uTime * 0.07, 0.0, 0.0));
       float cells = smoothstep(0.30, 0.72, g);
-      float s = limb * (0.34 + 0.9 * cells);
+      float s = limb * (0.5 + 0.85 * cells);
       I += uStar * uStarGain * s;
       heat = max(heat, uStar * limb * cells);
     } else {
@@ -251,7 +253,7 @@ vec3 trace(vec3 ro, vec3 rd) {
         float ang = atan(dot(foot, uCamUp), dot(foot, uCamRight));
         float grain = 0.72 + 0.28 * vnoiseP(vec2(ang / TAU * 48.0, uTime * 0.6), 48.0);
         float ring = exp(-xr * 30.0) * grain;
-        I += transmit * ring * 1.5 * uDisk;
+        I += transmit * ring * 2.8 * uDisk;
         heat = max(heat, transmit * ring * uDisk);
       }
     }
@@ -324,6 +326,10 @@ uniform float uAlpha;       // whole-scene opacity
 uniform float uDpr;
 uniform float uFadeLineDev; // glyphs fade out above this y (device px, origin bottom)
 uniform float uFadeSoftDev;
+uniform float uGlow;        // 0..1 soft light under the glyphs
+uniform float uWell;        // 0..1 darkening of the ground around the hole
+uniform float uWellDev;     // falloff length of the well, device px
+uniform float uSignal;      // atlas index (1-based) of the large signal T
 
 const vec3 C_DEEP  = vec3(0.306, 0.078, 0.549); // #4E148C
 const vec3 C_ACC   = vec3(0.380, 0.239, 0.757); // #613DC1
@@ -363,6 +369,7 @@ void main() {
   float levels = uRamp;
   float lvl = pow(ink, 0.8) * (levels + 0.4) + (dth - 0.5) * 0.9;
   float gi = clamp(floor(lvl), 0.0, levels);
+  bool hot = lvl > levels + 0.25;
 
   // Substitution: now and then a lit cell swaps to its neighbour glyph.
   float rate = 1.6;
@@ -375,10 +382,11 @@ void main() {
   vec3 col = vec3(0.0);
   float a = 0.0;
   if (gi >= 1.0) {
-    vec2 uv = vec2((gi - 1.0 + local.x) / uGlyphs, local.y);
+    float idx = hot ? uSignal : gi;
+    vec2 uv = vec2((idx - 1.0 + local.x) / uGlyphs, local.y);
     float cov = texture(uAtlas, uv).r;
-    col = palette(ink, heat);
-    a = cov * mix(0.6, 1.0, smoothstep(0.03, 0.4, ink));
+    col = hot ? C_WHITE : palette(ink, heat);
+    a = cov * mix(0.55, 1.0, smoothstep(0.03, 0.4, ink));
   } else if (uStars > 0.001) {
     // Sparse field stars: fixed cells that blink through two glyphs.
     float h = hash21(cell * 1.37 + 11.0);
@@ -395,8 +403,29 @@ void main() {
   // Keep the field clear of the form above the horizon.
   a *= 1.0 - smoothstep(uFadeLineDev - uFadeSoftDev, uFadeLineDev, gl_FragCoord.y);
 
-  // Composite: glyph over the void over the (transparent) page ground.
-  float outA = a + voidA * (1.0 - a);
-  vec3 outC = col * a; // void contributes black
+  // Soft light from the cells around this pixel, read from blurred mips of
+  // the scene. It sits under the glyphs and gives the field its depth.
+  vec2 suv = (gl_FragCoord.xy - uOriginDev) / (uCellDev * uGrid);
+  float g1 = textureLod(uScene, suv, 1.4).r;
+  float g2 = textureLod(uScene, suv, 3.0).r;
+  float g3 = textureLod(uScene, suv, 4.6).r;
+  float glowInk = g1 * 0.5 + g2 * 0.34 + g3 * 0.3;
+  vec3 glowCol = mix(C_DEEP, C_ACC, smoothstep(0.02, 0.3, glowInk));
+  glowCol = mix(glowCol, C_PERI, smoothstep(0.25, 0.7, glowInk));
+  glowCol = mix(glowCol, C_WHITE, smoothstep(0.62, 1.0, glowInk));
+  float glowAmt = uGlow * smoothstep(0.0, 0.5, glowInk) * (0.3 + 0.7 * glowInk);
+  glowAmt *= 1.0 - smoothstep(uFadeLineDev - uFadeSoftDev * 1.6, uFadeLineDev + uFadeSoftDev * 0.5, gl_FragCoord.y);
+
+  // The well: space darkens toward the hole, so the light has something to
+  // stand against.
+  float wellD = max(distHole - uShadowDev, 0.0) / max(uWellDev, 1.0);
+  float wellA = uWell * exp(-wellD * wellD * 1.15) * uVoid;
+  wellA *= 1.0 - 0.7 * smoothstep(uFadeLineDev - uFadeSoftDev * 4.0, uFadeLineDev + uFadeSoftDev, gl_FragCoord.y);
+
+  // Composite, bottom to top: ground, well, void, glow, glyph.
+  float underA = max(wellA, voidA);
+  vec3 underC = glowCol * glowAmt * (1.0 - voidA * 0.82);
+  vec3 outC = col * a + underC * (1.0 - a);
+  float outA = a + underA * (1.0 - a);
   o = vec4(outC, outA) * uAlpha;
 }`;
