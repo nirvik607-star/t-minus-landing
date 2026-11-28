@@ -20,11 +20,26 @@ import {
 import { PerkLine, WaitlistForm } from "@/components/landing/waitlist-form";
 import { Features } from "@/components/landing/features";
 import type { WaitlistRole } from "@/lib/waitlist";
+import { APP_STORE_URL } from "@/lib/launch";
+
+/** After zero, with a listing to point at, the page offers the app instead of the waitlist. */
+function AppStoreButton() {
+  return (
+    <a
+      href={APP_STORE_URL}
+      className="inline-flex h-14 items-center justify-center rounded-[10px] bg-ink px-7 text-[15px] font-semibold uppercase tracking-[0.03em] text-accent transition-opacity duration-100 ease-out active:opacity-70"
+    >
+      Get T^minus on the App Store
+    </a>
+  );
+}
 
 const MINUS_TINTS = ["#97DFFC", "#BFEAFD", "#E6F6FE"];
 
 export function LandingPage() {
   const clock = useLaunchClock();
+  const live = clock.ready && clock.plus;
+  const offerApp = live && APP_STORE_URL !== "";
   const [sceneOff, setSceneOff] = useState(false);
   const [requestedRole, setRequestedRole] = useState<{
     role: WaitlistRole;
@@ -284,12 +299,14 @@ export function LandingPage() {
                 </span>
               </h1>
               <p className="mt-3.5 max-w-[36ch] text-center text-[16px] leading-[1.45] text-soft sm:mt-4 sm:max-w-[44ch] sm:text-[18px]">
-                Limited drops from independent brands, on one live clock. On the
-                App Store January 1.
+                Limited drops from independent brands, on one live clock.{" "}
+                {live ? "On the App Store now." : "On the App Store January 1."}
               </p>
-              <PerkLine className="mt-3 [@media(max-height:700px)]:hidden" />
+              {offerApp ? null : (
+                <PerkLine className="mt-3 [@media(max-height:700px)]:hidden" />
+              )}
               <div ref={heroFormRef} className="mt-3.5 flex w-full justify-center sm:mt-4">
-                <WaitlistForm onPulse={pulse} />
+                {offerApp ? <AppStoreButton /> : <WaitlistForm onPulse={pulse} />}
               </div>
             </section>
 
@@ -369,8 +386,9 @@ export function LandingPage() {
                 at <span className="text-ice">zero.</span>
               </h2>
               <p className="mx-auto mt-4 max-w-[30ch] text-[16.5px] leading-[1.45] text-soft sm:text-[18px] lg:mx-0 lg:mt-6">
-                Leave your number. We&rsquo;ll text you the moment T^minus is
-                live.
+                {live
+                  ? "T^minus is live. Leave your number for drop alerts."
+                  : "Leave your number. We\u2019ll text you the moment T^minus is live."}
               </p>
             </div>
             <div className="flex flex-col items-center lg:items-start lg:pt-3">

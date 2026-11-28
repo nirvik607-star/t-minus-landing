@@ -148,7 +148,7 @@ function ChipRow<T extends string>({
         role="radiogroup"
         aria-labelledby={labelId}
         onKeyDown={(e) => moveChoice(e, options, value, onChange)}
-        className={`mt-[0.4375em] grid gap-[0.375em] ${columns}`}
+        className={`mt-[0.375em] grid gap-[0.375em] ${columns}`}
       >
         {options.map((option) => {
           const checked = option === value;
@@ -195,29 +195,29 @@ function ResultCard({
   return (
     <AppCard
       selected={selected}
-      className={`flex items-start gap-[0.875em] px-[1em] py-[0.875em] ${
+      className={`flex items-start gap-[0.75em] px-[0.875em] py-[0.8125em] ${
         selected ? "" : "bg-[rgb(28_28_30/0.62)]!"
       }`}
     >
-      <div className="-mt-[0.0625em] w-[3.25em] shrink-0">
+      <div className="-mt-[0.0625em] w-[3.5em] shrink-0">
         <Swap
           value={size}
           animate={animate}
-          className={`font-mono font-medium ${
-            size.length > 2 ? "text-[1.4375em] leading-[1.3]" : "text-[1.875em] leading-none"
-          } ${selected ? "text-[#8f6cf0]" : "text-white"}`}
+          className={`font-mono text-[1.875em] font-medium leading-none ${
+            selected ? "text-[#8f6cf0]" : "text-white"
+          }`}
         >
           {size}
         </Swap>
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-[0.75em] gap-y-[0.3125em]">
-          <span className="app-label font-semibold! text-[#8f6cf0]">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-[0.5em] gap-y-[0.3125em]">
+          <span className="app-label font-semibold! tracking-[0.055em]! text-[#8f6cf0]">
             <Swap value={label} animate={animate}>
               {label}
             </Swap>
           </span>
-          <span className="app-label text-[color:var(--secondary)]">
+          <span className="app-label tracking-[0.04em]! text-[color:var(--secondary)]">
             <Swap value={confidence} animate={animate}>
               {confidence}%
             </Swap>{" "}
@@ -288,7 +288,7 @@ export function SizeAssistDemo({ active }: { active: boolean }) {
           </p>
         </div>
 
-        <div className="mt-[1em] flex flex-col gap-[0.625em]">
+        <div className="mt-[0.875em] flex flex-col gap-[0.5625em]">
           <ChipRow
             question="What size do you wear?"
             options={SIZES}
@@ -312,7 +312,7 @@ export function SizeAssistDemo({ active }: { active: boolean }) {
           />
         </div>
 
-        <div className="mt-[1em] flex flex-col gap-[0.625em]">
+        <div className="mt-[0.875em] flex flex-col gap-[0.625em]">
           <ResultCard
             selected
             size={result.recommended}
